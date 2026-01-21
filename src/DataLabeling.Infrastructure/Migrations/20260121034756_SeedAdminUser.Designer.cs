@@ -4,6 +4,7 @@ using DataLabeling.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DataLabeling.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260121034756_SeedAdminUser")]
+    partial class SeedAdminUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -740,7 +743,7 @@ namespace DataLabeling.Infrastructure.Migrations
                             Email = "admin@datalabeling.com",
                             FailedLoginAttempts = 0,
                             Name = "System Administrator",
-                            PasswordHash = "$2a$11$wXMuTHOs1CCEXDoLObDZGeJVtUcAKJVVkpFpEf9yXBgLIJRUEvuD.",
+                            PasswordHash = "$2a$11$8BsJX8VK9LZPXR.aqx7Fk.M3sHDj2KLaH8YIoZBvE7xF5PqQ0VnGS",
                             Role = "Admin",
                             Status = "Active"
                         });

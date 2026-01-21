@@ -48,5 +48,19 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         // Indexes
         builder.HasIndex(u => u.Role);
         builder.HasIndex(u => u.Status);
+
+        // Seed Admin user
+        // Password: Admin@123 (hashed with BCrypt, cost factor 11)
+        // To regenerate hash: Console.WriteLine(BCrypt.Net.BCrypt.HashPassword("Admin@123", 11));
+        builder.HasData(new User
+        {
+            Id = 1,
+            Email = "admin@datalabeling.com",
+            Name = "System Administrator",
+            PasswordHash = "$2a$11$wXMuTHOs1CCEXDoLObDZGeJVtUcAKJVVkpFpEf9yXBgLIJRUEvuD.",
+            Role = UserRole.Admin,
+            Status = UserStatus.Active,
+            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+        });
     }
 }
