@@ -6,6 +6,7 @@ using DataLabeling.Core.Interfaces;
 using DataLabeling.Core.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace DataLabeling.API.Controllers;
 
@@ -23,14 +24,40 @@ public class ProjectsController : ControllerBase
 
     private int GetUserId()
     {
-        var idClaim = User.Claims.FirstOrDefault(c => c.Type == "sub" || c.Type == "id");
-        return idClaim is null ? 0 : int.Parse(idClaim.Value);
+        // Try all possible claim types
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)
+                 ?? User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")
+                 ?? User.FindFirst("sub")
+                 ?? User.FindFirst("id")
+                 ?? User.FindFirst("userId");
+
+        if (claim != null && int.TryParse(claim.Value, out int userId))
+        {
+            Console.WriteLine($"✅ Found userId: {userId} from claim type: {claim.Type}");
+            return userId;
+        }
+
+        // Debug: log all claims
+        Console.WriteLine("❌ NO USER ID CLAIM FOUND!");
+        Console.WriteLine($"Available claims: {string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}"))}");
+
+        return 0;
     }
 
     private UserRole GetUserRole()
     {
-        var roleClaim = User.Claims.FirstOrDefault(c => c.Type == "role");
-        return roleClaim is null ? UserRole.Annotator : Enum.Parse<UserRole>(roleClaim.Value);
+        var roleClaim = User.FindFirst(ClaimTypes.Role)
+                     ?? User.FindFirst("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
+                     ?? User.FindFirst("role");
+
+        if (roleClaim != null && Enum.TryParse<UserRole>(roleClaim.Value, out var role))
+        {
+            Console.WriteLine($"✅ Found role: {role} from claim type: {roleClaim.Type}");
+            return role;
+        }
+
+        Console.WriteLine("⚠️ No role claim found, defaulting to Annotator");
+        return UserRole.Annotator;
     }
 
     /// <summary>
@@ -160,34 +187,62 @@ public class ProjectsController : ControllerBase
         [FromBody] CreateProjectRequest request,
         CancellationToken cancellationToken = default)
     {
-        var userId = GetUserId();
-
-        var project = new Project
+        try
         {
-            Name = request.Name,
-            Description = request.Description,
-            Type = request.Type,
-            Status = ProjectStatus.Draft,
-            Deadline = request.Deadline,
-            CreatedById = userId
-        };
+            var userId = GetUserId();
 
-        await _uow.Projects.AddAsync(project, cancellationToken);
-        await _uow.SaveChangesAsync(cancellationToken);
+            if (userId == 0)
+            {
+                return Unauthorized(new { success = false, message = "User ID not found in token" });
+            }
 
-        var dto = new ProjectDto
+            Console.WriteLine($"🔹 Creating project '{request.Name}' by userId: {userId}");
+
+            var project = new Project
+            {
+                Name = request.Name,
+                Description = request.Description,
+                Type = request.Type,
+                Status = ProjectStatus.Draft,
+                Deadline = request.Deadline,
+                CreatedById = userId
+            };
+
+            await _uow.Projects.AddAsync(project, cancellationToken);
+            await _uow.SaveChangesAsync(cancellationToken);
+
+            Console.WriteLine($"✅ Project created successfully with Id: {project.Id}");
+
+            var dto = new ProjectDto
+            {
+                Id = project.Id,
+                Name = project.Name,
+                Description = project.Description,
+                Type = project.Type,
+                Status = project.Status,
+                Deadline = project.Deadline,
+                CreatedAt = project.CreatedAt,
+                UpdatedAt = project.UpdatedAt
+            };
+
+            return CreatedAtAction(nameof(GetById), new { id = project.Id }, dto);
+        }
+        catch (Exception ex)
         {
-            Id = project.Id,
-            Name = project.Name,
-            Description = project.Description,
-            Type = project.Type,
-            Status = project.Status,
-            Deadline = project.Deadline,
-            CreatedAt = project.CreatedAt,
-            UpdatedAt = project.UpdatedAt
-        };
+            Console.WriteLine($"❌ Error creating project: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
+            }
 
-        return CreatedAtAction(nameof(GetById), new { id = project.Id }, dto);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while creating the project",
+                details = ex.Message
+            });
+        }
     }
 
     /// <summary>
@@ -275,6 +330,24 @@ public class ProjectsController : ControllerBase
         await _uow.SaveChangesAsync(cancellationToken);
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Debug: Check current user claims and project access
+    /// </summary>
+    [HttpGet("debug/claims")]
+    [ProducesResponseType(200)]
+    public IActionResult DebugClaims()
+    {
+        var userId = GetUserId();
+        var role = GetUserRole();
+
+        return Ok(new
+        {
+            userId = userId,
+            role = role.ToString(),
+            allClaims = User.Claims.Select(c => new { c.Type, c.Value }).ToList()
+        });
     }
 
     /// <summary>
