@@ -107,7 +107,7 @@ export const Layout = ({ children, user, onLogout }) => {
   };
 
   return (
-    <div className="d-flex vh-100 bg-slate-50 overflow-hidden">
+    <div className="layout-container d-flex vh-100 bg-slate-50 overflow-hidden">
 
       {/* Desktop Sidebar */}
       <aside className="d-none d-md-flex flex-column bg-slate-900 text-slate-300 shadow-lg border-end border-slate-800" style={{ width: '16rem', zIndex: 50 }}>

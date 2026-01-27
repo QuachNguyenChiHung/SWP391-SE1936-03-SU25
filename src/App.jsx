@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Layout } from './components/Layout.jsx';
 import { Login } from './components/Login.jsx';
+import { HomePage } from './pages/HomePage.jsx';
 import { ManagerDashboard } from './pages/manager/ManagerDashboard.jsx';
 import { ManagerProjects } from './pages/manager/ManagerProjects.jsx';
 import { AnnotatorDashboard } from './pages/annotator/AnnotatorDashboard.jsx';
@@ -54,11 +55,24 @@ const NotFound = () => (
   </div>
 );
 
+// Component wrapper for HomePage with navigation
+const HomePageWrapper = () => {
+  const navigate = useNavigate();
+  return <HomePage onNavigateToLogin={() => navigate('/login')} />;
+};
+
+// Component wrapper for Login with navigation
+const LoginWrapper = ({ onLogin }) => {
+  const navigate = useNavigate();
+  return <Login onLogin={onLogin} />;
+};
+
 // App Routes Component
 const AppRoutes = ({ user, onLogout }) => {
   if (!user) {
     return <Routes>
-      <Route path="/" element={<Login onLogin={() => { }} />} />
+      <Route path="/" element={<HomePageWrapper />} />
+      <Route path="/login" element={<LoginWrapper onLogin={() => { }} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>;
   }
@@ -68,6 +82,7 @@ const AppRoutes = ({ user, onLogout }) => {
       <Routes>
         {/* Default route - redirect to role-specific dashboard */}
         <Route path="/" element={<Navigate to={getDefaultPath(user.user.roleName)} replace />} />
+        <Route path="/login" element={<Navigate to={getDefaultPath(user.user.roleName)} replace />} />
 
         {/* Admin Routes */}
         <Route path="/admin/dashboard" element={
@@ -163,7 +178,8 @@ function App() {
     <BrowserRouter>
       {!currentUser ? (
         <Routes>
-          <Route path="/" element={<Login onLogin={handleLogin} />} />
+          <Route path="/" element={<HomePageWrapper />} />
+          <Route path="/login" element={<LoginWrapper onLogin={handleLogin} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       ) : (
