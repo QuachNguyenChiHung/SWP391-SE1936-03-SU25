@@ -13,45 +13,36 @@ import {
     AlertCircle,
     Save,
     Layers,
-    Calendar,
-    Clock
+    Calendar
 } from 'lucide-react';
 import { MOCK_TASKS, MOCK_PROJECTS, MOCK_USERS } from '../../services/mockData';
-import { Annotation, Task, User, Project } from '../../types';
+import './AnnotatorWorkspace.css';
 
-interface AnnotatorWorkspaceProps {
-    user: User;
-}
-
-export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) => {
-    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+export const AnnotatorWorkspace = ({ user }) => {
+    const [selectedTask, setSelectedTask] = useState(null);
 
     // Workspace State
-    const [selectedTool, setSelectedTool] = useState<'SELECT' | 'BOX' | 'POLYGON'>('SELECT');
-    const [activeLabelId, setActiveLabelId] = useState<string>('');
-    const [annotations, setAnnotations] = useState<Annotation[]>([]);
+    const [selectedTool, setSelectedTool] = useState('SELECT');
+    const [activeLabelId, setActiveLabelId] = useState('');
+    const [annotations, setAnnotations] = useState([]);
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [showGuidelines, setShowGuidelines] = useState(true);
 
     // Refs for drag state
-    const containerRef = useRef<HTMLDivElement>(null);
-    const imageRef = useRef<HTMLImageElement>(null);
+    const containerRef = useRef(null);
+    const imageRef = useRef(null);
 
     // Drawing State
     const [isDrawing, setIsDrawing] = useState(false);
-    const drawingStartRef = useRef<{ x: number, y: number } | null>(null);
-    const [currentDragInfo, setCurrentDragInfo] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
+    const drawingStartRef = useRef(null);
+    const [currentDragInfo, setCurrentDragInfo] = useState(null);
 
     // Moving State
     const [isDraggingBox, setIsDraggingBox] = useState(false);
-    const dragRef = useRef<{
-        id: string;
-        offsetX: number;
-        offsetY: number;
-    } | null>(null);
+    const dragRef = useRef(null);
 
     // Initialize workspace when task is selected
-    const handleSelectTask = (task: Task) => {
+    const handleSelectTask = (task) => {
         setSelectedTask(task);
         setAnnotations(task.annotations || []);
         const project = MOCK_PROJECTS.find(p => p.id === task.projectId);
@@ -73,7 +64,7 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
         const project = MOCK_PROJECTS.find(p => p.id === selectedTask.projectId);
         setIsAiLoading(true);
         setTimeout(() => {
-            const newAnnotation: Annotation = {
+            const newAnnotation = {
                 id: `ai-${Date.now()}`,
                 labelId: project?.classes[2]?.id || 'c1',
                 coordinates: { x: 400, y: 300, width: 150, height: 150 },
@@ -86,7 +77,7 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
     };
 
     // --- Coordinates Helper ---
-    const getRelativeCoordinates = (clientX: number, clientY: number) => {
+    const getRelativeCoordinates = (clientX, clientY) => {
         if (!containerRef.current) return { x: 0, y: 0 };
         const rect = containerRef.current.getBoundingClientRect();
         return {
@@ -112,7 +103,7 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
 
     // --- Global Mouse Handlers (Window level) ---
     useEffect(() => {
-        const handleWindowMouseMove = (e: MouseEvent) => {
+        const handleWindowMouseMove = (e) => {
             const bounds = getImageConstraints();
 
             // 1. Handle Box Moving
@@ -172,7 +163,7 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
                 // Min size check (5x5 pixels)
                 if (w > 5 && h > 5) {
                     const project = MOCK_PROJECTS.find(p => p.id === selectedTask?.projectId);
-                    const newAnn: Annotation = {
+                    const newAnn = {
                         id: `new-${Date.now()}`,
                         labelId: activeLabelId || (project?.classes[0].id ?? 'unknown'),
                         coordinates: { x, y, width: w, height: h },
@@ -205,7 +196,7 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
 
     // --- Event Starters ---
 
-    const handleAnnotationMouseDown = (e: React.MouseEvent, ann: Annotation) => {
+    const handleAnnotationMouseDown = (e, ann) => {
         // Smart Tool: Always allow moving an existing box, even if in BOX/DRAW mode.
         e.preventDefault();
         e.stopPropagation(); // Important: Stop event from bubbling to container (which would start drawing)
@@ -220,7 +211,7 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
         setIsDraggingBox(true);
     };
 
-    const handleContainerMouseDown = (e: React.MouseEvent) => {
+    const handleContainerMouseDown = (e) => {
         // Only allow drawing in BOX mode
         if (selectedTool !== 'BOX') return;
 
@@ -244,7 +235,7 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
         const userTasks = MOCK_TASKS.filter(t => t.assignedTo === user.id);
 
         // 2. Group tasks by Project ID
-        const groupedTasks: Record<string, Task[]> = {};
+        const groupedTasks = {};
         userTasks.forEach(task => {
             if (!groupedTasks[task.projectId]) {
                 groupedTasks[task.projectId] = [];
@@ -260,38 +251,38 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
         }).filter(g => g.project !== undefined);
 
         return (
-            <div className="animate-in fade-in duration-300 max-w-6xl mx-auto space-y-8">
-                <div className="flex justify-between items-end">
+            <div className="animate-fade-in container-lg mx-auto">
+                <div className="d-flex justify-content-between align-items-end mb-5">
                     <div>
-                        <h2 className="text-xl font-bold text-slate-900">My Assigned Tasks</h2>
-                        <p className="text-sm text-slate-500">Overview of pending batches from managers</p>
+                        <h2 className="fs-4 fw-bold text-slate-900">My Assigned Tasks</h2>
+                        <p className="text-muted" style={{ fontSize: '0.875rem' }}>Overview of pending batches from managers</p>
                     </div>
                 </div>
 
                 {projectGroups.length === 0 ? (
-                    <div className="text-center py-20 bg-white rounded-xl border border-dashed border-slate-300">
-                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                    <div className="empty-state">
+                        <div className="empty-state-icon">
                             <Layers size={32} />
                         </div>
-                        <h3 className="text-lg font-medium text-slate-900">No Tasks Assigned</h3>
-                        <p className="text-slate-500 max-w-md mx-auto mt-2">You currently don't have any task items assigned. Check back later or contact your manager.</p>
+                        <h3 className="fs-5 fw-medium text-slate-900">No Tasks Assigned</h3>
+                        <p className="text-muted mx-auto mt-2" style={{ maxWidth: '28rem' }}>You currently don't have any task items assigned. Check back later or contact your manager.</p>
                     </div>
                 ) : (
                     projectGroups.map(({ project, manager, tasks }) => (
-                        <div key={project!.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div key={project.id} className="bg-white rounded-4 border border-slate-200 shadow-sm overflow-hidden mb-5">
                             {/* Project/Manager Header */}
-                            <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="flex items-start gap-4">
-                                    <div className="p-3 bg-white border border-slate-200 rounded-lg shadow-sm text-indigo-600 hidden sm:block">
+                            <div className="p-3 border-bottom border-slate-100 bg-slate-50-50 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                                <div className="d-flex align-items-start gap-3">
+                                    <div className="p-3 bg-white border border-slate-200 rounded-3 shadow-sm text-indigo-600 d-none d-sm-block">
                                         <Layers size={24} />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-slate-900 text-lg">{project!.name}</h3>
-                                        <div className="flex items-center gap-4 mt-1">
-                                            <span className="text-xs font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 uppercase tracking-wide">
-                                                {project!.type.replace(/_/g, ' ')}
+                                        <h3 className="fw-bold text-slate-900 fs-5 mb-0">{project.name}</h3>
+                                        <div className="d-flex align-items-center gap-3 mt-1">
+                                            <span className="type-badge">
+                                                {project.type.replace(/_/g, ' ')}
                                             </span>
-                                            <span className="text-xs text-slate-500 flex items-center gap-1">
+                                            <span className="d-flex align-items-center gap-1 text-muted" style={{ fontSize: '0.75rem' }}>
                                                 <Calendar size={12} /> Due {tasks[0]?.dueDate || 'Flexible'}
                                             </span>
                                         </div>
@@ -300,66 +291,64 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
 
                                 {/* Manager Info */}
                                 {manager && (
-                                    <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
-                                        <div className="text-right hidden sm:block">
-                                            <p className="text-[10px] uppercase font-bold text-slate-400">Assigned By</p>
-                                            <p className="text-xs font-semibold text-slate-800">{manager.name}</p>
+                                    <div className="d-flex align-items-center gap-3 bg-white px-3 py-2 rounded-3 border border-slate-200 shadow-sm">
+                                        <div className="text-end d-none d-sm-block">
+                                            <p className="mb-0 text-uppercase fw-bold text-slate-400" style={{ fontSize: '10px' }}>Assigned By</p>
+                                            <p className="mb-0 fw-semibold text-slate-800" style={{ fontSize: '0.75rem' }}>{manager.name}</p>
                                         </div>
-                                        <img src={manager.avatarUrl} alt={manager.name} className="w-8 h-8 rounded-full bg-slate-100" />
+                                        <img src={manager.avatarUrl} alt={manager.name} className="rounded-circle bg-slate-100" style={{ width: '2rem', height: '2rem' }} />
                                     </div>
                                 )}
                             </div>
 
                             {/* Task Items Grid */}
-                            <div className="p-6 bg-slate-50/30">
-                                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
+                            <div className="p-4 bg-slate-50-30">
+                                <h4 className="text-uppercase fw-bold text-muted mb-3" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
                                     Task Items ({tasks.length})
                                 </h4>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
                                     {tasks.map((task) => (
-                                        <div
-                                            key={task.id}
-                                            onClick={() => handleSelectTask(task)}
-                                            className="bg-white rounded-lg border border-slate-200 overflow-hidden hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer group flex flex-col h-full"
-                                        >
-                                            {/* Task Item Image */}
-                                            <div className="h-32 bg-slate-100 relative overflow-hidden">
-                                                <img
-                                                    src={task.imageUrl}
-                                                    alt={task.itemName}
-                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                                />
-                                                <div className="absolute top-2 right-2">
-                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-white/90 backdrop-blur-sm shadow-sm
-                                                ${project?.priority === 'HIGH' ? 'text-red-600 border border-red-100' :
-                                                            project?.priority === 'MEDIUM' ? 'text-orange-600 border border-orange-100' :
-                                                                'text-slate-600 border border-slate-100'}
-                                            `}>
-                                                        {project?.priority}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div className="p-3 flex-1 flex flex-col">
-                                                <div className="mb-2">
-                                                    <p className="text-xs font-medium text-slate-900 truncate" title={task.itemName}>
-                                                        {task.itemName}
-                                                    </p>
-                                                    <p className="text-[10px] text-slate-400">ID: {task.id}</p>
-                                                </div>
-
-                                                <div className="mt-auto pt-2 border-t border-slate-100 flex justify-between items-center">
-                                                    <div className="flex items-center gap-1 text-[10px] text-slate-500">
-                                                        <Tag size={10} />
-                                                        {task.annotations.length}
+                                        <div key={task.id} className="col">
+                                            <div
+                                                onClick={() => handleSelectTask(task)}
+                                                className="task-card bg-white rounded-3 border border-slate-200 overflow-hidden d-flex flex-column h-100 group"
+                                                style={{ cursor: 'pointer' }}
+                                            >
+                                                {/* Task Item Image - CRITICAL: 128px height */}
+                                                <div className="position-relative overflow-hidden bg-slate-100" style={{ height: '8rem' }}>
+                                                    <img
+                                                        src={task.imageUrl}
+                                                        alt={task.itemName}
+                                                        className="w-100 h-100 object-fit-cover task-card-image"
+                                                    />
+                                                    <div className="position-absolute" style={{ top: '0.5rem', right: '0.5rem' }}>
+                                                        <span className={`priority-badge ${project?.priority === 'HIGH' ? 'high' :
+                                                                project?.priority === 'MEDIUM' ? 'medium' : 'low'
+                                                            }`}>
+                                                            {project?.priority}
+                                                        </span>
                                                     </div>
-                                                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded
-                                                ${task.status === 'COMPLETED' ? 'bg-green-50 text-green-700' :
-                                                            task.status === 'IN_PROGRESS' ? 'bg-indigo-50 text-indigo-700' :
-                                                                'bg-slate-100 text-slate-600'}
-                                            `}>
-                                                        {task.status.replace(/_/g, ' ')}
-                                                    </span>
+                                                </div>
+
+                                                <div className="p-3 flex-grow-1 d-flex flex-column">
+                                                    <div className="mb-2">
+                                                        <p className="mb-0 fw-medium text-slate-900 text-truncate" style={{ fontSize: '0.75rem' }} title={task.itemName}>
+                                                            {task.itemName}
+                                                        </p>
+                                                        <p className="mb-0 text-slate-400" style={{ fontSize: '10px' }}>ID: {task.id}</p>
+                                                    </div>
+
+                                                    <div className="mt-auto pt-2 border-top border-slate-100 d-flex justify-content-between align-items-center">
+                                                        <div className="d-flex align-items-center gap-1 text-muted" style={{ fontSize: '10px' }}>
+                                                            <Tag size={10} />
+                                                            {task.annotations.length}
+                                                        </div>
+                                                        <span className={`status-badge ${task.status === 'COMPLETED' ? 'completed' :
+                                                                task.status === 'IN_PROGRESS' ? 'in-progress' : 'pending'
+                                                            }`}>
+                                                            {task.status.replace(/_/g, ' ')}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -377,47 +366,48 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
     const project = MOCK_PROJECTS.find(p => p.id === selectedTask.projectId);
 
     return (
-        <div className="flex flex-col h-[calc(100vh-8rem)] animate-in fade-in zoom-in-95 duration-300 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="d-flex flex-column animate-fade-in-zoom bg-white rounded-4 shadow-sm border border-slate-200 overflow-hidden" style={{ height: 'calc(100vh - 8rem)' }}>
 
             {/* Workspace Toolbar Header */}
-            <div className="h-14 border-b border-slate-200 flex items-center justify-between px-4 bg-white z-10 shrink-0">
-                <div className="flex items-center gap-4">
-                    <button onClick={handleBackToList} className="text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1 text-sm font-medium">
+            <div className="border-bottom border-slate-200 d-flex align-items-center justify-content-between px-3 bg-white flex-shrink-0" style={{ height: '3.5rem', zIndex: 10 }}>
+                <div className="d-flex align-items-center gap-3">
+                    <button onClick={handleBackToList} className="btn btn-link text-muted text-decoration-none d-flex align-items-center gap-1 p-0 hover-text-slate-800" style={{ fontSize: '0.875rem', transition: 'color 0.15s' }}>
                         <ChevronLeft size={16} />
                         Back to Batch
                     </button>
-                    <div className="h-5 w-px bg-slate-200"></div>
-                    <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold text-slate-900">{selectedTask.itemName}</h3>
-                        <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-bold text-slate-500 border border-slate-200">ID: {selectedTask.id}</span>
+                    <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+                    <div className="d-flex align-items-center gap-2">
+                        <h3 className="mb-0 fw-semibold text-slate-900" style={{ fontSize: '0.875rem' }}>{selectedTask.itemName}</h3>
+                        <span className="id-badge">ID: {selectedTask.id}</span>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="d-flex align-items-center gap-2">
                     <button
                         onClick={handleAiAssist}
                         disabled={isAiLoading}
-                        className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-100 text-xs font-medium transition-colors disabled:opacity-50"
+                        className="btn btn-ai-assist d-none d-sm-flex align-items-center gap-2 rounded-3"
+                        style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
                     >
                         <Bot size={14} className={isAiLoading ? 'animate-pulse' : ''} />
                         {isAiLoading ? 'Analyzing...' : 'AI Assist'}
                     </button>
 
-                    <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 border border-slate-200 text-xs font-medium transition-colors">
+                    <button className="btn btn-save-draft d-flex align-items-center gap-2 rounded-3" style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}>
                         <Save size={14} />
                         Save Draft
                     </button>
 
-                    <button className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm shadow-indigo-200 text-xs font-bold transition-colors">
+                    <button className="btn btn-submit d-flex align-items-center gap-2 rounded-3 fw-bold" style={{ fontSize: '0.75rem', padding: '0.375rem 1rem' }}>
                         <Check size={14} />
                         Submit
                     </button>
                 </div>
             </div>
 
-            <div className="flex flex-1 overflow-hidden relative select-none">
+            <div className="d-flex flex-grow-1 overflow-hidden position-relative user-select-none">
                 {/* Left Tools */}
-                <div className="absolute left-4 top-4 z-20 flex flex-col gap-2 bg-white/90 backdrop-blur shadow-lg border border-slate-200 rounded-lg p-1.5">
+                <div className="toolbar">
                     {[
                         { id: 'SELECT', icon: MousePointer2 },
                         { id: 'BOX', icon: Square },
@@ -425,21 +415,18 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
                     ].map((tool) => (
                         <button
                             key={tool.id}
-                            onClick={() => setSelectedTool(tool.id as any)}
-                            className={`p-2 rounded-md transition-all ${selectedTool === tool.id
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'text-slate-500 hover:bg-slate-100'
-                                }`}
+                            onClick={() => setSelectedTool(tool.id)}
+                            className={`btn-tool ${selectedTool === tool.id ? 'active' : ''}`}
                             title={tool.id === 'SELECT' ? 'Move Tool' : `${tool.id} Tool`}
                         >
                             <tool.icon size={18} />
                         </button>
                     ))}
-                    <div className="h-px bg-slate-200 my-0.5"></div>
-                    <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-md">
+                    <div className="toolbar-divider"></div>
+                    <button className="btn-tool">
                         <ZoomIn size={18} />
                     </button>
-                    <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-md">
+                    <button className="btn-tool">
                         <ZoomOut size={18} />
                     </button>
                 </div>
@@ -447,16 +434,15 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
                 {/* Canvas Area */}
                 <div
                     ref={containerRef}
-                    className={`flex-1 bg-slate-100 relative overflow-hidden flex items-center justify-center 
-                  ${selectedTool === 'BOX' ? 'cursor-crosshair' : 'cursor-default'}
-                `}
+                    className="canvas-area"
+                    style={{ cursor: selectedTool === 'BOX' ? 'crosshair' : 'default' }}
                     onMouseDown={handleContainerMouseDown}
                 >
                     <img
                         ref={imageRef}
                         src={selectedTask.imageUrl}
                         alt="Work"
-                        className="max-w-full max-h-full object-contain pointer-events-none shadow-2xl"
+                        className="canvas-image pe-none"
                         draggable={false}
                     />
 
@@ -468,9 +454,7 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
                         return (
                             <div
                                 key={ann.id}
-                                className={`absolute border-2 group/box cursor-move 
-                                ${isBeingDragged ? 'opacity-80 z-50 ring-2 ring-indigo-400 ring-offset-1' : 'z-30 hover:shadow-lg'}
-                            `}
+                                className={`annotation-box group-box ${isBeingDragged ? 'dragging' : ''}`}
                                 onMouseDown={(e) => handleAnnotationMouseDown(e, ann)}
                                 style={{
                                     borderColor: labelClass?.color || '#000',
@@ -482,12 +466,12 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
                                 }}
                             >
                                 <div
-                                    className="absolute -top-6 left-[-2px] px-1.5 py-0.5 text-[10px] font-bold text-white rounded-t shadow-sm flex items-center gap-1 whitespace-nowrap"
+                                    className="annotation-label"
                                     style={{ backgroundColor: labelClass?.color }}
                                 >
                                     {labelClass?.name}
                                     {ann.confidence && (
-                                        <span className="opacity-80 font-normal ml-1">{(ann.confidence * 100).toFixed(0)}%</span>
+                                        <span style={{ opacity: 0.8, fontWeight: 'normal', marginLeft: '0.25rem' }}>{(ann.confidence * 100).toFixed(0)}%</span>
                                     )}
                                 </div>
                                 {/* Delete Button on Hover */}
@@ -496,7 +480,7 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
                                         e.stopPropagation();
                                         setAnnotations(annotations.filter(a => a.id !== ann.id));
                                     }}
-                                    className="absolute -top-6 right-[-2px] bg-red-500 text-white w-4 h-[18px] flex items-center justify-center rounded-tr text-[10px] opacity-0 group-hover/box:opacity-100 hover:bg-red-600 transition-opacity"
+                                    className="annotation-delete-btn group-box-hover"
                                 >
                                     &times;
                                 </button>
@@ -507,7 +491,7 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
                     {/* Drawing Layer (Temporary Box) */}
                     {isDrawing && currentDragInfo && (
                         <div
-                            className="absolute border-2 border-dashed z-50 pointer-events-none bg-blue-500/10 border-blue-500"
+                            className="drawing-box"
                             style={{
                                 left: currentDragInfo.x,
                                 top: currentDragInfo.y,
@@ -515,7 +499,7 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
                                 height: currentDragInfo.h,
                             }}
                         >
-                            <div className="absolute -top-5 left-0 text-[10px] bg-blue-500 text-white px-1 rounded">
+                            <div className="drawing-label">
                                 New {project?.classes.find(c => c.id === activeLabelId)?.name || 'Object'}
                             </div>
                         </div>
@@ -523,50 +507,48 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
                 </div>
 
                 {/* Right Sidebar */}
-                <div className={`w-72 bg-white border-l border-slate-200 flex flex-col z-10 transition-transform absolute right-0 top-0 bottom-0 md:relative ${showGuidelines ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
+                <div className={`sidebar ${showGuidelines ? '' : 'hidden'}`} style={{ position: window.innerWidth < 768 ? 'absolute' : 'relative', right: 0, top: 0, bottom: 0 }}>
                     {/* Mobile Toggle Handle */}
                     <button
                         onClick={() => setShowGuidelines(!showGuidelines)}
-                        className="md:hidden absolute -left-8 top-1/2 -translate-y-1/2 bg-white border border-slate-200 border-r-0 p-2 rounded-l-lg shadow-md text-slate-500"
+                        className="sidebar-toggle d-md-none"
                     >
                         {showGuidelines ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
                     </button>
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-6">
+                    <div className="flex-grow-1 overflow-auto custom-scrollbar p-3">
                         {/* Class Selector */}
-                        <div>
-                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Label Classes</h4>
-                            <div className="space-y-1">
+                        <div className="mb-4">
+                            <h4 className="text-uppercase fw-bold text-muted mb-3" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Label Classes</h4>
+                            <div>
                                 {project?.classes.map((cls, idx) => (
                                     <button
                                         key={cls.id}
                                         onClick={() => setActiveLabelId(cls.id)}
-                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm border transition-all ${activeLabelId === cls.id
-                                            ? 'bg-slate-50 border-indigo-200 ring-1 ring-indigo-500/20'
-                                            : 'border-transparent hover:bg-slate-50 hover:border-slate-200'
-                                            }`}
+                                        className={`label-class-btn mb-1 ${activeLabelId === cls.id ? 'active' : ''}`}
+                                        style={{ fontSize: '0.875rem' }}
                                     >
-                                        <div className="flex items-center gap-2">
-                                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cls.color }}></span>
-                                            <span className={activeLabelId === cls.id ? 'text-slate-900 font-medium' : 'text-slate-600'}>{cls.name}</span>
+                                        <div className="d-flex align-items-center gap-2">
+                                            <span className="rounded-circle" style={{ backgroundColor: cls.color, width: '0.625rem', height: '0.625rem' }}></span>
+                                            <span className={activeLabelId === cls.id ? 'text-slate-900 fw-medium' : 'text-slate-600'}>{cls.name}</span>
                                         </div>
-                                        <span className="text-[10px] text-slate-400 font-mono bg-slate-100 px-1.5 rounded border border-slate-200">{idx + 1}</span>
+                                        <span className="shortcut-badge">{idx + 1}</span>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
                         {/* Annotation List */}
-                        <div>
-                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Objects ({annotations.length})</h4>
-                            <div className="space-y-1 max-h-48 overflow-y-auto">
+                        <div className="mb-4">
+                            <h4 className="text-uppercase fw-bold text-muted mb-3" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Objects ({annotations.length})</h4>
+                            <div className="overflow-auto" style={{ maxHeight: '12rem' }}>
                                 {annotations.length === 0 ? (
-                                    <p className="text-xs text-slate-400 italic">No objects labeled yet.</p>
+                                    <p className="text-muted fst-italic" style={{ fontSize: '0.75rem' }}>No objects labeled yet.</p>
                                 ) : (
                                     annotations.map((ann, i) => {
                                         const label = project?.classes.find(c => c.id === ann.labelId);
                                         return (
-                                            <div key={ann.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded hover:bg-slate-50 group">
+                                            <div key={ann.id} className="d-flex align-items-center justify-content-between px-2 py-1 rounded hover-bg-light mb-1" style={{ fontSize: '0.75rem' }}>
                                                 <span className="text-slate-600">#{i + 1} {label?.name}</span>
                                                 {ann.createdBy === 'AI' && <Bot size={12} className="text-purple-400" />}
                                             </div>
@@ -577,12 +559,12 @@ export const AnnotatorWorkspace: React.FC<AnnotatorWorkspaceProps> = ({ user }) 
                         </div>
 
                         {/* Guidelines */}
-                        <div className="bg-blue-50/50 rounded-xl border border-blue-100 p-4">
-                            <div className="flex items-center gap-2 text-blue-800 font-semibold text-xs mb-2">
+                        <div className="guidelines-box">
+                            <div className="guidelines-title">
                                 <AlertCircle size={14} />
                                 <span>Labeling Guidelines</span>
                             </div>
-                            <ul className="text-[11px] text-blue-900/70 space-y-2 list-disc list-inside leading-relaxed">
+                            <ul className="guidelines-list">
                                 <li>Draw tight boxes around visible vehicles.</li>
                                 <li>Include side mirrors, exclude antennas.</li>
                                 <li>Ignore occluded vehicles less than 20% visible.</li>
