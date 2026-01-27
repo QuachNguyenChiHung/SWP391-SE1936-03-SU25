@@ -48,126 +48,139 @@ export const ReviewerInterface = ({ onTitleChange }) => {
     ];
 
     return (
-        <div className="flex flex-col h-[calc(100vh-8rem)] animate-in fade-in duration-300">
+        <div className="d-flex flex-column" style={{ height: 'calc(100vh - 8rem)' }}>
             {/* Top Bar Stats */}
-            <div className="flex justify-between items-center mb-4 px-1">
+            <div className="d-flex justify-content-between align-items-center mb-4 px-1">
                 <div>
-                    <h2 className="text-lg font-bold text-slate-900">Review Queue</h2>
-                    <p className="text-sm text-slate-500">12 items pending validation</p>
+                    <h2 className="fs-5 fw-bold text-dark">Review Queue</h2>
+                    <p className="fs-6 text-muted">12 items pending validation</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="text-right mr-2">
-                        <p className="text-xs font-bold text-slate-700">98.5% Accuracy</p>
-                        <p className="text-[10px] text-slate-400">Your session score</p>
+                <div className="d-flex align-items-center gap-2">
+                    <div className="text-end me-2">
+                        <p className="fs-6 fw-bold text-dark">98.5% Accuracy</p>
+                        <p className="text-muted" style={{ fontSize: '10px' }}>Your session score</p>
                     </div>
-                    <div className="w-10 h-10 rounded-full border-2 border-indigo-600 flex items-center justify-center text-indigo-700 font-bold text-xs bg-indigo-50">
+                    <div className="d-flex align-items-center justify-content-center fw-bold text-primary bg-primary bg-opacity-10 border border-primary border-2 rounded-circle" style={{ width: '2.5rem', height: '2.5rem', fontSize: '12px' }}>
                         12
                     </div>
                 </div>
             </div>
 
-            <div className="flex-1 flex gap-4 min-h-0">
+            <div className="flex-fill d-flex gap-4" style={{ minHeight: 0 }}>
                 {/* Main Review Canvas */}
-                <div className="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden relative">
+                <div className="flex-fill bg-white border border-light rounded shadow-sm d-flex flex-column overflow-hidden position-relative">
 
                     {/* Toolbar */}
-                    <div className="h-12 border-b border-slate-200 flex items-center justify-between px-4 bg-slate-50">
-                        <div className="flex items-center gap-3">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Item #{task.id}</span>
-                            <span className="h-4 w-px bg-slate-200"></span>
+                    <div className="d-flex align-items-center justify-content-between px-4 bg-light border-bottom border-light" style={{ height: '3rem' }}>
+                        <div className="d-flex align-items-center gap-3">
+                            <span className="text-uppercase text-muted fw-bold" style={{ fontSize: '12px', letterSpacing: '0.05em' }}>Item #{task.id}</span>
+                            <span className="vr" style={{ height: '1rem' }}></span>
                             <button
                                 onClick={() => setShowLabels(!showLabels)}
-                                className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors"
+                                className="btn btn-link p-0 d-flex align-items-center gap-1 text-muted text-decoration-none"
+                                style={{ fontSize: '12px' }}
                             >
                                 {showLabels ? <Eye size={14} /> : <EyeOff size={14} />}
                                 {showLabels ? 'Hide Labels' : 'Show Labels'}
                             </button>
                         </div>
-                        <button className="text-slate-400 hover:text-slate-700">
+                        <button className="btn btn-link p-0 text-muted">
                             <Maximize2 size={16} />
                         </button>
                     </div>
 
                     {/* Image Viewer */}
-                    <div className="flex-1 bg-slate-900 flex items-center justify-center relative overflow-hidden group">
-                        <img src={task.imageUrl} alt="Review" className="max-w-full max-h-full object-contain" />
+                    <div className="flex-fill bg-dark d-flex align-items-center justify-content-center position-relative overflow-hidden">
+                        <div className="position-relative" style={{}}>
+                            <img src={task.imageUrl} alt="Review" className="mw-100 mh-100 object-fit-contain d-block" />
 
-                        {showLabels && task.annotations.map((ann) => {
-                            const labelClass = project?.classes.find(c => c.id === ann.labelId);
-                            return (
-                                <div
-                                    key={ann.id}
-                                    className="absolute border-2 bg-white/10"
-                                    style={{
-                                        borderColor: labelClass?.color || '#000',
-                                        left: ann.coordinates.x,
-                                        top: ann.coordinates.y,
-                                        width: ann.coordinates.width,
-                                        height: ann.coordinates.height
-                                    }}
-                                >
-                                    {/* Label Name Tag on Box */}
+                            {showLabels && task.annotations.map((ann) => {
+                                const labelClass = project?.classes.find(c => c.id === ann.labelId);
+                                return (
                                     <div
-                                        className="absolute -top-6 left-[-2px] px-1.5 py-0.5 text-[10px] font-bold text-white rounded-t shadow-sm flex items-center gap-1 whitespace-nowrap"
-                                        style={{ backgroundColor: labelClass?.color }}
+                                        key={ann.id}
+                                        className="position-absolute border border-2 bg-white bg-opacity-10"
+                                        style={{
+                                            borderColor: labelClass?.color || '#000',
+                                            left: Math.max(0, Math.min(ann.coordinates.x, window.innerWidth)),
+                                            top: Math.max(0, Math.min(ann.coordinates.y, window.innerHeight)),
+                                            width: ann.coordinates.width,
+                                            height: ann.coordinates.height,
+                                            pointerEvents: 'none'
+                                        }}
                                     >
-                                        {labelClass?.name}
-                                        {ann.confidence && (
-                                            <span className="opacity-80 font-normal ml-1">{(ann.confidence * 100).toFixed(0)}%</span>
-                                        )}
+                                        {/* Label Name Tag on Box */}
+                                        <div
+                                            className="position-absolute px-2 py-1 fw-bold text-white rounded-top shadow-sm d-flex align-items-center gap-1 text-nowrap"
+                                            style={{
+                                                backgroundColor: labelClass?.color,
+                                                top: ann.coordinates.y > 30 ? '-1.5rem' : '0',
+                                                left: '-2px',
+                                                fontSize: '10px'
+                                            }}
+                                        >
+                                            {labelClass?.name}
+                                            {ann.confidence && (
+                                                <span className="opacity-75 fw-normal ms-1">{(ann.confidence * 100).toFixed(0)}%</span>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            )
-                        })}
+                                )
+                            })}
+                        </div>
                     </div>
 
                     {/* Action Bar (Footer) */}
-                    <div className="p-4 bg-white border-t border-slate-200">
+                    <div className="p-4 bg-white border-top border-light">
                         {actionState === 'REJECTING' ? (
-                            <div className="animate-in slide-in-from-bottom-2 fade-in">
-                                <p className="text-sm font-semibold text-slate-800 mb-3">Select Rejection Reason:</p>
-                                <div className="flex flex-wrap gap-2 mb-4">
+                            <div>
+                                <p className="fs-6 fw-semibold text-dark mb-3">Select Rejection Reason:</p>
+                                <div className="d-flex flex-wrap gap-2 mb-4">
                                     {REJECT_REASONS.map(reason => (
                                         <button
                                             key={reason}
                                             onClick={() => setRejectReason(reason)}
-                                            className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${rejectReason === reason
-                                                ? 'bg-red-50 border-red-200 text-red-700 ring-1 ring-red-500/20'
-                                                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                            className={`btn px-3 py-2 fw-medium rounded ${rejectReason === reason
+                                                ? 'btn-outline-danger border-danger-subtle bg-danger bg-opacity-10'
+                                                : 'btn-outline-secondary'
                                                 }`}
+                                            style={{ fontSize: '12px' }}
                                         >
                                             {reason}
                                         </button>
                                     ))}
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="d-flex align-items-center gap-3">
                                     <button
                                         onClick={() => setActionState('IDLE')}
-                                        className="px-4 py-2 text-sm text-slate-500 font-medium hover:text-slate-800"
+                                        className="btn btn-link text-muted fw-medium"
+                                        style={{ fontSize: '14px' }}
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         disabled={!rejectReason}
-                                        className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors shadow-sm"
+                                        className="btn btn-danger flex-fill fw-semibold shadow-sm"
+                                        style={{ fontSize: '14px' }}
                                     >
                                         Confirm Rejection
                                     </button>
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-3 h-12">
+                            <div className="d-flex align-items-center gap-3" style={{ height: '3rem' }}>
                                 <button
                                     onClick={() => setActionState('REJECTING')}
-                                    className="flex-1 h-full flex items-center justify-center gap-2 bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-50 transition-colors font-semibold text-sm"
+                                    className="btn btn-outline-danger flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                                    style={{ fontSize: '14px' }}
                                 >
                                     <X size={18} />
                                     Reject
                                 </button>
-                                <button className="h-full px-4 flex items-center justify-center gap-2 bg-white border border-yellow-200 text-yellow-700 rounded-lg hover:bg-yellow-50 transition-colors font-semibold text-sm" title="Escalate to Manager">
+                                <button className="btn btn-outline-warning h-100 px-4 d-flex align-items-center justify-content-center gap-2 fw-semibold" title="Escalate to Manager" style={{ fontSize: '14px' }}>
                                     <Flag size={18} />
                                 </button>
-                                <button className="flex-[2] h-full flex items-center justify-center gap-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm shadow-green-200 transition-all font-bold text-sm transform active:scale-[0.98]">
+                                <button className="btn btn-success h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm" style={{ flex: '2', fontSize: '14px' }}>
                                     <Check size={18} />
                                     Accept & Next
                                 </button>
@@ -177,63 +190,38 @@ export const ReviewerInterface = ({ onTitleChange }) => {
                 </div>
 
                 {/* Info Sidebar (Desktop Only) */}
-                <div className="hidden lg:flex w-80 flex-col gap-4 overflow-y-auto">
+                <div className="d-none d-lg-flex flex-column gap-4" style={{ width: '60%', maxHeight: '100%', overflowY: 'auto' }}>
 
                     {/* Guidelines Panel */}
-                    <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
-                        <div className="p-3 bg-blue-50/50 border-b border-blue-100 flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-blue-800 font-semibold text-xs">
+                    <div className="bg-white border border-light rounded shadow-sm d-flex flex-column" style={{ flex: '0 0 auto' }}>
+                        <div className="p-3 bg-primary bg-opacity-10 border-bottom border-primary border-opacity-25 d-flex align-items-center justify-content-between">
+                            <div className="d-flex align-items-center gap-2 text-primary fw-semibold" style={{ fontSize: '12px' }}>
                                 <FileText size={14} />
                                 <span>Guidelines</span>
                             </div>
-                            <button
-                                onClick={() => setIsEditingGuidelines(!isEditingGuidelines)}
-                                className="text-slate-400 hover:text-blue-600 transition-colors"
-                                title={isEditingGuidelines ? "Cancel" : "Edit Guidelines"}
-                            >
-                                {isEditingGuidelines ? <X size={14} /> : <Pencil size={14} />}
-                            </button>
                         </div>
 
                         <div className="p-4 bg-white">
-                            {isEditingGuidelines ? (
-                                <div className="space-y-3">
-                                    <textarea
-                                        value={guidelines}
-                                        onChange={(e) => setGuidelines(e.target.value)}
-                                        className="w-full h-32 text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none font-sans"
-                                        placeholder="Enter labeling rules..."
-                                    />
-                                    <button
-                                        onClick={() => setIsEditingGuidelines(false)}
-                                        className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-1.5 rounded-md text-xs font-bold hover:bg-blue-700 transition-colors"
-                                    >
-                                        <Save size={12} />
-                                        Save Guidelines
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">
-                                    {guidelines || "No specific guidelines set for this project."}
-                                </div>
-                            )}
+                            <div className="text-muted" style={{ fontSize: '12px', lineHeight: '1.6', whiteSpace: 'pre-line' }}>
+                                {guidelines || "No specific guidelines set for this project."}
+                            </div>
                         </div>
                     </div>
 
                     {/* Annotations List */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex-1 overflow-y-auto min-h-[150px]">
-                        <h3 className="font-semibold text-slate-800 text-sm mb-3">Annotations ({task.annotations.length})</h3>
-                        <div className="space-y-2">
+                    <div className="bg-white border border-light rounded shadow-sm p-4 overflow-auto" style={{ minHeight: '200px', flex: '1 1 0' }}>
+                        <h3 className="fw-semibold text-dark fs-6 mb-3">Annotations ({task.annotations.length})</h3>
+                        <div className="d-flex flex-column gap-2">
                             {task.annotations.map((ann, i) => {
                                 const label = project?.classes.find(c => c.id === ann.labelId);
                                 return (
-                                    <div key={ann.id} className="flex items-center p-2 rounded-lg border border-slate-100 bg-slate-50 hover:border-slate-300 transition-colors">
-                                        <span className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: label?.color }}></span>
-                                        <div className="flex-1">
-                                            <p className="text-xs font-medium text-slate-900">{label?.name}</p>
-                                            <p className="text-[10px] text-slate-500">Confidence: {ann.confidence ? (ann.confidence * 100).toFixed(0) : 100}%</p>
+                                    <div key={ann.id} className="d-flex align-items-center p-2 rounded border border-light bg-light">
+                                        <span className="rounded-circle me-2" style={{ width: '8px', height: '8px', backgroundColor: label?.color }}></span>
+                                        <div className="flex-fill">
+                                            <p className="fw-medium text-dark mb-0" style={{ fontSize: '12px' }}>{label?.name}</p>
+                                            <p className="text-muted mb-0" style={{ fontSize: '10px' }}>Confidence: {ann.confidence ? (ann.confidence * 100).toFixed(0) : 100}%</p>
                                         </div>
-                                        <span className="text-xs text-slate-400">#{i + 1}</span>
+                                        <span className="text-muted" style={{ fontSize: '12px' }}>#{i + 1}</span>
                                     </div>
                                 )
                             })}
@@ -241,19 +229,19 @@ export const ReviewerInterface = ({ onTitleChange }) => {
                     </div>
 
                     {/* History / Comments */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm h-1/3 flex flex-col min-h-[150px]">
-                        <div className="flex items-center gap-2 mb-2 text-slate-800 font-semibold text-sm">
+                    <div className="bg-white border border-light rounded shadow-sm p-4 d-flex flex-column" style={{ minHeight: '180px', flex: '0 0 auto' }}>
+                        <div className="d-flex align-items-center gap-2 mb-2 text-dark fw-semibold fs-6">
                             <MessageSquare size={14} />
                             <span>Item History</span>
                         </div>
-                        <div className="flex-1 bg-slate-50 rounded-lg p-3 overflow-y-auto mb-3">
-                            <div className="text-xs text-slate-500 space-y-3">
-                                <div className="flex gap-2">
-                                    <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-[10px]">S</div>
+                        <div className="flex-fill bg-light rounded p-3 overflow-auto mb-3">
+                            <div className="text-muted d-flex flex-column gap-3" style={{ fontSize: '12px' }}>
+                                <div className="d-flex gap-2">
+                                    <div className="d-flex align-items-center justify-content-center bg-primary bg-opacity-25 text-primary fw-bold rounded-circle" style={{ width: '1.25rem', height: '1.25rem', fontSize: '10px' }}>S</div>
                                     <div>
-                                        <p className="font-medium text-slate-700">Sarah A.</p>
-                                        <p>Submitted initial annotation.</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5">2 hours ago</p>
+                                        <p className="fw-medium text-dark mb-0">Sarah A.</p>
+                                        <p className="mb-0">Submitted initial annotation.</p>
+                                        <p className="text-muted mb-0" style={{ fontSize: '10px', marginTop: '2px' }}>2 hours ago</p>
                                     </div>
                                 </div>
                             </div>
@@ -261,7 +249,8 @@ export const ReviewerInterface = ({ onTitleChange }) => {
                         <input
                             type="text"
                             placeholder="Add comment..."
-                            className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="form-control"
+                            style={{ fontSize: '12px' }}
                         />
                     </div>
                 </div>
