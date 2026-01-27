@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MOCK_USERS } from '../services/mockData.js';
 import { ArrowRight, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import axios from 'axios';
 
 export const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
@@ -10,18 +11,9 @@ export const Login = ({ onLogin }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
-
-    // Simulate authentication
-    // CREDENTIALS LOCATION:
-    // User emails are loaded from '../services/mockData.ts'
-    // The password is hardcoded here as 'password' for all users for demo purposes.
-    const user = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
-
-    if (user && password === 'password') {
-      onLogin(user);
-    } else {
-      setError('Invalid email or password');
-    }
+    axios.post(import.meta.env.VITE_URL + "/api/Auth/login", {
+      email: email, password: password
+    }).then((e) => { console.log(e); console.log(e.data); onLogin(e.data.data) }).catch((e) => alert("Failed"));
   };
 
   return (

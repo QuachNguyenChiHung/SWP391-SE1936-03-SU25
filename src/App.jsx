@@ -18,9 +18,9 @@ const ProtectedRoute = ({ children, user, allowedRoles }) => {
     return <Navigate to="/" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  if (allowedRoles && !allowedRoles.includes(user.user.roleName)) {
     // Redirect to user's default dashboard if they don't have access
-    const defaultPath = getDefaultPath(user.role);
+    const defaultPath = getDefaultPath(user.user.roleName);
     return <Navigate to={defaultPath} replace />;
   }
 
@@ -67,7 +67,7 @@ const AppRoutes = ({ user, onLogout }) => {
     <Layout user={user} onLogout={onLogout}>
       <Routes>
         {/* Default route - redirect to role-specific dashboard */}
-        <Route path="/" element={<Navigate to={getDefaultPath(user.role)} replace />} />
+        <Route path="/" element={<Navigate to={getDefaultPath(user.user.roleName)} replace />} />
 
         {/* Admin Routes */}
         <Route path="/admin/dashboard" element={

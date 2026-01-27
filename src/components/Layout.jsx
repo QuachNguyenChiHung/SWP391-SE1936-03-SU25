@@ -48,7 +48,7 @@ export const Layout = ({ children, user, onLogout }) => {
         : 'text-slate-400'
       }`;
 
-    switch (user.role) {
+    switch (user.user.roleName) {
       case UserRole.MANAGER:
         return (
           <>
@@ -137,9 +137,9 @@ export const Layout = ({ children, user, onLogout }) => {
                 alt="User"
                 className="w-9 h-9 rounded-circle ring-2 ring-slate-700 bg-slate-800"
               />
-              <div className="flex-fill min-w-0 text-start">
-                <p className="small fw-medium text-white truncate">{user.name}</p>
-                <p className="text-[10px] text-uppercase fw-bold text-slate-500 truncate tracking-wider">{user.role}</p>
+              <div className="flex-fill text-start">
+                <p className="small fw-medium text-white">{user.user.name}</p>
+                <p className="text-[10px] text-uppercase fw-bold text-slate-500 tracking-wider">{user.user.roleName}</p>
               </div>
             </div>
 
@@ -271,11 +271,11 @@ export const Layout = ({ children, user, onLogout }) => {
             {/* Content */}
             <div className="p-4 p-md-5 d-flex flex-column align-items-center">
               <div className="position-relative mb-4">
-                <img src={user.avatarUrl} alt={user.name} className="w-24 h-24 rounded-circle border border-4 border-slate-50 shadow-lg" />
+                <img src={user.avatarUrl} alt={user.user.name} className="w-24 h-24 rounded-circle border border-4 border-slate-50 shadow-lg" />
                 <div className="position-absolute bottom-0 end-0 w-6 h-6 bg-success border border-4 border-white rounded-circle"></div>
               </div>
 
-              <h2 className="fs-4 fw-bold text-slate-900 mb-2">{user.name}</h2>
+              <h2 className="fs-4 fw-bold text-slate-900 mb-2">{user.user.roleName}</h2>
               <p className="text-slate-500 small mb-4 d-flex align-items-center gap-1">
                 <Mail size={14} />
                 {user.email}

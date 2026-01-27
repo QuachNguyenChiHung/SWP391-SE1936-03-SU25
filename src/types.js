@@ -1,9 +1,9 @@
 // User roles enum as constants
 export const UserRole = {
-    ADMIN: 'ADMIN',
-    MANAGER: 'MANAGER',
-    ANNOTATOR: 'ANNOTATOR',
-    REVIEWER: 'REVIEWER'
+    ADMIN: 'Admin',
+    MANAGER: 'Manager',
+    ANNOTATOR: 'Annotator',
+    REVIEWER: 'Reviewer'
 };
 
 // Project status enum as constants
