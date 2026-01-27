@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout.jsx';
 import { Login } from './components/Login.jsx';
@@ -134,12 +134,29 @@ const AppRoutes = ({ user, onLogout }) => {
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
 
+  // Khôi phục user từ localStorage khi app khởi động
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        setCurrentUser(JSON.parse(savedUser));
+      } catch (error) {
+        console.error('Error parsing saved user:', error);
+        localStorage.removeItem('user');
+      }
+    }
+  }, []);
+
   const handleLogin = (user) => {
     setCurrentUser(user);
+    // Lưu user vào localStorage
+    localStorage.setItem('user', JSON.stringify(user));
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
+    // Xóa user khỏi localStorage
+    localStorage.removeItem('user');
   };
 
   return (
