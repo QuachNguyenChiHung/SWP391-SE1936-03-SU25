@@ -1,0 +1,549 @@
+/* Custom styles to replicate Tailwind classes not available in Bootstrap */
+
+/* Reset and full viewport */
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+#root {
+    height: 100%;
+    width: 100%;
+}
+
+/* Hover background for task items */
+.hover-bg-light:hover {
+    background-color: #f8f9fa;
+    border-color: #dee2e6 !important;
+}
+
+/* Cursor pointer utility */
+.cursor-pointer {
+    cursor: pointer;
+}
+
+/* Custom color utilities */
+.text-slate-50 {
+    color: #f8fafc;
+}
+
+.text-slate-100 {
+    color: #f1f5f9;
+}
+
+.text-slate-200 {
+    color: #e2e8f0;
+}
+
+.text-slate-300 {
+    color: #cbd5e1;
+}
+
+.text-slate-400 {
+    color: #94a3b8;
+}
+
+.text-slate-500 {
+    color: #64748b;
+}
+
+.text-slate-600 {
+    color: #475569;
+}
+
+.text-slate-700 {
+    color: #334155;
+}
+
+.text-slate-800 {
+    color: #1e293b;
+}
+
+.text-slate-900 {
+    color: #0f172a;
+}
+
+.bg-slate-50 {
+    background-color: #f8fafc;
+}
+
+.bg-slate-100 {
+    background-color: #f1f5f9;
+}
+
+.bg-slate-200 {
+    background-color: #e2e8f0;
+}
+
+.bg-slate-700 {
+    background-color: #334155;
+}
+
+.bg-slate-800 {
+    background-color: #1e293b;
+}
+
+.bg-slate-900 {
+    background-color: #0f172a;
+}
+
+.bg-indigo-50 {
+    background-color: #eef2ff;
+}
+
+.bg-indigo-100 {
+    background-color: #e0e7ff;
+}
+
+.bg-indigo-600 {
+    background-color: #4f46e5;
+}
+
+.bg-indigo-700 {
+    background-color: #4338ca;
+}
+
+.text-indigo-400 {
+    color: #818cf8;
+}
+
+.text-indigo-600 {
+    color: #4f46e5;
+}
+
+.text-indigo-700 {
+    color: #4338ca;
+}
+
+.text-indigo-800 {
+    color: #3730a3;
+}
+
+.border-slate-100 {
+    border-color: #f1f5f9;
+}
+
+.border-slate-200 {
+    border-color: #e2e8f0;
+}
+
+.border-slate-700 {
+    border-color: #334155;
+}
+
+.border-slate-800 {
+    border-color: #1e293b;
+}
+
+.border-indigo-100 {
+    border-color: #e0e7ff;
+}
+
+.border-indigo-500 {
+    border-color: #6366f1;
+}
+
+/* Ring utilities */
+.ring-2 {
+    box-shadow: 0 0 0 2px var(--ring-color, rgba(0, 0, 0, 0.1));
+}
+
+.ring-4 {
+    box-shadow: 0 0 0 4px var(--ring-color, rgba(0, 0, 0, 0.1));
+}
+
+.ring-slate-700 {
+    --ring-color: #334155;
+}
+
+.ring-indigo-500 {
+    --ring-color: #6366f1;
+}
+
+/* Custom spacing */
+.space-y-1>*+* {
+    margin-top: 0.25rem;
+}
+
+.space-y-2>*+* {
+    margin-top: 0.5rem;
+}
+
+.space-y-3>*+* {
+    margin-top: 0.75rem;
+}
+
+.space-y-4>*+* {
+    margin-top: 1rem;
+}
+
+.space-y-6>*+* {
+    margin-top: 1.5rem;
+}
+
+.space-y-8>*+* {
+    margin-top: 2rem;
+}
+
+.gap-1 {
+    gap: 0.25rem;
+}
+
+.gap-1\.5 {
+    gap: 0.375rem;
+}
+
+.gap-2 {
+    gap: 0.5rem;
+}
+
+.gap-3 {
+    gap: 0.75rem;
+}
+
+.gap-4 {
+    gap: 1rem;
+}
+
+.gap-6 {
+    gap: 1.5rem;
+}
+
+/* Custom animations */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slide-in-from-top {
+    from {
+        transform: translateY(-0.5rem);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes zoom-in {
+    from {
+        transform: scale(0.95);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.animate-in {
+    animation-fill-mode: both;
+}
+
+.fade-in {
+    animation-name: fade-in;
+}
+
+.slide-in-from-top-2 {
+    animation-name: slide-in-from-top;
+}
+
+.zoom-in-95 {
+    animation-name: zoom-in;
+}
+
+.duration-200 {
+    animation-duration: 200ms;
+}
+
+.duration-300 {
+    animation-duration: 300ms;
+}
+
+/* Truncate text */
+.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Min width 0 for flex children */
+.min-w-0 {
+    min-width: 0;
+}
+
+/* Backdrop blur */
+.backdrop-blur-sm {
+    backdrop-filter: blur(4px);
+}
+
+/* Tracking */
+.tracking-tight {
+    letter-spacing: -0.025em;
+}
+
+.tracking-wide {
+    letter-spacing: 0.025em;
+}
+
+.tracking-wider {
+    letter-spacing: 0.05em;
+}
+
+/* Object fit */
+.object-contain {
+    object-fit: contain;
+}
+
+/* Whitespace */
+.whitespace-nowrap {
+    white-space: nowrap;
+}
+
+/* Custom height utilities */
+.h-4 {
+    height: 1rem;
+}
+
+.h-6 {
+    height: 1.5rem;
+}
+
+.h-8 {
+    height: 2rem;
+}
+
+.h-9 {
+    height: 2.25rem;
+}
+
+.h-10 {
+    height: 2.5rem;
+}
+
+.h-12 {
+    height: 3rem;
+}
+
+.h-16 {
+    height: 4rem;
+}
+
+.h-24 {
+    height: 6rem;
+}
+
+.h-64 {
+    height: 16rem;
+}
+
+.w-2 {
+    width: 0.5rem;
+}
+
+.w-4 {
+    width: 1rem;
+}
+
+.w-6 {
+    width: 1.5rem;
+}
+
+.w-8 {
+    width: 2rem;
+}
+
+.w-9 {
+    width: 2.25rem;
+}
+
+.w-10 {
+    width: 2.5rem;
+}
+
+.w-24 {
+    width: 6rem;
+}
+
+.w-48 {
+    width: 12rem;
+}
+
+.w-64 {
+    width: 16rem;
+}
+
+.w-80 {
+    width: 20rem;
+}
+
+.w-px {
+    width: 1px;
+}
+
+.w-3\/4 {
+    width: 75%;
+}
+
+.max-w-xs {
+    max-width: 20rem;
+}
+
+.max-w-md {
+    max-width: 28rem;
+}
+
+.max-h-64 {
+    max-height: 16rem;
+}
+
+/* Additional text sizes */
+.text-\[10px\] {
+    font-size: 10px;
+}
+
+/* Divide utilities */
+.divide-y>*+* {
+    border-top-width: 1px;
+}
+
+.divide-slate-100>*+* {
+    border-color: #f1f5f9;
+}
+
+/* Active scale effect */
+.active\:scale-\[0\.99\]:active {
+    transform: scale(0.99);
+}
+
+/* Group hover effects */
+.group:hover .group-hover\:text-indigo-400 {
+    color: #818cf8;
+}
+
+.group:hover .group-hover\:ring-indigo-500 {
+    --ring-color: #6366f1;
+}
+
+.group:hover .group-hover\:bg-slate-100 {
+    background-color: #f1f5f9;
+}
+
+/* Focus within */
+.focus-within\:ring-2:focus-within {
+    box-shadow: 0 0 0 2px var(--ring-color, rgba(0, 0, 0, 0.1));
+}
+
+/* Custom padding/margin utilities for specific values */
+.p-0\.5 {
+    padding: 0.125rem;
+}
+
+.px-2\.5 {
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
+}
+
+.py-0\.5 {
+    padding-top: 0.125rem;
+    padding-bottom: 0.125rem;
+}
+
+.py-1\.5 {
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
+}
+
+.py-2\.5 {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+}
+
+.px-1\.5 {
+    padding-left: 0.375rem;
+    padding-right: 0.375rem;
+}
+
+/* Min height 0 */
+.min-h-0 {
+    min-height: 0;
+}
+
+/* Calc heights */
+.h-\[calc\(100vh-8rem\)\] {
+    height: calc(100vh - 8rem);
+}
+
+/* Transition all */
+.transition-all {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}
+
+/* Additional color utilities for admin components */
+.text-purple {
+    color: #7c3aed;
+}
+
+.text-indigo {
+    color: #4f46e5;
+}
+
+.text-orange {
+    color: #f59e0b;
+}
+
+.bg-purple-light {
+    background-color: #f3e8ff;
+}
+
+.bg-indigo-light {
+    background-color: #e0e7ff;
+}
+
+.bg-orange-light {
+    background-color: #fef3c7;
+}
+
+.bg-blue-light {
+    background-color: #dbeafe;
+}
+
+.bg-success-light {
+    background-color: #d1fae5;
+}
+
+.bg-danger-light {
+    background-color: #fee2e2;
+}
