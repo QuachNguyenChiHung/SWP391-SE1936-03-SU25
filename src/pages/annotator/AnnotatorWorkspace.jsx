@@ -323,7 +323,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                                                     />
                                                     <div className="position-absolute" style={{ top: '0.5rem', right: '0.5rem' }}>
                                                         <span className={`priority-badge ${project?.priority === 'HIGH' ? 'high' :
-                                                                project?.priority === 'MEDIUM' ? 'medium' : 'low'
+                                                            project?.priority === 'MEDIUM' ? 'medium' : 'low'
                                                             }`}>
                                                             {project?.priority}
                                                         </span>
@@ -344,7 +344,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                                                             {task.annotations.length}
                                                         </div>
                                                         <span className={`status-badge ${task.status === 'COMPLETED' ? 'completed' :
-                                                                task.status === 'IN_PROGRESS' ? 'in-progress' : 'pending'
+                                                            task.status === 'IN_PROGRESS' ? 'in-progress' : 'pending'
                                                             }`}>
                                                             {task.status.replace(/_/g, ' ')}
                                                         </span>
@@ -406,104 +406,109 @@ export const AnnotatorWorkspace = ({ user }) => {
             </div>
 
             <div className="d-flex flex-grow-1 overflow-hidden position-relative user-select-none">
-                {/* Left Tools */}
-                <div className="toolbar">
-                    {[
-                        { id: 'SELECT', icon: MousePointer2 },
-                        { id: 'BOX', icon: Square },
-                        { id: 'POLYGON', icon: Hexagon }
-                    ].map((tool) => (
-                        <button
-                            key={tool.id}
-                            onClick={() => setSelectedTool(tool.id)}
-                            className={`btn-tool ${selectedTool === tool.id ? 'active' : ''}`}
-                            title={tool.id === 'SELECT' ? 'Move Tool' : `${tool.id} Tool`}
-                        >
-                            <tool.icon size={18} />
-                        </button>
-                    ))}
-                    <div className="toolbar-divider"></div>
-                    <button className="btn-tool">
-                        <ZoomIn size={18} />
-                    </button>
-                    <button className="btn-tool">
-                        <ZoomOut size={18} />
-                    </button>
-                </div>
+                {/* Canvas Container with Toolbar on Top */}
+                <div className="d-flex flex-column flex-grow-1">
+                    {/* Horizontal Toolbar */}
+                    <div className="toolbar-horizontal">
+                        <div className="d-flex align-items-center gap-2">
+                            {[
+                                { id: 'SELECT', icon: MousePointer2, label: 'Select' },
+                                { id: 'BOX', icon: Square, label: 'Box' },
+                                { id: 'POLYGON', icon: Hexagon, label: 'Polygon' }
+                            ].map((tool) => (
+                                <button
+                                    key={tool.id}
+                                    onClick={() => setSelectedTool(tool.id)}
+                                    className={`btn-tool ${selectedTool === tool.id ? 'active' : ''}`}
+                                    title={tool.id === 'SELECT' ? 'Move Tool' : `${tool.id} Tool`}
+                                >
+                                    <tool.icon size={18} />
+                                </button>
+                            ))}
+                            <div className="toolbar-divider-vertical"></div>
+                            <button className="btn-tool">
+                                <ZoomIn size={18} />
+                            </button>
+                            <button className="btn-tool">
+                                <ZoomOut size={18} />
+                            </button>
+                        </div>
+                    </div>
 
-                {/* Canvas Area */}
-                <div
-                    ref={containerRef}
-                    className="canvas-area"
-                    style={{ cursor: selectedTool === 'BOX' ? 'crosshair' : 'default' }}
-                    onMouseDown={handleContainerMouseDown}
-                >
-                    <img
-                        ref={imageRef}
-                        src={selectedTask.imageUrl}
-                        alt="Work"
-                        className="canvas-image pe-none"
-                        draggable={false}
-                    />
+                    {/* Canvas Area */}
+                    <div
+                        ref={containerRef}
+                        className="canvas-area"
+                        style={{ cursor: selectedTool === 'BOX' ? 'crosshair' : 'default' }}
+                        onMouseDown={handleContainerMouseDown}
+                    >
+                        <img
+                            ref={imageRef}
+                            src={selectedTask.imageUrl}
+                            alt="Work"
+                            className="canvas-image pe-none"
+                            draggable={false}
+                        />
 
-                    {/* Annotations Layer */}
-                    {annotations.map((ann) => {
-                        const labelClass = project?.classes.find(c => c.id === ann.labelId);
-                        const isBeingDragged = dragRef.current?.id === ann.id;
+                        {/* Annotations Layer */}
+                        {annotations.map((ann) => {
+                            const labelClass = project?.classes.find(c => c.id === ann.labelId);
+                            const isBeingDragged = dragRef.current?.id === ann.id;
 
-                        return (
+                            return (
+                                <div
+                                    key={ann.id}
+                                    className={`annotation-box group-box ${isBeingDragged ? 'dragging' : ''}`}
+                                    onMouseDown={(e) => handleAnnotationMouseDown(e, ann)}
+                                    style={{
+                                        borderColor: labelClass?.color || '#000',
+                                        left: ann.coordinates.x,
+                                        top: ann.coordinates.y,
+                                        width: ann.coordinates.width,
+                                        height: ann.coordinates.height,
+                                        backgroundColor: `${labelClass?.color}15`
+                                    }}
+                                >
+                                    <div
+                                        className="annotation-label"
+                                        style={{ backgroundColor: labelClass?.color }}
+                                    >
+                                        {labelClass?.name}
+                                        {ann.confidence && (
+                                            <span style={{ opacity: 0.8, fontWeight: 'normal', marginLeft: '0.25rem' }}>{(ann.confidence * 100).toFixed(0)}%</span>
+                                        )}
+                                    </div>
+                                    {/* Delete Button on Hover */}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setAnnotations(annotations.filter(a => a.id !== ann.id));
+                                        }}
+                                        className="annotation-delete-btn group-box-hover"
+                                    >
+                                        &times;
+                                    </button>
+                                </div>
+                            );
+                        })}
+
+                        {/* Drawing Layer (Temporary Box) */}
+                        {isDrawing && currentDragInfo && (
                             <div
-                                key={ann.id}
-                                className={`annotation-box group-box ${isBeingDragged ? 'dragging' : ''}`}
-                                onMouseDown={(e) => handleAnnotationMouseDown(e, ann)}
+                                className="drawing-box"
                                 style={{
-                                    borderColor: labelClass?.color || '#000',
-                                    left: ann.coordinates.x,
-                                    top: ann.coordinates.y,
-                                    width: ann.coordinates.width,
-                                    height: ann.coordinates.height,
-                                    backgroundColor: `${labelClass?.color}15`
+                                    left: currentDragInfo.x,
+                                    top: currentDragInfo.y,
+                                    width: currentDragInfo.w,
+                                    height: currentDragInfo.h,
                                 }}
                             >
-                                <div
-                                    className="annotation-label"
-                                    style={{ backgroundColor: labelClass?.color }}
-                                >
-                                    {labelClass?.name}
-                                    {ann.confidence && (
-                                        <span style={{ opacity: 0.8, fontWeight: 'normal', marginLeft: '0.25rem' }}>{(ann.confidence * 100).toFixed(0)}%</span>
-                                    )}
+                                <div className="drawing-label">
+                                    New {project?.classes.find(c => c.id === activeLabelId)?.name || 'Object'}
                                 </div>
-                                {/* Delete Button on Hover */}
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setAnnotations(annotations.filter(a => a.id !== ann.id));
-                                    }}
-                                    className="annotation-delete-btn group-box-hover"
-                                >
-                                    &times;
-                                </button>
                             </div>
-                        );
-                    })}
-
-                    {/* Drawing Layer (Temporary Box) */}
-                    {isDrawing && currentDragInfo && (
-                        <div
-                            className="drawing-box"
-                            style={{
-                                left: currentDragInfo.x,
-                                top: currentDragInfo.y,
-                                width: currentDragInfo.w,
-                                height: currentDragInfo.h,
-                            }}
-                        >
-                            <div className="drawing-label">
-                                New {project?.classes.find(c => c.id === activeLabelId)?.name || 'Object'}
-                            </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
 
                 {/* Right Sidebar */}
