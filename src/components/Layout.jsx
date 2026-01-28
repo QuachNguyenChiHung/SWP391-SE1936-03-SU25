@@ -17,7 +17,8 @@ import {
   User,
   Mail,
   Shield,
-  CreditCard
+  CreditCard,
+  UserIcon
 } from 'lucide-react';
 
 export const Layout = ({ children, user, onLogout }) => {
