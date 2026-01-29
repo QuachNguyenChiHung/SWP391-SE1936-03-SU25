@@ -34,6 +34,9 @@ public static class DependencyInjection
         // Add JWT Settings
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
 
+        // Add Email Settings
+        services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.SectionName));
+
         // Add Services
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();

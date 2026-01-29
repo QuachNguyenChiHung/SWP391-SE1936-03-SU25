@@ -3,8 +3,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using DataLabeling.Core.Interfaces;
 using DataLabeling.Core.Interfaces.Repositories;
+using DataLabeling.Application.Interfaces;
 using DataLabeling.Infrastructure.Data;
 using DataLabeling.Infrastructure.Repositories;
+using DataLabeling.Infrastructure.Services;
 
 namespace DataLabeling.Infrastructure;
 
@@ -47,6 +49,9 @@ public static class DependencyInjection
 
         // Add Unit of Work
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        // Add Services
+        services.AddScoped<IEmailService, EmailService>();
 
         return services;
     }
