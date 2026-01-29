@@ -318,7 +318,8 @@ public class ProjectsController : ControllerBase
     // ==================== GUIDELINE ENDPOINTS ====================
 
     /// <summary>
-    /// Upload guideline file for a project (PDF, DOCX, TXT, MD)
+    /// Upload guideline file for a project (PDF, DOCX, TXT, MD).
+    /// Files are stored in private storage and require authentication to download.
     /// </summary>
     [HttpPost("{id:int}/guideline/upload")]
     [Authorize(Roles = "Admin,Manager")]
@@ -360,8 +361,8 @@ public class ProjectsController : ControllerBase
         if (project.CreatedById != userId && role != UserRole.Admin)
             return Forbid();
 
-        // Save file
-        var (filePath, fileName, fileSize) = await _fileStorage.SaveFileAsync(
+        // Save file to PRIVATE storage (not publicly accessible)
+        var (filePath, fileName, fileSize) = await _fileStorage.SavePrivateFileAsync(
             file,
             $"guidelines/{id}",
             cancellationToken);
@@ -370,10 +371,10 @@ public class ProjectsController : ControllerBase
 
         if (existingGuideline != null)
         {
-            // Delete old file if exists
+            // Delete old file if exists (from private storage)
             if (!string.IsNullOrEmpty(existingGuideline.FilePath))
             {
-                await _fileStorage.DeleteFileAsync(existingGuideline.FilePath);
+                await _fileStorage.DeletePrivateFileAsync(existingGuideline.FilePath);
             }
 
             // Update guideline
@@ -397,8 +398,7 @@ public class ProjectsController : ControllerBase
                 FileName = fileName,
                 FileSize = fileSize,
                 ContentType = file.ContentType,
-                Version = 1,
-                UpdatedAt = DateTime.UtcNow
+                Version = 1
             };
 
             await _uow.Guidelines.AddAsync(guideline, cancellationToken);
@@ -414,14 +414,15 @@ public class ProjectsController : ControllerBase
             {
                 fileName = fileName,
                 fileSize = fileSize,
-                fileUrl = _fileStorage.GetFileUrl(filePath),
+                downloadUrl = $"/api/projects/{id}/guideline/download",
                 version = existingGuideline?.Version + 1 ?? 1
             }
         });
     }
 
     /// <summary>
-    /// Download guideline file
+    /// Download guideline file.
+    /// Requires authentication - files are served from private storage.
     /// </summary>
     [HttpGet("{id:int}/guideline/download")]
     [ProducesResponseType(typeof(FileResult), 200)]
@@ -438,29 +439,22 @@ public class ProjectsController : ControllerBase
         if (string.IsNullOrEmpty(guideline.FilePath))
             return NotFound(new { success = false, message = "Guideline file not found" });
 
-        var filePath = Path.Combine(
-            Directory.GetCurrentDirectory(),
-            "uploads",
-            guideline.FilePath.Replace("/", Path.DirectorySeparatorChar.ToString()));
-
-        if (!System.IO.File.Exists(filePath))
+        // Check if file exists in private storage
+        if (!_fileStorage.PrivateFileExists(guideline.FilePath))
             return NotFound(new { success = false, message = "File not found on server" });
 
-        var memory = new MemoryStream();
-        using (var stream = new FileStream(filePath, FileMode.Open))
-        {
-            await stream.CopyToAsync(memory, cancellationToken);
-        }
-        memory.Position = 0;
+        // Stream file from private storage
+        var stream = _fileStorage.OpenPrivateFileRead(guideline.FilePath);
 
         return File(
-            memory,
+            stream,
             guideline.ContentType ?? "application/octet-stream",
             guideline.FileName ?? "guideline");
     }
 
     /// <summary>
-    /// Get guideline info (text or file metadata)
+    /// Get guideline info (text or file metadata).
+    /// Note: FileUrl is not provided for security - use download endpoint instead.
     /// </summary>
     [HttpGet("{id:int}/guideline")]
     [ProducesResponseType(typeof(GuidelineDto), 200)]
@@ -482,12 +476,13 @@ public class ProjectsController : ControllerBase
             FileName = guideline.FileName,
             FileSize = guideline.FileSize,
             ContentType = guideline.ContentType,
+            // FileUrl is null for security - use /api/projects/{id}/guideline/download
             FileUrl = !string.IsNullOrEmpty(guideline.FilePath)
-                ? _fileStorage.GetFileUrl(guideline.FilePath)
+                ? $"/api/projects/{id}/guideline/download"
                 : null,
             Version = guideline.Version,
             CreatedAt = guideline.CreatedAt,
-            UpdatedAt = guideline.UpdatedAt ?? guideline.CreatedAt
+            UpdatedAt = guideline.UpdatedAt
         };
 
         return Ok(dto);

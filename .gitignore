@@ -44,8 +44,11 @@ bld/
 TestResult.xml
 nunit-*.xml
 
-# Uploads folder
+# Uploads folder (public files)
 uploads/
+
+# Storage folder (private files - guidelines, sensitive docs)
+storage/
 
 # User-specific files
 *.rsuser
