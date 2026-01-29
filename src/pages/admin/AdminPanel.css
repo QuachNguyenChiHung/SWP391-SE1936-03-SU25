@@ -1,0 +1,271 @@
+/* ====================
+   LAYOUT & CONTAINERS
+==================== */
+
+.search-container {
+  max-width: 400px;
+}
+
+/* ====================
+   AVATARS
+==================== */
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: #f3f4f6;
+}
+
+.profile-photo-large {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* ====================
+   ICONS & POSITIONING
+==================== */
+
+.search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.input-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.input-icon-no-pointer {
+  pointer-events: none;
+}
+
+/* ====================
+   FORM INPUTS
+==================== */
+
+.input-with-icon {
+  padding-left: 2.5rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* ====================
+   STATUS INDICATORS
+==================== */
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.active {
+  background-color: #16a34a;
+}
+
+.status-dot.inactive {
+  background-color: #6b7280;
+}
+
+/* ====================
+   MODAL OVERLAY
+==================== */
+
+.modal-overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* ====================
+   TIMELINE
+==================== */
+
+.timeline-dot {
+  position: absolute;
+  left: -21px;
+  top: 6px;
+  width: 10px;
+  height: 10px;
+  background-color: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 50%;
+}
+
+/* ====================
+   TYPOGRAPHY
+==================== */
+
+.text-xs {
+  font-size: 0.75rem;
+}
+
+.text-xxs {
+  font-size: 0.65rem;
+}
+
+/* ====================
+   BADGE COLORS
+==================== */
+
+.badge.bg-purple-light {
+  background-color: #f3e8ff !important;
+  color: #7c3aed;
+}
+
+.badge.bg-indigo-light {
+  background-color: #e0e7ff !important;
+  color: #4f46e5;
+}
+
+.badge.bg-blue-light {
+  background-color: #dbeafe !important;
+  color: #2563eb;
+}
+
+.badge.bg-orange-light {
+  background-color: #fed7aa !important;
+  color: #ea580c;
+}
+
+/* ====================
+   SEARCH CLEAR BUTTON
+==================== */
+
+.search-clear-btn {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.25rem;
+  color: #6b7280;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.search-clear-btn:hover {
+  color: #374151;
+  background-color: #f3f4f6;
+}
+
+/* ====================
+   HOVER EFFECTS
+==================== */
+
+.table-hover tbody tr {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.table-hover tbody tr:hover {
+  background-color: #f8fafc;
+  transform: scale(1.001);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.btn {
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.card {
+  transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ====================
+   MODAL ANIMATIONS
+==================== */
+
+.modal-content {
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ====================
+   ACTIVITY TIMELINE
+==================== */
+
+.border-start {
+  border-left: 2px solid #e5e7eb !important;
+}
+
+/* ====================
+   RESPONSIVE
+==================== */
+
+@media (max-width: 768px) {
+  .search-container {
+    max-width: 100%;
+  }
+  
+  .table-responsive {
+    overflow-x: auto;
+  }
+  
+  .modal-dialog {
+    margin: 0.5rem;
+  }
+  
+  /* Stack buttons vertically on mobile */
+  .modal-footer {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .modal-footer .btn {
+    width: 100%;
+  }
+}
+
+/* ====================
+   EMPTY STATE
+==================== */
+
+.empty-state-container {
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.empty-state-icon {
+  color: #d1d5db;
+  margin-bottom: 1rem;
+}

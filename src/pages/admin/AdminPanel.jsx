@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MOCK_USERS, MOCK_ACTIVITY } from '../../services/mockData.js';
 import { UserRole } from '../../types.js';
 import { Activity, UserPlus, Search, X, Check, Mail, Shield, User, UserIcon } from 'lucide-react';
+import './AdminPanel.css';
 export const AdminPanel = ({ user }) => {
     const [users, setUsers] = useState(MOCK_USERS);
     const [editingUser, setEditingUser] = useState(null);
@@ -52,22 +53,35 @@ export const AdminPanel = ({ user }) => {
                             <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
                                 <div>
                                     <h3 className="h5 fw-semibold mb-1">User Management</h3>
-                                    <p className="small text-muted mb-0">Active members of your labeling organization</p>
+                                    <p className="small text-muted mb-0">
+                                        Showing {filteredUsers.length} of {users.length} users
+                                    </p>
                                 </div>
-                                <div className="d-flex gap-2 w-100" style={{ maxWidth: '400px' }}>
+                                <div className="d-flex gap-2 w-100 search-container">
                                     <div className="position-relative flex-grow-1">
-                                        <Search size={16} className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '0.75rem' }} />
+                                        <Search size={16} className="search-icon text-muted" />
                                         <input
                                             type="text"
                                             placeholder="Search users..."
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="form-control form-control-sm ps-5"
+                                            className="form-control form-control-sm input-with-icon"
+                                            aria-label="Search users by name or email"
                                         />
+                                        {searchQuery && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSearchQuery('')}
+                                                className="search-clear-btn"
+                                                aria-label="Clear search">
+                                                <X size={16} />
+                                            </button>
+                                        )}
                                     </div>
                                     <button
                                         onClick={() => setCreatingUser(true)}
-                                        className="btn btn-dark btn-sm d-flex align-items-center gap-2 text-nowrap">
+                                        className="btn btn-dark btn-sm d-flex align-items-center gap-2 text-nowrap"
+                                        aria-label="Create new user">
                                         <UserPlus size={16} />
                                         Create User
                                     </button>
@@ -86,47 +100,59 @@ export const AdminPanel = ({ user }) => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredUsers.map((user) => (
-                                        <tr key={user.id}>
-                                            <td>
-                                                <div className="d-flex align-items-center gap-3">
-                                                    <img src={user.avatarUrl} alt="" className="rounded-circle" style={{ width: '36px', height: '36px' }} />
-                                                    <div>
-                                                        <div className="fw-medium">{user.name}</div>
-                                                        <div className="small text-muted">{user.email}</div>
-                                                    </div>
-                                                </div>
+                                    {filteredUsers.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="4" className="empty-state-container">
+                                                <Search size={48} className="empty-state-icon" />
+                                                <p className="text-muted mb-0">No users found matching "{searchQuery}"</p>
                                             </td>
-                                            <td>
-                                                <span className={`badge rounded-pill text-black
+                                        </tr>
+                                    ) : (
+                                        filteredUsers.map((user) => (
+                                            <tr key={user.id}>
+                                                <td>
+                                                    <div className="d-flex align-items-center gap-3">
+                                                        <img src={user.avatarUrl} alt={user.name} className="user-avatar" />
+                                                        <div>
+                                                            <div className="fw-medium">{user.name}</div>
+                                                            <div className="small text-muted">{user.email}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span className={`badge rounded-pill text-black
                                             ${user.role === 'ADMIN' ? 'bg-purple-light text-purple' : ''}
                                             ${user.role === 'MANAGER' ? 'bg-indigo-light text-indigo' : ''}
                                             ${user.role === 'ANNOTATOR' ? 'bg-blue-light text-primary' : ''}
                                             ${user.role === 'REVIEWER' ? 'bg-orange-light text-warning' : ''}
                                         `}>
-                                                    {user.role}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                {user.active ? (
-                                                    <span className="d-inline-flex align-items-center gap-2 small text-success fw-medium">
-                                                        <span className="rounded-circle bg-success" style={{ width: '6px', height: '6px' }}></span> Active
+                                                        {user.role}
                                                     </span>
-                                                ) : (
-                                                    <span className="d-inline-flex align-items-center gap-2 small text-muted fw-medium">
-                                                        <span className="rounded-circle bg-secondary" style={{ width: '6px', height: '6px' }}></span> Inactive
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="text-end">
-                                                <button
-                                                    onClick={() => handleEdit(user)}
-                                                    className="btn btn-link btn-sm text-primary p-0">
-                                                    Edit
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                </td>
+                                                <td>
+                                                    {user.active ? (
+                                                        <span className="d-inline-flex align-items-center gap-2 small text-success fw-medium">
+                                                            <span className="status-dot active" aria-hidden="true"></span>
+                                                            <span aria-label="User status">Active</span>
+                                                        </span>
+                                                    ) : (
+                                                        <span className="d-inline-flex align-items-center gap-2 small text-muted fw-medium">
+                                                            <span className="status-dot inactive" aria-hidden="true"></span>
+                                                            <span aria-label="User status">Inactive</span>
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="text-end">
+                                                    <button
+                                                        onClick={() => handleEdit(user)}
+                                                        className="btn btn-link btn-sm text-primary p-0"
+                                                        aria-label={`Edit ${user.name}`}>
+                                                        Edit
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -147,14 +173,14 @@ export const AdminPanel = ({ user }) => {
                             <div className="position-relative border-start ps-4">
                                 {MOCK_ACTIVITY.map((log) => (
                                     <div key={log.id} className="position-relative mb-4">
-                                        <div className="position-absolute bg-white border border-2 rounded-circle" style={{ left: '-21px', top: '6px', width: '10px', height: '10px' }}></div>
+                                        <div className="timeline-dot"></div>
                                         <p className="small fw-medium mb-1">{log.action}</p>
-                                        <p className="text-muted mb-2" style={{ fontSize: '0.75rem' }}>{log.details}</p>
+                                        <p className="text-muted mb-2 text-xs">{log.details}</p>
                                         <div className="d-flex align-items-center gap-2">
-                                            <span className="badge bg-light text-dark font-monospace" style={{ fontSize: '0.65rem' }}>
+                                            <span className="badge bg-light text-dark font-monospace text-xxs">
                                                 {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
-                                            <span className="text-muted" style={{ fontSize: '0.65rem' }}>by User #{log.userId}</span>
+                                            <span className="text-muted text-xxs">by User #{log.userId}</span>
                                         </div>
                                     </div>
                                 ))}
@@ -167,29 +193,36 @@ export const AdminPanel = ({ user }) => {
 
             {/* Create User Modal */}
             {creatingUser && (
-                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setCreatingUser(false)}>
+                <div
+                    className="modal show d-block modal-overlay"
+                    onClick={() => setCreatingUser(false)}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="create-modal-title">
                     <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-content animate-in zoom-in-95 duration-200">
                             <div className="modal-header bg-light">
-                                <h5 className="modal-title fw-semibold">Create User</h5>
+                                <h5 id="create-modal-title" className="modal-title fw-semibold">Create User</h5>
                                 <button
                                     type="button"
                                     className="btn-close"
                                     onClick={() => setCreatingUser(false)}
+                                    aria-label="Close dialog"
                                 ></button>
                             </div>
 
                             <form onSubmit={handleCreate}>
                                 <div className="modal-body">
                                     <div className="mb-3">
-                                        <label className="form-label small fw-medium">Username</label>
+                                        <label htmlFor="create-username" className="form-label small fw-medium">Username</label>
                                         <div className="position-relative">
-                                            <UserIcon size={16} className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '0.75rem' }} />
+                                            <UserIcon size={16} className="input-icon text-muted" />
                                             <input
+                                                id="create-username"
                                                 type="text"
                                                 value={newUser.username}
                                                 onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                                                className="form-control ps-5"
+                                                className="form-control input-with-icon"
                                                 required
                                                 placeholder="Enter username"
                                             />
@@ -197,14 +230,15 @@ export const AdminPanel = ({ user }) => {
                                     </div>
 
                                     <div className="mb-3">
-                                        <label className="form-label small fw-medium">Password</label>
+                                        <label htmlFor="create-password" className="form-label small fw-medium">Password</label>
                                         <div className="position-relative">
-                                            <Shield size={16} className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '0.75rem' }} />
+                                            <Shield size={16} className="input-icon text-muted" />
                                             <input
+                                                id="create-password"
                                                 type="password"
                                                 value={newUser.password}
                                                 onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                                                className="form-control ps-5"
+                                                className="form-control input-with-icon"
                                                 required
                                                 placeholder="Enter password"
                                             />
@@ -212,14 +246,15 @@ export const AdminPanel = ({ user }) => {
                                     </div>
 
                                     <div className="mb-3">
-                                        <label className="form-label small fw-medium">Email Address</label>
+                                        <label htmlFor="create-email" className="form-label small fw-medium">Email Address</label>
                                         <div className="position-relative">
-                                            <Mail size={16} className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '0.75rem' }} />
+                                            <Mail size={16} className="input-icon text-muted" />
                                             <input
+                                                id="create-email"
                                                 type="email"
                                                 value={newUser.email}
                                                 onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                                                className="form-control ps-5"
+                                                className="form-control input-with-icon"
                                                 required
                                                 placeholder="Enter email address"
                                             />
@@ -227,13 +262,14 @@ export const AdminPanel = ({ user }) => {
                                     </div>
 
                                     <div className="mb-3">
-                                        <label className="form-label small fw-medium">Role</label>
+                                        <label htmlFor="create-role" className="form-label small fw-medium">Role</label>
                                         <div className="position-relative">
-                                            <Shield size={16} className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '0.75rem', pointerEvents: 'none' }} />
+                                            <Shield size={16} className="input-icon input-icon-no-pointer text-muted" />
                                             <select
+                                                id="create-role"
                                                 value={newUser.role}
                                                 onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                                                className="form-select ps-5"
+                                                className="form-select input-with-icon"
                                             >
                                                 {Object.values(UserRole).map(role => (
                                                     <option key={role} value={role}>{role}</option>
@@ -264,22 +300,28 @@ export const AdminPanel = ({ user }) => {
 
             {/* Edit User Modal */}
             {editingUser && (
-                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setEditingUser(null)}>
+                <div
+                    className="modal show d-block modal-overlay"
+                    onClick={() => setEditingUser(null)}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="edit-modal-title">
                     <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-content animate-in zoom-in-95 duration-200">
                             <div className="modal-header bg-light">
-                                <h5 className="modal-title fw-semibold">Edit User</h5>
+                                <h5 id="edit-modal-title" className="modal-title fw-semibold">Edit User</h5>
                                 <button
                                     type="button"
                                     className="btn-close"
                                     onClick={() => setEditingUser(null)}
+                                    aria-label="Close dialog"
                                 ></button>
                             </div>
 
                             <form onSubmit={handleSave}>
                                 <div className="modal-body">
                                     <div className="d-flex align-items-center gap-3 mb-4">
-                                        <img src={editingUser.avatarUrl} className="rounded-circle border" style={{ width: '64px', height: '64px' }} />
+                                        <img src={editingUser.avatarUrl} alt={editingUser.name} className="profile-photo-large border" />
                                         <div>
                                             <p className="small text-muted mb-1">Profile Photo</p>
                                             <button type="button" className="btn btn-link btn-sm p-0 text-primary">Change</button>
@@ -287,28 +329,30 @@ export const AdminPanel = ({ user }) => {
                                     </div>
 
                                     <div className="mb-3">
-                                        <label className="form-label small fw-medium">Full Name</label>
+                                        <label htmlFor="edit-name" className="form-label small fw-medium">Full Name</label>
                                         <div className="position-relative">
-                                            <UserIcon size={16} className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '0.75rem' }} />
+                                            <UserIcon size={16} className="input-icon text-muted" />
                                             <input
+                                                id="edit-name"
                                                 type="text"
                                                 value={editingUser.name}
                                                 onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
-                                                className="form-control ps-5"
+                                                className="form-control input-with-icon"
                                                 required
                                             />
                                         </div>
                                     </div>
 
                                     <div className="mb-3">
-                                        <label className="form-label small fw-medium">Email Address</label>
+                                        <label htmlFor="edit-email" className="form-label small fw-medium">Email Address</label>
                                         <div className="position-relative">
-                                            <Mail size={16} className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '0.75rem' }} />
+                                            <Mail size={16} className="input-icon text-muted" />
                                             <input
+                                                id="edit-email"
                                                 type="email"
                                                 value={editingUser.email}
                                                 onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-                                                className="form-control ps-5"
+                                                className="form-control input-with-icon"
                                                 required
                                             />
                                         </div>
@@ -316,13 +360,14 @@ export const AdminPanel = ({ user }) => {
 
                                     <div className="row g-3 mb-3">
                                         <div className="col-6">
-                                            <label className="form-label small fw-medium">Role</label>
+                                            <label htmlFor="edit-role" className="form-label small fw-medium">Role</label>
                                             <div className="position-relative">
-                                                <Shield size={16} className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '0.75rem', pointerEvents: 'none' }} />
+                                                <Shield size={16} className="input-icon input-icon-no-pointer text-muted" />
                                                 <select
+                                                    id="edit-role"
                                                     value={editingUser.role}
                                                     onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
-                                                    className="form-select ps-5"
+                                                    className="form-select input-with-icon"
                                                 >
                                                     {Object.values(UserRole).map(role => (
                                                         <option key={role} value={role}>{role}</option>
@@ -339,6 +384,7 @@ export const AdminPanel = ({ user }) => {
                                                         type="radio"
                                                         className="form-check-input"
                                                         id="statusActive"
+                                                        name="userStatus"
                                                         checked={editingUser.active}
                                                         onChange={() => setEditingUser({ ...editingUser, active: true })}
                                                     />
@@ -349,6 +395,7 @@ export const AdminPanel = ({ user }) => {
                                                         type="radio"
                                                         className="form-check-input"
                                                         id="statusInactive"
+                                                        name="userStatus"
                                                         checked={!editingUser.active}
                                                         onChange={() => setEditingUser({ ...editingUser, active: false })}
                                                     />

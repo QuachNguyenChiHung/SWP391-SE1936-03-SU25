@@ -13,6 +13,7 @@ import { ReviewerInterface } from './pages/reviewer/ReviewerInterface.jsx';
 import { AdminDashboard } from './pages/admin/AdminDashboard.jsx';
 import { AdminPanel } from './pages/admin/AdminPanel.jsx';
 import { UserRole } from './types.js';
+import getInforFromCookie from './ultis/getInfoFromCookie.js';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, user, allowedRoles }) => {
@@ -151,30 +152,34 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Khôi phục user từ localStorage khi app khởi động
+  // Khôi phục user từ cookie khi app khởi động
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      try {
-        setCurrentUser(JSON.parse(savedUser));
-      } catch (error) {
-        console.error('Error parsing saved user:', error);
-        localStorage.removeItem('user');
+
+    try {
+      const getUser = getInforFromCookie();
+      if (getUser) {
+        setCurrentUser(getUser);
       }
+
+    } catch (error) {
+      console.error('Error parsing saved user:', error);
+      document.cookie = "user=; path=/; max-age=0";
     }
     setIsLoading(false);
+
+
   }, []);
 
   const handleLogin = (user) => {
     setCurrentUser(user);
-    // Lưu user vào localStorage
-    localStorage.setItem('user', JSON.stringify(user));
+    // Lưu user vào cookie
+    document.cookie = `user=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=${60 * 60}`;
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
-    // Xóa user khỏi localStorage
-    localStorage.removeItem('user');
+    // Xóa user khỏi cookie
+    document.cookie = "user=; path=/; max-age=0";
   };
 
   if (isLoading) {

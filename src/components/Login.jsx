@@ -1,128 +1,271 @@
-import { useState } from 'react';
-import { MOCK_USERS } from '../services/mockData.js';
-import { ArrowRight, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+
+import { ArrowRight, Mail, Lock, AlertCircle, CheckCircle, Eye, EyeOff, Loader2, Check } from 'lucide-react';
 import api from '../ultis/api.js';
+import './Login.css';
+
 
 export const Login = ({ onLogin }) => {
+  // ===== STATE MANAGEMENT =====
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [emailValid, setEmailValid] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
+  const emailInputRef = useRef(null);
 
-  const handleSubmit = (e) => {
+
+  // ===== EFFECTS =====
+  // Auto-focus email input on mount
+  useEffect(() => {
+    emailInputRef.current?.focus();
+  }, []);
+
+  // Email validation
+  useEffect(() => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    setEmailValid(emailRegex.test(email));
+  }, [email]);
+
+  // Password strength meter
+  useEffect(() => {
+    if (password.length === 0) {
+      setPasswordStrength('');
+    } else if (password.length < 6) {
+      setPasswordStrength('weak');
+    } else if (password.length < 10) {
+      setPasswordStrength('medium');
+    } else {
+      setPasswordStrength('strong');
+    }
+  }, [password]);
+
+  // ===== EVENT HANDLERS =====
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    api.post("/Auth/login", {
-      email: email, password: password
-    }).then((e) => { console.log(e); console.log(e.data); onLogin(e.data.data) }).catch((e) => alert("Failed"));
+    try {
+      const response = await api.post("/Auth/login", {
+        email: email, password: password
+      });
+      console.log("Login response:", response.data);
+      const user = response.data.data;
+      onLogin(user);
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('Invalid email or password. Please try again.');
+    }
   };
 
+  // ===== RENDER =====
   return (
-    <div className="min-vh-100 bg-gradient d-flex align-items-center justify-content-center p-4" style={{ background: 'linear-gradient(to bottom right, #0f172a, #1e293b)' }}>
-      <div className="bg-white w-100 rounded-3 shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-500 d-flex flex-column flex-md-row" style={{ maxWidth: '56rem' }}>
+    <div className="login-container">
+      <div className="login-card">
 
-        {/* Left Side - Brand & Value Prop */}
-        <div className="bg-primary p-4 p-md-5 col-md-6 d-flex flex-column justify-content-center text-center text-md-start position-relative overflow-hidden" style={{ backgroundColor: '#4f46e5' }}>
-          {/* Decorative background circle */}
-          <div className="position-absolute" style={{ top: '-5rem', left: '-5rem', width: '16rem', height: '16rem', backgroundColor: '#6366f1', borderRadius: '50%', mixBlendMode: 'multiply', filter: 'blur(40px)', opacity: 0.7 }}></div>
-          <div className="position-absolute" style={{ bottom: '-5rem', right: '-5rem', width: '16rem', height: '16rem', backgroundColor: '#4338ca', borderRadius: '50%', mixBlendMode: 'multiply', filter: 'blur(40px)', opacity: 0.7 }}></div>
+        {/* ===== LEFT SIDE - BRANDING ===== */}
+        <div className="login-branding">
+          <div className="branding-circle-1"></div>
+          <div className="branding-circle-2"></div>
 
-          <div className="position-relative" style={{ zIndex: 10 }}>
-            <div className="mx-auto mx-md-0 d-flex align-items-center justify-content-center text-white fs-1 fw-bold mb-4 shadow-lg" style={{ width: '4rem', height: '4rem', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '1rem', backdropFilter: 'blur(4px)' }}>
+          <div className="branding-content">
+            <div className="branding-logo" aria-hidden="true">
               L
             </div>
-            <h1 className="fs-2 fw-bold text-white mb-3" style={{ letterSpacing: '-0.025em' }}>LabelNexus</h1>
-            <p className="text-white-50 fs-6 mb-4" style={{ lineHeight: 1.75, color: '#e0e7ff' }}>
+            <h1 className="branding-title">LabelNexus</h1>
+            <p className="branding-description">
               Enterprise-grade data labeling and annotation management system.
             </p>
 
-            <div className="d-none d-md-flex flex-column gap-3">
-              <div className="d-flex align-items-center gap-3 p-3 rounded-3" style={{ color: '#eef2ff', backgroundColor: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
-                <CheckCircle size={20} className="flex-shrink-0" style={{ color: '#c7d2fe' }} />
-                <span className="small fw-medium">Precision Annotation Tools</span>
+            <div className="branding-features">
+              <div className="branding-feature">
+                <CheckCircle size={20} className="branding-feature-icon" aria-hidden="true" />
+                <span className="branding-feature-text">Precision Annotation Tools</span>
               </div>
-              <div className="d-flex align-items-center gap-3 p-3 rounded-3" style={{ color: '#eef2ff', backgroundColor: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
-                <CheckCircle size={20} className="flex-shrink-0" style={{ color: '#c7d2fe' }} />
-                <span className="small fw-medium">Automated QA Workflows</span>
+              <div className="branding-feature">
+                <CheckCircle size={20} className="branding-feature-icon" aria-hidden="true" />
+                <span className="branding-feature-text">Automated QA Workflows</span>
               </div>
-              <div className="d-flex align-items-center gap-3 p-3 rounded-3" style={{ color: '#eef2ff', backgroundColor: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
-                <CheckCircle size={20} className="flex-shrink-0" style={{ color: '#c7d2fe' }} />
-                <span className="small fw-medium">Real-time Team Collaboration</span>
+              <div className="branding-feature">
+                <CheckCircle size={20} className="branding-feature-icon" aria-hidden="true" />
+                <span className="branding-feature-text">Real-time Team Collaboration</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Side - Login Form */}
-        <div className="p-4 p-md-5 col-md-6 bg-white d-flex flex-column justify-content-center">
-          <div className="mb-4 mb-md-5">
-            <h2 className="fs-3 fw-bold text-slate-900">Welcome back</h2>
-            <p className="small text-slate-500 mt-1">Please enter your details to sign in.</p>
+        {/* ===== RIGHT SIDE - LOGIN FORM ===== */}
+        <div className="login-form-container">
+          <div className="form-header">
+            <h2 className="form-title">Welcome back</h2>
+            <p className="form-subtitle">Please enter your details to sign in.</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="d-flex flex-column gap-3">
-            <div className="d-flex flex-column gap-1">
-              <label className="small fw-bold text-slate-700 text-uppercase" style={{ letterSpacing: '0.05em' }}>Email Address</label>
-              <div className="position-relative">
-                <Mail size={18} className="position-absolute text-slate-400" style={{ left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+          <form onSubmit={handleSubmit} className="login-form" noValidate>
+
+            {/* Email Field */}
+            <div className="form-group">
+              <label htmlFor="email-input" className="form-label">
+                Email Address
+              </label>
+              <div className="input-wrapper">
+                <Mail
+                  size={18}
+                  className="input-icon"
+                  aria-hidden="true"
+                />
                 <input
+                  id="email-input"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="form-control ps-5 py-2 bg-slate-50 border-slate-200 rounded-3"
-                  style={{ fontSize: '0.875rem' }}
+                  ref={emailInputRef}
+                  className={`form-input ${error ? 'input-error' : ''}`}
                   placeholder="name@company.com"
                   required
+                  aria-label="Email address"
+                  aria-describedby="email-hint"
+                  aria-invalid={error ? 'true' : 'false'}
                 />
+                {email && emailValid && (
+                  <Check
+                    size={18}
+                    className="input-icon-right email-valid-icon"
+                    aria-hidden="true"
+                  />
+                )}
               </div>
+              {email && !emailValid && (
+                <small id="email-hint" className="input-hint" style={{ color: '#dc2626' }}>
+                  Please enter a valid email address
+                </small>
+              )}
+              {email && emailValid && (
+                <small id="email-hint" className="input-hint" style={{ color: '#10b981' }}>
+                  Email format is valid
+                </small>
+              )}
+              {!email && (
+                <small id="email-hint" className="input-hint">
+                  Enter your email address
+                </small>
+              )}
             </div>
 
-            <div className="d-flex flex-column gap-1">
-              <label className="small fw-bold text-slate-700 text-uppercase" style={{ letterSpacing: '0.05em' }}>Password</label>
-              <div className="position-relative">
-                <Lock size={18} className="position-absolute text-slate-400" style={{ left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+            {/* Password Field */}
+            <div className="form-group">
+              <label htmlFor="password-input" className="form-label">
+                Password
+              </label>
+              <div className="input-wrapper">
+                <Lock
+                  size={18}
+                  className="input-icon"
+                  aria-hidden="true"
+                />
                 <input
-                  type="password"
+                  id="password-input"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="form-control ps-5 py-2 bg-slate-50 border-slate-200 rounded-3"
-                  style={{ fontSize: '0.875rem' }}
+                  className={`form-input ${error ? 'input-error' : ''}`}
                   placeholder="••••••••"
                   required
+                  aria-label="Password"
+                  aria-describedby="password-strength"
+                  aria-invalid={error ? 'true' : 'false'}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="input-icon-right password-toggle"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  tabIndex={0}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
 
+            {/* Remember Me & Forgot Password */}
+            <div className="form-options">
+              <div className="remember-me">
+                <input
+                  type="checkbox"
+                  id="remember-me"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="checkbox-custom"
+                  aria-label="Remember me"
+                />
+                <label htmlFor="remember-me" className="checkbox-label">
+                  Remember me
+                </label>
+              </div>
+              <a href="#" className="forgot-password">
+                Forgot Password?
+              </a>
+            </div>
+
+            {/* Error Message */}
             {error && (
-              <div className="d-flex align-items-center gap-2 small fw-medium p-3 rounded-3 border animate-in slide-in-from-top-2" style={{ color: '#dc2626', backgroundColor: '#fef2f2', borderColor: '#fecaca' }}>
-                <AlertCircle size={16} />
-                {error}
+              <div
+                className="error-message"
+                role="alert"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <AlertCircle size={16} aria-hidden="true" />
+                <span>{error}</span>
               </div>
             )}
 
+            {/* Success Message */}
+            {showSuccess && (
+              <div
+                className="success-message"
+                role="status"
+                aria-live="polite"
+              >
+                <Check size={16} className="success-icon" aria-hidden="true" />
+                <span>Login successful! Redirecting...</span>
+              </div>
+            )}
+
+            {/* Submit Button */}
             <button
               type="submit"
-              className="btn w-100 text-white fw-bold py-3 rounded-3 d-flex align-items-center justify-content-center gap-2 mt-2 shadow active:scale-[0.99] transition-all"
-              style={{ backgroundColor: '#4f46e5', boxShadow: '0 10px 15px -3px rgba(79, 70, 229, 0.3)' }}
+              disabled={isLoading || showSuccess}
+              className="btn-submit"
+              aria-label={isLoading ? 'Signing in, please wait' : 'Sign in to your account'}
             >
-              Sign In
-              <ArrowRight size={18} />
+              {isLoading ? (
+                <>
+                  <Loader2 size={18} className="loading-spinner" aria-hidden="true" />
+                  <span>Signing In...</span>
+                </>
+              ) : showSuccess ? (
+                <>
+                  <Check size={18} className="success-icon" aria-hidden="true" />
+                  <span>Success!</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign In</span>
+                  <ArrowRight size={18} aria-hidden="true" />
+                </>
+              )}
             </button>
           </form>
-
-          <div className="mt-4 text-center">
-            <a href="#" className="small fw-medium" style={{ color: '#4f46e5', textDecoration: 'none' }}>Forgot Password?</a>
-          </div>
         </div>
       </div>
 
-      <div className="position-fixed bottom-0 text-slate-500 small fw-medium mb-3" style={{ fontSize: '0.75rem' }}>
+      <div className="login-footer">
         Secure System v2.1.0 &bull; LabelNexus Inc.
       </div>
     </div>
   );
 };
-
-
-
-
-
