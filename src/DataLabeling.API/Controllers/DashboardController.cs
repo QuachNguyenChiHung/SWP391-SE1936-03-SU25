@@ -1,3 +1,4 @@
+using DataLabeling.Application.DTOs.Common;
 using DataLabeling.Application.DTOs.Dashboard;
 using DataLabeling.Core.Enums;
 using DataLabeling.Core.Interfaces;
@@ -41,14 +42,14 @@ public class DashboardController : ControllerBase
     /// </summary>
     [HttpGet("annotator")]
     [Authorize(Roles = "Annotator")]
-    [ProducesResponseType(typeof(AnnotatorDashboardDto), 200)]
-    public async Task<ActionResult<AnnotatorDashboardDto>> GetAnnotatorDashboard(CancellationToken cancellationToken = default)
+    [ProducesResponseType(typeof(ApiResponse<AnnotatorDashboardDto>), 200)]
+    public async Task<ActionResult<ApiResponse<AnnotatorDashboardDto>>> GetAnnotatorDashboard(CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
 
         // Get all tasks assigned to this annotator
         var tasks = await _uow.AnnotationTasks.GetByAnnotatorIdAsync(userId, cancellationToken);
-        var taskList = tasks.ToList();
+        var taskList = tasks?.ToList() ?? new List<Core.Entities.AnnotationTask>();
 
         // Calculate stats
         var stats = new AnnotatorStatsDto
@@ -70,7 +71,7 @@ public class DashboardController : ControllerBase
                 Status = t.Status.ToString(),
                 TotalItems = t.TotalItems,
                 CompletedItems = t.CompletedItems,
-                ProgressPercent = t.ProgressPercent,
+                ProgressPercent = t.TotalItems > 0 ? (double)t.CompletedItems / t.TotalItems * 100 : 0,
                 AssignedAt = t.AssignedAt
             })
             .ToList();
@@ -79,22 +80,25 @@ public class DashboardController : ControllerBase
         var (notifications, _) = await _uow.Notifications.GetPagedByUserIdAsync(
             userId, 1, 5, false, cancellationToken);
 
-        var notificationDtos = notifications.Select(n => new NotificationDto
-        {
-            Id = n.Id,
-            Type = n.Type.ToString(),
-            Title = n.Title,
-            Content = n.Content,
-            IsRead = n.IsRead,
-            CreatedAt = n.CreatedAt
-        }).ToList();
+        var notificationDtos = (notifications ?? Enumerable.Empty<Core.Entities.Notification>())
+            .Select(n => new NotificationDto
+            {
+                Id = n.Id,
+                Type = n.Type.ToString(),
+                Title = n.Title,
+                Content = n.Content,
+                IsRead = n.IsRead,
+                CreatedAt = n.CreatedAt
+            }).ToList();
 
-        return Ok(new AnnotatorDashboardDto
+        var result = new AnnotatorDashboardDto
         {
             Stats = stats,
             RecentTasks = recentTasks,
             Notifications = notificationDtos
-        });
+        };
+
+        return Ok(ApiResponse<AnnotatorDashboardDto>.SuccessResponse(result));
     }
 
     /// <summary>
@@ -102,8 +106,8 @@ public class DashboardController : ControllerBase
     /// </summary>
     [HttpGet("reviewer")]
     [Authorize(Roles = "Reviewer")]
-    [ProducesResponseType(typeof(ReviewerDashboardDto), 200)]
-    public async Task<ActionResult<ReviewerDashboardDto>> GetReviewerDashboard(CancellationToken cancellationToken = default)
+    [ProducesResponseType(typeof(ApiResponse<ReviewerDashboardDto>), 200)]
+    public async Task<ActionResult<ApiResponse<ReviewerDashboardDto>>> GetReviewerDashboard(CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
 
@@ -114,17 +118,21 @@ public class DashboardController : ControllerBase
         var (pendingItems, pendingCount) = await _uow.Reviews.GetPendingReviewItemsPagedAsync(
             1, 10, null, cancellationToken);
 
-        var pendingQueue = pendingItems.Select(item => new PendingReviewItemDto
-        {
-            DataItemId = item.Id,
-            FileName = item.FileName,
-            ProjectName = item.Dataset?.Project?.Name ?? "Unknown",
-            AnnotatorName = item.TaskItems.FirstOrDefault()?.Task?.Annotator?.Name ?? "Unknown",
-            SubmittedAt = item.UpdatedAt ?? item.CreatedAt
-        }).ToList();
+        var pendingQueue = (pendingItems ?? Enumerable.Empty<Core.Entities.DataItem>())
+            .Select(item => new PendingReviewItemDto
+            {
+                DataItemId = item.Id,
+                FileName = item.FileName ?? "Unknown",
+                ProjectName = item.Dataset?.Project?.Name ?? "Unknown",
+                AnnotatorName = item.TaskItems?.FirstOrDefault()?.Task?.Annotator?.Name ?? "Unknown",
+                SubmittedAt = item.UpdatedAt ?? item.CreatedAt
+            }).ToList();
 
-        // Get recent reviews by this reviewer (last 5)
-        var recentReviews = (await _uow.Reviews.GetByReviewerIdAsync(userId, cancellationToken))
+        // Get recent reviews by this reviewer (last 5) - single query for both recent reviews and today count
+        var allReviewsByUser = (await _uow.Reviews.GetByReviewerIdAsync(userId, cancellationToken))?.ToList()
+            ?? new List<Core.Entities.Review>();
+
+        var recentReviews = allReviewsByUser
             .OrderByDescending(r => r.CreatedAt)
             .Take(5)
             .Select(r => new RecentReviewDto
@@ -136,25 +144,26 @@ public class DashboardController : ControllerBase
             })
             .ToList();
 
-        // Count reviews done today
+        // Count reviews done today (reuse the same list)
         var today = DateTime.UtcNow.Date;
-        var reviewsToday = (await _uow.Reviews.GetByReviewerIdAsync(userId, cancellationToken))
-            .Count(r => r.CreatedAt.Date == today);
+        var reviewsToday = allReviewsByUser.Count(r => r.CreatedAt.Date == today);
 
         var stats = new ReviewerStatsDto
         {
             PendingReview = pendingCount,
             ReviewedToday = reviewsToday,
-            TotalReviewed = reviewerStats.TotalReviewed,
-            ApprovalRate = reviewerStats.ApprovalRate
+            TotalReviewed = reviewerStats?.TotalReviewed ?? 0,
+            ApprovalRate = reviewerStats?.ApprovalRate ?? 0
         };
 
-        return Ok(new ReviewerDashboardDto
+        var result = new ReviewerDashboardDto
         {
             Stats = stats,
             PendingQueue = pendingQueue,
             RecentReviews = recentReviews
-        });
+        };
+
+        return Ok(ApiResponse<ReviewerDashboardDto>.SuccessResponse(result));
     }
 
     /// <summary>
@@ -162,8 +171,8 @@ public class DashboardController : ControllerBase
     /// </summary>
     [HttpGet("manager")]
     [Authorize(Roles = "Admin,Manager")]
-    [ProducesResponseType(typeof(ManagerDashboardDto), 200)]
-    public async Task<ActionResult<ManagerDashboardDto>> GetManagerDashboard(CancellationToken cancellationToken = default)
+    [ProducesResponseType(typeof(ApiResponse<ManagerDashboardDto>), 200)]
+    public async Task<ActionResult<ApiResponse<ManagerDashboardDto>>> GetManagerDashboard(CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
         var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
@@ -173,7 +182,7 @@ public class DashboardController : ControllerBase
         var (projects, totalProjects) = await _uow.Projects.GetPagedAsync(
             1, 100, null, isAdmin ? null : userId, null, cancellationToken);
 
-        var projectList = projects.ToList();
+        var projectList = projects?.ToList() ?? new List<Core.Entities.Project>();
 
         // Calculate stats
         int totalItems = 0;
@@ -182,9 +191,9 @@ public class DashboardController : ControllerBase
 
         foreach (var project in projectList)
         {
-            var stats = await _uow.Projects.GetStatisticsAsync(project.Id, cancellationToken);
-            var projectTotalItems = stats?.TotalItems ?? 0;
-            var projectCompletedItems = stats?.ApprovedItems ?? 0;
+            var projectStats = await _uow.Projects.GetStatisticsAsync(project.Id, cancellationToken);
+            var projectTotalItems = projectStats?.TotalItems ?? 0;
+            var projectCompletedItems = projectStats?.ApprovedItems ?? 0;
 
             totalItems += projectTotalItems;
             completedItems += projectCompletedItems;
@@ -192,7 +201,7 @@ public class DashboardController : ControllerBase
             projectOverviews.Add(new ProjectOverviewDto
             {
                 ProjectId = project.Id,
-                ProjectName = project.Name,
+                ProjectName = project.Name ?? "Unknown",
                 Status = project.Status.ToString(),
                 TotalItems = projectTotalItems,
                 CompletedItems = projectCompletedItems,
@@ -210,29 +219,34 @@ public class DashboardController : ControllerBase
         };
 
         // Get team performance (simplified - just get annotators with their task counts)
-        var teamPerformance = new List<TeamPerformanceDto>();
-
-        // Get all tasks to aggregate team performance
         var allTasks = await _uow.AnnotationTasks.GetPagedAsync(1, 1000, null, null, null, cancellationToken);
-        var tasksByAnnotator = allTasks.Items
-            .GroupBy(t => new { t.AnnotatorId, t.Annotator?.Name })
-            .Select(g => new TeamPerformanceDto
+        var taskItems = allTasks.Items?.ToList() ?? new List<Core.Entities.AnnotationTask>();
+
+        var tasksByAnnotator = taskItems
+            .GroupBy(t => t.AnnotatorId)
+            .Select(g =>
             {
-                UserId = g.Key.AnnotatorId,
-                UserName = g.Key.Name ?? "Unknown",
-                Role = "Annotator",
-                TasksCompleted = g.Count(t => t.Status == AnnotationTaskStatus.Completed),
-                ItemsProcessed = g.Sum(t => t.CompletedItems),
-                AverageAccuracy = 0 // Would need review data to calculate
+                var firstTask = g.First();
+                return new TeamPerformanceDto
+                {
+                    UserId = g.Key,
+                    UserName = firstTask.Annotator?.Name ?? "Unknown",
+                    Role = "Annotator",
+                    TasksCompleted = g.Count(t => t.Status == AnnotationTaskStatus.Completed),
+                    ItemsProcessed = g.Sum(t => t.CompletedItems),
+                    AverageAccuracy = 0 // Would need review data to calculate
+                };
             })
             .Take(10)
             .ToList();
 
-        return Ok(new ManagerDashboardDto
+        var result = new ManagerDashboardDto
         {
             Stats = managerStats,
             ProjectOverview = projectOverviews.Take(10).ToList(),
             TeamPerformance = tasksByAnnotator
-        });
+        };
+
+        return Ok(ApiResponse<ManagerDashboardDto>.SuccessResponse(result));
     }
 }
