@@ -13,6 +13,7 @@ public class MappingProfile : Profile
     {
         // User mappings
         CreateMap<User, UserDto>();
+        CreateMap<User, PendingUserDto>();
         CreateMap<CreateUserRequest, User>()
             .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())
             .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Email.ToLowerInvariant()));

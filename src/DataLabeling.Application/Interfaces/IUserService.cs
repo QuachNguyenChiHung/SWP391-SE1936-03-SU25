@@ -58,4 +58,30 @@ public interface IUserService
     /// <param name="id">User ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets all users pending approval.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of pending users.</returns>
+    Task<IEnumerable<PendingUserDto>> GetPendingApprovalUsersAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Approves a user registration.
+    /// </summary>
+    /// <param name="userId">The user ID to approve.</param>
+    /// <param name="approverId">The ID of the admin/manager approving.</param>
+    /// <param name="request">Optional approval request with notes.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The approved user DTO.</returns>
+    Task<UserDto> ApproveUserAsync(int userId, int approverId, ApproveUserRequest? request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Rejects a user registration.
+    /// </summary>
+    /// <param name="userId">The user ID to reject.</param>
+    /// <param name="approverId">The ID of the admin/manager rejecting.</param>
+    /// <param name="request">Rejection request with reason.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task RejectUserAsync(int userId, int approverId, RejectUserRequest request, CancellationToken cancellationToken = default);
 }

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using DataLabeling.Application.DTOs.Common;
 using DataLabeling.Application.DTOs.User;
 using DataLabeling.Application.Interfaces;
@@ -20,6 +21,16 @@ public class UsersController : ControllerBase
     public UsersController(IUserService userService)
     {
         _userService = userService;
+    }
+
+    /// <summary>
+    /// Gets the current user's ID from JWT claims.
+    /// </summary>
+    private int GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)
+                          ?? User.FindFirst("sub");
+        return int.Parse(userIdClaim!.Value);
     }
 
     /// <summary>
@@ -125,5 +136,69 @@ public class UsersController : ControllerBase
     {
         await _userService.DeleteAsync(id, cancellationToken);
         return Ok(ApiResponse.SuccessResponse("User deleted successfully."));
+    }
+
+    /// <summary>
+    /// Gets all users pending approval.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of pending users.</returns>
+    [HttpGet("pending-approval")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<PendingUserDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetPendingApproval(CancellationToken cancellationToken)
+    {
+        var result = await _userService.GetPendingApprovalUsersAsync(cancellationToken);
+        return Ok(ApiResponse<IEnumerable<PendingUserDto>>.SuccessResponse(result));
+    }
+
+    /// <summary>
+    /// Approves a user registration.
+    /// </summary>
+    /// <param name="id">User ID to approve.</param>
+    /// <param name="request">Optional approval notes.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The approved user.</returns>
+    [HttpPost("{id:int}/approve")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Approve(
+        int id,
+        [FromBody] ApproveUserRequest? request,
+        CancellationToken cancellationToken)
+    {
+        var approverId = GetCurrentUserId();
+        var result = await _userService.ApproveUserAsync(id, approverId, request, cancellationToken);
+        return Ok(ApiResponse<UserDto>.SuccessResponse(result, "User approved successfully."));
+    }
+
+    /// <summary>
+    /// Rejects a user registration.
+    /// </summary>
+    /// <param name="id">User ID to reject.</param>
+    /// <param name="request">Rejection reason.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Confirmation message.</returns>
+    [HttpPost("{id:int}/reject")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Reject(
+        int id,
+        [FromBody] RejectUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        var approverId = GetCurrentUserId();
+        await _userService.RejectUserAsync(id, approverId, request, cancellationToken);
+        return Ok(ApiResponse.SuccessResponse("User registration rejected."));
     }
 }

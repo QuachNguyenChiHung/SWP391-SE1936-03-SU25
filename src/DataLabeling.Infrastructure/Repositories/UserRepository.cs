@@ -75,4 +75,26 @@ public class UserRepository : Repository<User>, IUserRepository
 
         return (items, totalCount);
     }
+
+    public async Task<User?> GetByVerificationTokenAsync(string token, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .FirstOrDefaultAsync(u => u.EmailVerificationToken == token, cancellationToken);
+    }
+
+    public async Task<IEnumerable<User>> GetPendingApprovalUsersAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Where(u => u.Status == UserStatus.PendingApproval)
+            .OrderBy(u => u.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IEnumerable<User>> GetAdminsAndManagersAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Where(u => (u.Role == UserRole.Admin || u.Role == UserRole.Manager)
+                        && u.Status == UserStatus.Active)
+            .ToListAsync(cancellationToken);
+    }
 }

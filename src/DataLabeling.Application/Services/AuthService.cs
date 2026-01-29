@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using AutoMapper;
 using DataLabeling.Application.DTOs.Auth;
@@ -25,6 +26,8 @@ public class AuthService : IAuthService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly JwtSettings _jwtSettings;
+    private readonly EmailSettings _emailSettings;
+    private readonly IEmailService _emailService;
 
     private const int MAX_FAILED_ATTEMPTS = 5;
     private const int LOCKOUT_MINUTES = 15;
@@ -33,12 +36,16 @@ public class AuthService : IAuthService
         IUserRepository userRepository,
         IUnitOfWork unitOfWork,
         IMapper mapper,
-        IOptions<JwtSettings> jwtSettings)
+        IOptions<JwtSettings> jwtSettings,
+        IOptions<EmailSettings> emailSettings,
+        IEmailService emailService)
     {
         _userRepository = userRepository;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _jwtSettings = jwtSettings.Value;
+        _emailSettings = emailSettings.Value;
+        _emailService = emailService;
     }
 
     /// <inheritdoc/>
@@ -55,6 +62,18 @@ public class AuthService : IAuthService
         if (user.Status == UserStatus.Inactive)
         {
             throw new UnauthorizedException("Your account has been deactivated. Please contact an administrator.");
+        }
+
+        // Check if email is pending verification
+        if (user.Status == UserStatus.PendingVerification)
+        {
+            throw new UnauthorizedException("Please verify your email address before logging in.");
+        }
+
+        // Check if account is pending approval
+        if (user.Status == UserStatus.PendingApproval)
+        {
+            throw new UnauthorizedException("Your account is pending approval. Please wait for an administrator to approve your registration.");
         }
 
         // Check if account is locked
@@ -97,6 +116,153 @@ public class AuthService : IAuthService
             ExpiresAt = expiresAt,
             User = _mapper.Map<UserDto>(user)
         };
+    }
+
+    /// <inheritdoc/>
+    public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
+    {
+        // Validate role - only Annotator and Reviewer can self-register
+        if (request.Role != UserRole.Annotator && request.Role != UserRole.Reviewer)
+        {
+            throw new ValidationException("Self-registration is only allowed for Annotator or Reviewer roles.");
+        }
+
+        // Check if email already exists (return generic message for security)
+        if (await _userRepository.EmailExistsAsync(request.Email, cancellationToken))
+        {
+            // Return success message even if email exists (security best practice)
+            return new RegisterResponse
+            {
+                Message = "If this email is not already registered, you will receive a verification email shortly.",
+                Email = request.Email
+            };
+        }
+
+        // Generate verification token
+        var verificationToken = GenerateSecureToken();
+
+        // Create user with PendingVerification status
+        var user = new User
+        {
+            Email = request.Email.ToLowerInvariant(),
+            Name = request.Name,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            Role = request.Role,
+            Status = UserStatus.PendingVerification,
+            IsEmailVerified = false,
+            EmailVerificationToken = verificationToken,
+            EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(_emailSettings.VerificationTokenExpiryHours)
+        };
+
+        await _userRepository.AddAsync(user, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Send verification email
+        await _emailService.SendVerificationEmailAsync(
+            user.Email,
+            user.Name,
+            verificationToken,
+            cancellationToken);
+
+        return new RegisterResponse
+        {
+            Message = "Registration successful. Please check your email to verify your account.",
+            Email = request.Email
+        };
+    }
+
+    /// <inheritdoc/>
+    public async Task VerifyEmailAsync(VerifyEmailRequest request, CancellationToken cancellationToken = default)
+    {
+        var user = await _userRepository.GetByVerificationTokenAsync(request.Token, cancellationToken);
+
+        if (user == null || !user.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ValidationException("Invalid or expired verification token.");
+        }
+
+        // Check if token is expired
+        if (user.EmailVerificationTokenExpiry < DateTime.UtcNow)
+        {
+            throw new ValidationException("Verification token has expired. Please request a new one.");
+        }
+
+        // Check if already verified
+        if (user.IsEmailVerified)
+        {
+            throw new ValidationException("Email has already been verified.");
+        }
+
+        // Update user status
+        user.IsEmailVerified = true;
+        user.EmailVerificationToken = null;
+        user.EmailVerificationTokenExpiry = null;
+        user.Status = UserStatus.PendingApproval;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Notify all admins and managers about the new pending user
+        var adminsAndManagers = await _userRepository.GetAdminsAndManagersAsync(cancellationToken);
+        foreach (var admin in adminsAndManagers)
+        {
+            await _emailService.SendApprovalNotificationAsync(
+                admin.Email,
+                admin.Name,
+                user.Name,
+                user.Email,
+                user.Role.ToString(),
+                cancellationToken);
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task ResendVerificationEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        var user = await _userRepository.GetByEmailAsync(email, cancellationToken);
+
+        // Return silently if user doesn't exist (security best practice)
+        if (user == null)
+        {
+            return;
+        }
+
+        // Check if user is in correct status
+        if (user.Status != UserStatus.PendingVerification)
+        {
+            return;
+        }
+
+        // Generate new verification token
+        var verificationToken = GenerateSecureToken();
+        user.EmailVerificationToken = verificationToken;
+        user.EmailVerificationTokenExpiry = DateTime.UtcNow.AddHours(_emailSettings.VerificationTokenExpiryHours);
+        user.UpdatedAt = DateTime.UtcNow;
+
+        _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Send verification email
+        await _emailService.SendVerificationEmailAsync(
+            user.Email,
+            user.Name,
+            verificationToken,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Generates a cryptographically secure random token.
+    /// </summary>
+    private static string GenerateSecureToken()
+    {
+        var randomBytes = new byte[32];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomBytes);
+        return Convert.ToBase64String(randomBytes)
+            .Replace("+", "-")
+            .Replace("/", "_")
+            .Replace("=", "");
     }
 
     /// <summary>

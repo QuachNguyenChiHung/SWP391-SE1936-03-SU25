@@ -38,4 +38,19 @@ public interface IUserRepository : IRepository<User>
         UserStatus? status = null,
         string? searchTerm = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a user by email verification token.
+    /// </summary>
+    Task<User?> GetByVerificationTokenAsync(string token, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets all users pending approval.
+    /// </summary>
+    Task<IEnumerable<User>> GetPendingApprovalUsersAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets all admins and managers (for approval notifications).
+    /// </summary>
+    Task<IEnumerable<User>> GetAdminsAndManagersAsync(CancellationToken cancellationToken = default);
 }

@@ -18,15 +18,18 @@ public class UserService : IUserService
     private readonly IUserRepository _userRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
+    private readonly IEmailService _emailService;
 
     public UserService(
         IUserRepository userRepository,
         IUnitOfWork unitOfWork,
-        IMapper mapper)
+        IMapper mapper,
+        IEmailService emailService)
     {
         _userRepository = userRepository;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
+        _emailService = emailService;
     }
 
     /// <inheritdoc/>
@@ -138,5 +141,78 @@ public class UserService : IUserService
 
         _userRepository.Update(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IEnumerable<PendingUserDto>> GetPendingApprovalUsersAsync(CancellationToken cancellationToken = default)
+    {
+        var users = await _userRepository.GetPendingApprovalUsersAsync(cancellationToken);
+        return _mapper.Map<IEnumerable<PendingUserDto>>(users);
+    }
+
+    /// <inheritdoc/>
+    public async Task<UserDto> ApproveUserAsync(int userId, int approverId, ApproveUserRequest? request, CancellationToken cancellationToken = default)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+
+        if (user == null)
+        {
+            throw new NotFoundException("User", userId);
+        }
+
+        if (user.Status != UserStatus.PendingApproval)
+        {
+            throw new ValidationException("User is not pending approval.");
+        }
+
+        // Update user status
+        user.Status = UserStatus.Active;
+        user.ApprovedById = approverId;
+        user.ApprovedAt = DateTime.UtcNow;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Send approval confirmation email
+        await _emailService.SendApprovalConfirmationAsync(
+            user.Email,
+            user.Name,
+            cancellationToken);
+
+        return _mapper.Map<UserDto>(user);
+    }
+
+    /// <inheritdoc/>
+    public async Task RejectUserAsync(int userId, int approverId, RejectUserRequest request, CancellationToken cancellationToken = default)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+
+        if (user == null)
+        {
+            throw new NotFoundException("User", userId);
+        }
+
+        if (user.Status != UserStatus.PendingApproval)
+        {
+            throw new ValidationException("User is not pending approval.");
+        }
+
+        // Update user status
+        user.Status = UserStatus.Inactive;
+        user.RejectionReason = request.Reason;
+        user.ApprovedById = approverId;
+        user.ApprovedAt = DateTime.UtcNow;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Send rejection notification email
+        await _emailService.SendRejectionNotificationAsync(
+            user.Email,
+            user.Name,
+            request.Reason,
+            cancellationToken);
     }
 }
