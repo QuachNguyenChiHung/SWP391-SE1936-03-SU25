@@ -23,6 +23,7 @@ export const ManagerProjects = ({ user }) => {
     }, []);
     const handleCreateProject = async () => {
         try {
+
             const response = await axios.post(import.meta.env.VITE_URL + "/Projects", {
                 name: projectName,
                 description: projectDescription,
@@ -93,7 +94,7 @@ export const ManagerProjects = ({ user }) => {
                                         <Layers size={20} />
                                     </div>
                                     <div className="d-flex align-items-center gap-2">
-                                        <p style={{ marginBottom: 0 }}>sdf</p>
+                                        <p style={{ marginBottom: 0 }}>Image</p>
                                         <StatusBadge status={project.status} />
                                     </div>
                                 </div>

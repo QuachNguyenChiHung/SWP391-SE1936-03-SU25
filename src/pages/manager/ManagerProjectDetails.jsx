@@ -8,7 +8,10 @@ import {
 import { MOCK_PROJECTS, MOCK_TASKS, MOCK_USERS } from '../../services/mockData.js';
 import { ProjectStatus, DataItemStatus } from '../../types.js';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import Modal from 'react-bootstrap/Modal';
 
+import Button from 'react-bootstrap/Button';
+import ModalDialog from 'react-bootstrap/esm/ModalDialog.js';
 export const ManagerProjectDetails = ({ user }) => {
     const { pid } = useParams();
     const navigate = useNavigate();
@@ -23,7 +26,10 @@ export const ManagerProjectDetails = ({ user }) => {
     const [isGuidelinesModalOpen, setIsGuidelinesModalOpen] = useState(false);
     const [guidelinesText, setGuidelinesText] = useState('');
     const [isEditingGuidelines, setIsEditingGuidelines] = useState(false);
+    const [show, setShow] = useState(false);
 
+    const handleClose = () => setShow(false);
+    const handleShow = () => setShow(true);
     // Load project from URL parameter
     useEffect(() => {
         if (!pid) {
@@ -250,6 +256,7 @@ export const ManagerProjectDetails = ({ user }) => {
                                             </div>
                                             <ChevronRight size={16} />
                                         </button>
+                                        <button className='btn btn-danger' style={{ alignSelf: 'center' }} onClick={handleShow}>Delete Project</button>
                                     </div>
                                 </div>
                             </div>
@@ -491,7 +498,20 @@ export const ManagerProjectDetails = ({ user }) => {
                     </div>
                 )}
             </div>
-
+            <Modal show={show} onHide={handleClose} animation={false}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Delete Project</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>Are you sure you want to delete this project?</Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={handleClose}>
+                        Close
+                    </Button>
+                    <Button variant="danger" onClick={handleClose}>
+                        Delete
+                    </Button>
+                </Modal.Footer>
+            </Modal>
             {/* Import Modal */}
             {isImportModalOpen && (
                 <div className="modal d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>

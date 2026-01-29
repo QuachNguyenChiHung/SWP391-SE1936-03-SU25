@@ -22,7 +22,7 @@ export const ManagerDashboard = ({ user }) => {
             {/* Header / Welcome */}
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
                 <div>
-                    <h2 className="h3 fw-bold text-dark">Welcome back, {user.name}</h2>
+                    <h2 className="h3 fw-bold text-dark">Welcome back, {user.user.name}</h2>
                     <p className="text-muted">Here is what is happening in your workspace today.</p>
                 </div>
                 <div className="text-end d-none d-md-block">

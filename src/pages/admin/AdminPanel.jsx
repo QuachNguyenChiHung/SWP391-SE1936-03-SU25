@@ -98,7 +98,7 @@ export const AdminPanel = ({ user }) => {
                                                 </div>
                                             </td>
                                             <td>
-                                                <span className={`badge rounded-pill
+                                                <span className={`badge rounded-pill text-black
                                             ${user.role === 'ADMIN' ? 'bg-purple-light text-purple' : ''}
                                             ${user.role === 'MANAGER' ? 'bg-indigo-light text-indigo' : ''}
                                             ${user.role === 'ANNOTATOR' ? 'bg-blue-light text-primary' : ''}
