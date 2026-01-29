@@ -4,8 +4,10 @@ using DataLabeling.Application;
 using DataLabeling.Application.Settings;
 using DataLabeling.Infrastructure;
 using DataLabeling.Infrastructure.Data;
+using DataLabeling.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
@@ -18,6 +20,9 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 // Add Application Layer (Services, AutoMapper, FluentValidation)
 builder.Services.AddApplication(builder.Configuration);
+
+// Add File Storage Service
+builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 
 // Add Controllers
 builder.Services.AddControllers();
@@ -77,7 +82,7 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Enter your JWT token in the text input below.\n\nExample: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        Description = "Enter your JWT token in the text input below.\\n\\nExample: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -111,6 +116,19 @@ if (app.Environment.IsDevelopment())
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "Data Labeling API v1");
     });
 }
+
+// Serve static files from uploads folder
+var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");
+if (!Directory.Exists(uploadsPath))
+{
+    Directory.CreateDirectory(uploadsPath);
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads"
+});
 
 app.UseHttpsRedirection();
 

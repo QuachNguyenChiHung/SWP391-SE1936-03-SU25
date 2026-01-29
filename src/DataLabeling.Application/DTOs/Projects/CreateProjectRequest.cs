@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations;
 using DataLabeling.Core.Enums;
+
 namespace DataLabeling.Application.DTOs.Projects
 {
     public class CreateProjectRequest
@@ -20,5 +21,10 @@ namespace DataLabeling.Application.DTOs.Projects
         public ProjectType Type { get; set; }
 
         public DateOnly? Deadline { get; set; }
+
+        /// <summary>
+        /// Guideline content in Markdown/HTML format (optional)
+        /// </summary>
+        public string? GuidelineContent { get; set; }
     }
 }

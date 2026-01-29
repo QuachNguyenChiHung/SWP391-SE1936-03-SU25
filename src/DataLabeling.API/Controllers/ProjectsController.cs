@@ -4,6 +4,7 @@ using DataLabeling.Core.Entities;
 using DataLabeling.Core.Enums;
 using DataLabeling.Core.Interfaces;
 using DataLabeling.Core.Interfaces.Repositories;
+using DataLabeling.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -16,10 +17,12 @@ namespace DataLabeling.API.Controllers;
 public class ProjectsController : ControllerBase
 {
     private readonly IUnitOfWork _uow;
+    private readonly IFileStorageService _fileStorage;
 
-    public ProjectsController(IUnitOfWork uow)
+    public ProjectsController(IUnitOfWork uow, IFileStorageService fileStorage)
     {
         _uow = uow;
+        _fileStorage = fileStorage;
     }
 
     private int GetUserId()
@@ -179,12 +182,15 @@ public class ProjectsController : ControllerBase
     /// <summary>
     /// Create a new project (Admin/Manager only).
     /// </summary>
+    /// <summary>
+    /// Create a new project (Admin/Manager only).
+    /// </summary>
     [HttpPost]
     [Authorize(Roles = "Admin,Manager")]
     [ProducesResponseType(typeof(ProjectDto), 201)]
     [ProducesResponseType(400)]
     public async Task<ActionResult<ProjectDto>> Create(
-        [FromBody] CreateProjectRequest request,
+        [FromBody] CreateProjectRequest request,  // ✅ Đổi lại thành [FromBody]
         CancellationToken cancellationToken = default)
     {
         try
@@ -212,6 +218,25 @@ public class ProjectsController : ControllerBase
             await _uow.SaveChangesAsync(cancellationToken);
 
             Console.WriteLine($"✅ Project created successfully with Id: {project.Id}");
+
+            // Create text guideline if content provided
+            if (!string.IsNullOrWhiteSpace(request.GuidelineContent))
+            {
+                Console.WriteLine($"🔹 Creating guideline for project {project.Id}");
+
+                var guideline = new Guideline
+                {
+                    ProjectId = project.Id,
+                    Content = request.GuidelineContent,
+                    Version = 1,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                await _uow.Guidelines.AddAsync(guideline, cancellationToken);
+                await _uow.SaveChangesAsync(cancellationToken);
+
+                Console.WriteLine($"✅ Guideline created with Id: {guideline.Id}");
+            }
 
             var dto = new ProjectDto
             {
@@ -244,6 +269,7 @@ public class ProjectsController : ControllerBase
             });
         }
     }
+
 
     /// <summary>
     /// Update project information (Owner or Admin only).
@@ -331,6 +357,201 @@ public class ProjectsController : ControllerBase
 
         return NoContent();
     }
+
+    // ==================== GUIDELINE ENDPOINTS ====================
+
+    /// <summary>
+    /// Upload guideline file for a project (PDF, DOCX, TXT, MD)
+    /// </summary>
+    [HttpPost("{id:int}/guideline/upload")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> UploadGuidelineFile(
+        int id,
+        IFormFile file,
+        CancellationToken cancellationToken = default)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { success = false, message = "No file uploaded" });
+
+        // Validate file type
+        var allowedExtensions = new[] { ".pdf", ".docx", ".doc", ".txt", ".md", ".html" };
+        var extension = Path.GetExtension(file.FileName).ToLower();
+
+        if (!allowedExtensions.Contains(extension))
+            return BadRequest(new
+            {
+                success = false,
+                message = $"File type not allowed. Allowed: {string.Join(", ", allowedExtensions)}"
+            });
+
+        // Validate file size (max 10MB)
+        if (file.Length > 10 * 1024 * 1024)
+            return BadRequest(new { success = false, message = "File size must be less than 10MB" });
+
+        var userId = GetUserId();
+        var role = GetUserRole();
+
+        var project = await _uow.Projects.GetByIdAsync(id, cancellationToken);
+        if (project == null)
+            return NotFound(new { success = false, message = "Project not found" });
+
+        // Check permission
+        if (project.CreatedById != userId && role != UserRole.Admin)
+            return Forbid();
+
+        try
+        {
+            // Save file
+            var (filePath, fileName, fileSize) = await _fileStorage.SaveFileAsync(
+                file,
+                $"guidelines/{id}",
+                cancellationToken);
+
+            var existingGuideline = await _uow.Guidelines.GetByProjectIdAsync(id, cancellationToken);
+
+            if (existingGuideline != null)
+            {
+                // Delete old file if exists
+                if (!string.IsNullOrEmpty(existingGuideline.FilePath))
+                {
+                    await _fileStorage.DeleteFileAsync(existingGuideline.FilePath);
+                }
+
+                // Update guideline
+                existingGuideline.FilePath = filePath;
+                existingGuideline.FileName = fileName;
+                existingGuideline.FileSize = fileSize;
+                existingGuideline.ContentType = file.ContentType;
+                existingGuideline.Content = null; // Clear text content
+                existingGuideline.Version++;
+                existingGuideline.UpdatedAt = DateTime.UtcNow;
+
+                _uow.Guidelines.Update(existingGuideline);
+            }
+            else
+            {
+                // Create new guideline
+                var guideline = new Guideline
+                {
+                    ProjectId = id,
+                    FilePath = filePath,
+                    FileName = fileName,
+                    FileSize = fileSize,
+                    ContentType = file.ContentType,
+                    Version = 1,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                await _uow.Guidelines.AddAsync(guideline, cancellationToken);
+            }
+
+            await _uow.SaveChangesAsync(cancellationToken);
+
+            Console.WriteLine($"✅ Guideline file uploaded: {fileName} ({fileSize} bytes)");
+
+            return Ok(new
+            {
+                success = true,
+                message = "Guideline file uploaded successfully",
+                data = new
+                {
+                    fileName = fileName,
+                    fileSize = fileSize,
+                    fileUrl = _fileStorage.GetFileUrl(filePath),
+                    version = existingGuideline?.Version + 1 ?? 1
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error uploading guideline file: {ex.Message}");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "Failed to upload file",
+                details = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Download guideline file
+    /// </summary>
+    [HttpGet("{id:int}/guideline/download")]
+    [ProducesResponseType(typeof(FileResult), 200)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> DownloadGuideline(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var guideline = await _uow.Guidelines.GetByProjectIdAsync(id, cancellationToken);
+
+        if (guideline == null)
+            return NotFound(new { success = false, message = "Guideline not found" });
+
+        if (string.IsNullOrEmpty(guideline.FilePath))
+            return NotFound(new { success = false, message = "Guideline file not found" });
+
+        var filePath = Path.Combine(
+            Directory.GetCurrentDirectory(),
+            "uploads",
+            guideline.FilePath.Replace("/", Path.DirectorySeparatorChar.ToString()));
+
+        if (!System.IO.File.Exists(filePath))
+            return NotFound(new { success = false, message = "File not found on server" });
+
+        var memory = new MemoryStream();
+        using (var stream = new FileStream(filePath, FileMode.Open))
+        {
+            await stream.CopyToAsync(memory, cancellationToken);
+        }
+        memory.Position = 0;
+
+        return File(
+            memory,
+            guideline.ContentType ?? "application/octet-stream",
+            guideline.FileName ?? "guideline");
+    }
+
+    /// <summary>
+    /// Get guideline info (text or file metadata)
+    /// </summary>
+    [HttpGet("{id:int}/guideline")]
+    [ProducesResponseType(typeof(GuidelineDto), 200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<GuidelineDto>> GetGuideline(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var guideline = await _uow.Guidelines.GetByProjectIdAsync(id, cancellationToken);
+
+        if (guideline == null)
+            return NotFound(new { success = false, message = "Guideline not found" });
+
+        var dto = new GuidelineDto
+        {
+            Id = guideline.Id,
+            ProjectId = guideline.ProjectId,
+            Content = guideline.Content,
+            FileName = guideline.FileName,
+            FileSize = guideline.FileSize,
+            ContentType = guideline.ContentType,
+            FileUrl = !string.IsNullOrEmpty(guideline.FilePath)
+                ? _fileStorage.GetFileUrl(guideline.FilePath)
+                : null,
+            Version = guideline.Version,
+            CreatedAt = guideline.CreatedAt,
+            UpdatedAt = guideline.UpdatedAt ?? guideline.CreatedAt
+        };
+
+        return Ok(dto);
+    }
+
+    // ==================== DEBUG ENDPOINTS ====================
 
     /// <summary>
     /// Debug: Check current user claims and project access
