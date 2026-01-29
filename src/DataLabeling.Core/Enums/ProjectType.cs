@@ -12,5 +12,8 @@ public enum ProjectType
     ObjectDetection = 2,
 
     /// <summary>Image segmentation - draw polygons around objects</summary>
-    Segmentation = 3
+    Segmentation = 3,
+
+    /// <summary>Video annotation - label video frames or segments</summary>
+    Video = 4
 }
