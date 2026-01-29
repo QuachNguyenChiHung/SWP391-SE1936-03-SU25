@@ -1,4 +1,4 @@
-﻿using DataLabeling.Application.DTOs.Common;
+using DataLabeling.Application.DTOs.Common;
 using DataLabeling.Application.DTOs.Projects;
 using DataLabeling.Core.Entities;
 using DataLabeling.Core.Enums;
@@ -27,22 +27,13 @@ public class ProjectsController : ControllerBase
 
     private int GetUserId()
     {
-        // Try all possible claim types
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)
-                 ?? User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")
-                 ?? User.FindFirst("sub")
-                 ?? User.FindFirst("id")
-                 ?? User.FindFirst("userId");
+                 ?? User.FindFirst("sub");
 
         if (claim != null && int.TryParse(claim.Value, out int userId))
         {
-            Console.WriteLine($"✅ Found userId: {userId} from claim type: {claim.Type}");
             return userId;
         }
-
-        // Debug: log all claims
-        Console.WriteLine("❌ NO USER ID CLAIM FOUND!");
-        Console.WriteLine($"Available claims: {string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}"))}");
 
         return 0;
     }
@@ -50,16 +41,13 @@ public class ProjectsController : ControllerBase
     private UserRole GetUserRole()
     {
         var roleClaim = User.FindFirst(ClaimTypes.Role)
-                     ?? User.FindFirst("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
                      ?? User.FindFirst("role");
 
         if (roleClaim != null && Enum.TryParse<UserRole>(roleClaim.Value, out var role))
         {
-            Console.WriteLine($"✅ Found role: {role} from claim type: {roleClaim.Type}");
             return role;
         }
 
-        Console.WriteLine("⚠️ No role claim found, defaulting to Annotator");
         return UserRole.Annotator;
     }
 
@@ -182,94 +170,63 @@ public class ProjectsController : ControllerBase
     /// <summary>
     /// Create a new project (Admin/Manager only).
     /// </summary>
-    /// <summary>
-    /// Create a new project (Admin/Manager only).
-    /// </summary>
     [HttpPost]
     [Authorize(Roles = "Admin,Manager")]
     [ProducesResponseType(typeof(ProjectDto), 201)]
     [ProducesResponseType(400)]
     public async Task<ActionResult<ProjectDto>> Create(
-        [FromBody] CreateProjectRequest request,  // ✅ Đổi lại thành [FromBody]
+        [FromBody] CreateProjectRequest request,
         CancellationToken cancellationToken = default)
     {
-        try
+        var userId = GetUserId();
+
+        if (userId == 0)
         {
-            var userId = GetUserId();
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+        }
 
-            if (userId == 0)
+        var project = new Project
+        {
+            Name = request.Name,
+            Description = request.Description,
+            Type = request.Type,
+            Status = ProjectStatus.Draft,
+            Deadline = request.Deadline,
+            CreatedById = userId
+        };
+
+        await _uow.Projects.AddAsync(project, cancellationToken);
+        await _uow.SaveChangesAsync(cancellationToken);
+
+        // Create text guideline if content provided
+        if (!string.IsNullOrWhiteSpace(request.GuidelineContent))
+        {
+            var guideline = new Guideline
             {
-                return Unauthorized(new { success = false, message = "User ID not found in token" });
-            }
-
-            Console.WriteLine($"🔹 Creating project '{request.Name}' by userId: {userId}");
-
-            var project = new Project
-            {
-                Name = request.Name,
-                Description = request.Description,
-                Type = request.Type,
-                Status = ProjectStatus.Draft,
-                Deadline = request.Deadline,
-                CreatedById = userId
+                ProjectId = project.Id,
+                Content = request.GuidelineContent,
+                Version = 1,
+                UpdatedAt = DateTime.UtcNow
             };
 
-            await _uow.Projects.AddAsync(project, cancellationToken);
+            await _uow.Guidelines.AddAsync(guideline, cancellationToken);
             await _uow.SaveChangesAsync(cancellationToken);
-
-            Console.WriteLine($"✅ Project created successfully with Id: {project.Id}");
-
-            // Create text guideline if content provided
-            if (!string.IsNullOrWhiteSpace(request.GuidelineContent))
-            {
-                Console.WriteLine($"🔹 Creating guideline for project {project.Id}");
-
-                var guideline = new Guideline
-                {
-                    ProjectId = project.Id,
-                    Content = request.GuidelineContent,
-                    Version = 1,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                await _uow.Guidelines.AddAsync(guideline, cancellationToken);
-                await _uow.SaveChangesAsync(cancellationToken);
-
-                Console.WriteLine($"✅ Guideline created with Id: {guideline.Id}");
-            }
-
-            var dto = new ProjectDto
-            {
-                Id = project.Id,
-                Name = project.Name,
-                Description = project.Description,
-                Type = project.Type,
-                Status = project.Status,
-                Deadline = project.Deadline,
-                CreatedAt = project.CreatedAt,
-                UpdatedAt = project.UpdatedAt
-            };
-
-            return CreatedAtAction(nameof(GetById), new { id = project.Id }, dto);
         }
-        catch (Exception ex)
+
+        var dto = new ProjectDto
         {
-            Console.WriteLine($"❌ Error creating project: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            if (ex.InnerException != null)
-            {
-                Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
-            }
+            Id = project.Id,
+            Name = project.Name,
+            Description = project.Description,
+            Type = project.Type,
+            Status = project.Status,
+            Deadline = project.Deadline,
+            CreatedAt = project.CreatedAt,
+            UpdatedAt = project.UpdatedAt
+        };
 
-            return StatusCode(500, new
-            {
-                success = false,
-                message = "An error occurred while creating the project",
-                details = ex.Message
-            });
-        }
+        return CreatedAtAction(nameof(GetById), new { id = project.Id }, dto);
     }
-
 
     /// <summary>
     /// Update project information (Owner or Admin only).
@@ -403,79 +360,64 @@ public class ProjectsController : ControllerBase
         if (project.CreatedById != userId && role != UserRole.Admin)
             return Forbid();
 
-        try
+        // Save file
+        var (filePath, fileName, fileSize) = await _fileStorage.SaveFileAsync(
+            file,
+            $"guidelines/{id}",
+            cancellationToken);
+
+        var existingGuideline = await _uow.Guidelines.GetByProjectIdAsync(id, cancellationToken);
+
+        if (existingGuideline != null)
         {
-            // Save file
-            var (filePath, fileName, fileSize) = await _fileStorage.SaveFileAsync(
-                file,
-                $"guidelines/{id}",
-                cancellationToken);
-
-            var existingGuideline = await _uow.Guidelines.GetByProjectIdAsync(id, cancellationToken);
-
-            if (existingGuideline != null)
+            // Delete old file if exists
+            if (!string.IsNullOrEmpty(existingGuideline.FilePath))
             {
-                // Delete old file if exists
-                if (!string.IsNullOrEmpty(existingGuideline.FilePath))
-                {
-                    await _fileStorage.DeleteFileAsync(existingGuideline.FilePath);
-                }
-
-                // Update guideline
-                existingGuideline.FilePath = filePath;
-                existingGuideline.FileName = fileName;
-                existingGuideline.FileSize = fileSize;
-                existingGuideline.ContentType = file.ContentType;
-                existingGuideline.Content = null; // Clear text content
-                existingGuideline.Version++;
-                existingGuideline.UpdatedAt = DateTime.UtcNow;
-
-                _uow.Guidelines.Update(existingGuideline);
-            }
-            else
-            {
-                // Create new guideline
-                var guideline = new Guideline
-                {
-                    ProjectId = id,
-                    FilePath = filePath,
-                    FileName = fileName,
-                    FileSize = fileSize,
-                    ContentType = file.ContentType,
-                    Version = 1,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                await _uow.Guidelines.AddAsync(guideline, cancellationToken);
+                await _fileStorage.DeleteFileAsync(existingGuideline.FilePath);
             }
 
-            await _uow.SaveChangesAsync(cancellationToken);
+            // Update guideline
+            existingGuideline.FilePath = filePath;
+            existingGuideline.FileName = fileName;
+            existingGuideline.FileSize = fileSize;
+            existingGuideline.ContentType = file.ContentType;
+            existingGuideline.Content = null; // Clear text content
+            existingGuideline.Version++;
+            existingGuideline.UpdatedAt = DateTime.UtcNow;
 
-            Console.WriteLine($"✅ Guideline file uploaded: {fileName} ({fileSize} bytes)");
-
-            return Ok(new
-            {
-                success = true,
-                message = "Guideline file uploaded successfully",
-                data = new
-                {
-                    fileName = fileName,
-                    fileSize = fileSize,
-                    fileUrl = _fileStorage.GetFileUrl(filePath),
-                    version = existingGuideline?.Version + 1 ?? 1
-                }
-            });
+            _uow.Guidelines.Update(existingGuideline);
         }
-        catch (Exception ex)
+        else
         {
-            Console.WriteLine($"❌ Error uploading guideline file: {ex.Message}");
-            return StatusCode(500, new
+            // Create new guideline
+            var guideline = new Guideline
             {
-                success = false,
-                message = "Failed to upload file",
-                details = ex.Message
-            });
+                ProjectId = id,
+                FilePath = filePath,
+                FileName = fileName,
+                FileSize = fileSize,
+                ContentType = file.ContentType,
+                Version = 1,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await _uow.Guidelines.AddAsync(guideline, cancellationToken);
         }
+
+        await _uow.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Guideline file uploaded successfully",
+            data = new
+            {
+                fileName = fileName,
+                fileSize = fileSize,
+                fileUrl = _fileStorage.GetFileUrl(filePath),
+                version = existingGuideline?.Version + 1 ?? 1
+            }
+        });
     }
 
     /// <summary>
@@ -549,53 +491,5 @@ public class ProjectsController : ControllerBase
         };
 
         return Ok(dto);
-    }
-
-    // ==================== DEBUG ENDPOINTS ====================
-
-    /// <summary>
-    /// Debug: Check current user claims and project access
-    /// </summary>
-    [HttpGet("debug/claims")]
-    [ProducesResponseType(200)]
-    public IActionResult DebugClaims()
-    {
-        var userId = GetUserId();
-        var role = GetUserRole();
-
-        return Ok(new
-        {
-            userId = userId,
-            role = role.ToString(),
-            allClaims = User.Claims.Select(c => new { c.Type, c.Value }).ToList()
-        });
-    }
-
-    /// <summary>
-    /// Debug: Check project access permission
-    /// </summary>
-    [HttpGet("{id:int}/debug-access")]
-    [ProducesResponseType(200)]
-    [ProducesResponseType(404)]
-    public async Task<IActionResult> DebugAccess(int id, CancellationToken cancellationToken = default)
-    {
-        var userId = GetUserId();
-        var role = GetUserRole();
-
-        var project = await _uow.Projects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return NotFound();
-
-        return Ok(new
-        {
-            currentUserId = userId,
-            currentUserRole = role.ToString(),
-            projectId = project.Id,
-            projectName = project.Name,
-            projectCreatedById = project.CreatedById,
-            canUpdate = project.CreatedById == userId || role == UserRole.Admin,
-            checkResult = project.CreatedById == userId ? "✅ YOU ARE OWNER" :
-                          role == UserRole.Admin ? "✅ YOU ARE ADMIN" :
-                          "❌ NO PERMISSION"
-        });
     }
 }

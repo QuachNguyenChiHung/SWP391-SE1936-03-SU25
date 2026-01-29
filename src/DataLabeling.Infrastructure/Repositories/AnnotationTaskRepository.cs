@@ -105,6 +105,7 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
             task.TotalItems = task.TaskItems.Count;
             task.CompletedItems = task.TaskItems.Count(ti => ti.Status == TaskItemStatus.Completed);
             task.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync(cancellationToken);
         }
     }
 }

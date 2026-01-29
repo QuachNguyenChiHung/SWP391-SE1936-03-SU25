@@ -195,11 +195,12 @@ public class TasksController : ControllerBase
             return BadRequest(ApiResponse.FailureResponse("Task is already completed"));
         }
 
-        // Check if all items are completed
-        if (task.CompletedItems < task.TotalItems)
+        // Check if all items are completed (verify actual TaskItem statuses)
+        var incompleteItems = task.TaskItems.Count(ti => ti.Status != TaskItemStatus.Completed);
+        if (incompleteItems > 0)
         {
             return BadRequest(ApiResponse.FailureResponse(
-                $"Cannot submit. Only {task.CompletedItems}/{task.TotalItems} items completed."));
+                $"Cannot submit. {incompleteItems} item(s) not yet completed."));
         }
 
         // Update task status
