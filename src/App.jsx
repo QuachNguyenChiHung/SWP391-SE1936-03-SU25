@@ -5,6 +5,7 @@ import { Login } from './components/Login.jsx';
 import { HomePage } from './pages/HomePage.jsx';
 import { ManagerDashboard } from './pages/manager/ManagerDashboard.jsx';
 import { ManagerProjects } from './pages/manager/ManagerProjects.jsx';
+import { ManagerProjectDetails } from './pages/manager/ManagerProjectDetails.jsx';
 import { AnnotatorDashboard } from './pages/annotator/AnnotatorDashboard.jsx';
 import { AnnotatorWorkspace } from './pages/annotator/AnnotatorWorkspace.jsx';
 import { ReviewerDashboard } from './pages/reviewer/ReviewerDashboard.jsx';
@@ -133,9 +134,9 @@ const AppRoutes = ({ user, onLogout }) => {
             <ManagerProjects user={user} />
           </ProtectedRoute>
         } />
-        <Route path="/manager/projects/:id" element={
+        <Route path="/manager/projects/:pid" element={
           <ProtectedRoute user={user} allowedRoles={[UserRole.MANAGER]}>
-            <ManagerProjects user={user} />
+            <ManagerProjectDetails user={user} />
           </ProtectedRoute>
         } />
 
@@ -148,6 +149,7 @@ const AppRoutes = ({ user, onLogout }) => {
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Khôi phục user từ localStorage khi app khởi động
   useEffect(() => {
@@ -160,6 +162,7 @@ function App() {
         localStorage.removeItem('user');
       }
     }
+    setIsLoading(false);
   }, []);
 
   const handleLogin = (user) => {
@@ -173,6 +176,16 @@ function App() {
     // Xóa user khỏi localStorage
     localStorage.removeItem('user');
   };
+
+  if (isLoading) {
+    return (
+      <div className="d-flex align-items-center justify-content-center vh-100">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <BrowserRouter>

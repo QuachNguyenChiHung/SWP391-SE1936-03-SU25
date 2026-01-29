@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MOCK_USERS } from '../services/mockData.js';
 import { ArrowRight, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
-import axios from 'axios';
+import api from '../ultis/api.js';
 
 export const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
@@ -11,7 +11,7 @@ export const Login = ({ onLogin }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
-    axios.post(import.meta.env.VITE_URL + "/api/Auth/login", {
+    api.post("/Auth/login", {
       email: email, password: password
     }).then((e) => { console.log(e); console.log(e.data); onLogin(e.data.data) }).catch((e) => alert("Failed"));
   };
