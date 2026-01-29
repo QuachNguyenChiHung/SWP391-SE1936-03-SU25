@@ -49,7 +49,46 @@ public class User : BaseEntity
     /// </summary>
     public DateTime? LastLoginAt { get; set; }
 
+    // ==================== Email Verification Properties ====================
+
+    /// <summary>
+    /// Token for email verification (cryptographically secure random string).
+    /// </summary>
+    public string? EmailVerificationToken { get; set; }
+
+    /// <summary>
+    /// When the email verification token expires.
+    /// </summary>
+    public DateTime? EmailVerificationTokenExpiry { get; set; }
+
+    /// <summary>
+    /// Whether the user's email has been verified.
+    /// </summary>
+    public bool IsEmailVerified { get; set; } = false;
+
+    // ==================== Approval Properties ====================
+
+    /// <summary>
+    /// Foreign key to the user who approved this account.
+    /// </summary>
+    public int? ApprovedById { get; set; }
+
+    /// <summary>
+    /// When the account was approved.
+    /// </summary>
+    public DateTime? ApprovedAt { get; set; }
+
+    /// <summary>
+    /// Reason for rejection (if rejected).
+    /// </summary>
+    public string? RejectionReason { get; set; }
+
     // ==================== Navigation Properties ====================
+
+    /// <summary>
+    /// User who approved this account (Admin or Manager).
+    /// </summary>
+    public virtual User? ApprovedBy { get; set; }
 
     /// <summary>
     /// Projects created by this user (as Manager).
