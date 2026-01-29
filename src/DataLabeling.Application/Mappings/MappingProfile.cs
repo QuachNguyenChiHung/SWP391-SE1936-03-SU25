@@ -1,4 +1,5 @@
 using AutoMapper;
+using DataLabeling.Application.DTOs.Label;
 using DataLabeling.Application.DTOs.User;
 using DataLabeling.Core.Entities;
 
@@ -17,5 +18,9 @@ public class MappingProfile : Profile
         CreateMap<CreateUserRequest, User>()
             .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())
             .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Email.ToLowerInvariant()));
+
+        // Label mappings
+        CreateMap<Label, LabelDto>();
+        CreateMap<CreateLabelRequest, Label>();
     }
 }
