@@ -3,6 +3,7 @@ using DataLabeling.API.Middlewares;
 using DataLabeling.API.Services;
 using DataLabeling.Application;
 using DataLabeling.Application.Interfaces;
+using DataLabeling.Application.Services;
 using DataLabeling.Application.Settings;
 using DataLabeling.Infrastructure;
 using DataLabeling.Infrastructure.Data;
@@ -24,6 +25,14 @@ builder.Services.AddApplication(builder.Configuration);
 
 // Add File Storage Service
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+
+// Add Export Service
+builder.Services.AddScoped<IExportService>(sp =>
+{
+    var unitOfWork = sp.GetRequiredService<DataLabeling.Core.Interfaces.IUnitOfWork>();
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    return new ExportService(unitOfWork, env.ContentRootPath);
+});
 
 // Add Controllers
 builder.Services.AddControllers();

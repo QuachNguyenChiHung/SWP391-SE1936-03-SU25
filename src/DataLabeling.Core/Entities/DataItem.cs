@@ -35,6 +35,16 @@ public class DataItem : BaseEntity
     public string? ThumbnailPath { get; set; }
 
     /// <summary>
+    /// Image width in pixels.
+    /// </summary>
+    public int? Width { get; set; }
+
+    /// <summary>
+    /// Image height in pixels.
+    /// </summary>
+    public int? Height { get; set; }
+
+    /// <summary>
     /// Current status in the labeling workflow.
     /// </summary>
     public DataItemStatus Status { get; set; } = DataItemStatus.Pending;

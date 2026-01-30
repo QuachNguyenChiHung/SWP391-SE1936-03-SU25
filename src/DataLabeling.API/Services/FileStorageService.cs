@@ -35,7 +35,7 @@ public class FileStorageService : IFileStorageService
         return await SaveFileInternalAsync(file, folder, _publicRoot, cancellationToken);
     }
 
-    public async Task<(string FilePath, string ThumbnailPath, string FileName, long FileSize)> SaveImageWithThumbnailAsync(
+    public async Task<(string FilePath, string ThumbnailPath, string FileName, long FileSize, int Width, int Height)> SaveImageWithThumbnailAsync(
         IFormFile file,
         string folder,
         int maxThumbnailSize = 200,
@@ -69,10 +69,11 @@ public class FileStorageService : IFileStorageService
             await file.CopyToAsync(stream, cancellationToken);
         }
 
-        // Generate thumbnail
+        // Get image dimensions and generate thumbnail
+        int width = 0, height = 0;
         try
         {
-            await Task.Run(() => GenerateThumbnail(fullPath, thumbnailFullPath, maxThumbnailSize), cancellationToken);
+            (width, height) = await Task.Run(() => GenerateThumbnailAndGetDimensions(fullPath, thumbnailFullPath, maxThumbnailSize), cancellationToken);
         }
         catch
         {
@@ -84,16 +85,19 @@ public class FileStorageService : IFileStorageService
             ? Path.Combine(folder, "thumbnails", thumbnailFileName).Replace("\\", "/")
             : null;
 
-        return (relativePath, thumbnailRelativePath!, file.FileName, file.Length);
+        return (relativePath, thumbnailRelativePath!, file.FileName, file.Length, width, height);
     }
 
-    private void GenerateThumbnail(string sourcePath, string thumbnailPath, int maxSize)
+    private (int Width, int Height) GenerateThumbnailAndGetDimensions(string sourcePath, string thumbnailPath, int maxSize)
     {
         using var inputStream = File.OpenRead(sourcePath);
         using var original = SKBitmap.Decode(inputStream);
 
         if (original == null)
-            return;
+            return (0, 0);
+
+        int originalWidth = original.Width;
+        int originalHeight = original.Height;
 
         // Calculate thumbnail dimensions maintaining aspect ratio
         int width, height;
@@ -113,13 +117,15 @@ public class FileStorageService : IFileStorageService
         height = Math.Max(1, height);
 
         using var resized = original.Resize(new SKImageInfo(width, height), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
-        if (resized == null)
-            return;
+        if (resized != null)
+        {
+            using var image = SKImage.FromBitmap(resized);
+            using var data = image.Encode(SKEncodedImageFormat.Jpeg, 80);
+            using var outputStream = File.OpenWrite(thumbnailPath);
+            data.SaveTo(outputStream);
+        }
 
-        using var image = SKImage.FromBitmap(resized);
-        using var data = image.Encode(SKEncodedImageFormat.Jpeg, 80);
-        using var outputStream = File.OpenWrite(thumbnailPath);
-        data.SaveTo(outputStream);
+        return (originalWidth, originalHeight);
     }
 
     public async Task<(string FilePath, string FileName, long FileSize)> SavePrivateFileAsync(

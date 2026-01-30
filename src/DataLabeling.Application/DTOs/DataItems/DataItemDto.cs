@@ -13,6 +13,8 @@ public class DataItemDto
     public string FilePath { get; set; } = string.Empty;
     public string? ThumbnailPath { get; set; }
     public int? FileSizeKB { get; set; }
+    public int? Width { get; set; }
+    public int? Height { get; set; }
     public DataItemStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
 }

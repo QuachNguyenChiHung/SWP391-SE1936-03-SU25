@@ -20,9 +20,9 @@ public interface IFileStorageService
 
     /// <summary>
     /// Saves an image file with thumbnail generation.
-    /// Returns both the main image path and thumbnail path.
+    /// Returns the main image path, thumbnail path, and image dimensions.
     /// </summary>
-    Task<(string FilePath, string ThumbnailPath, string FileName, long FileSize)> SaveImageWithThumbnailAsync(
+    Task<(string FilePath, string ThumbnailPath, string FileName, long FileSize, int Width, int Height)> SaveImageWithThumbnailAsync(
         IFormFile file,
         string folder,
         int maxThumbnailSize = 200,

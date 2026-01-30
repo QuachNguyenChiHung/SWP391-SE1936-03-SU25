@@ -142,7 +142,7 @@ public class DataItemService : IDataItemService
                 }
 
                 // Save file with thumbnail
-                var (filePath, thumbnailPath, originalName, fileSize) =
+                var (filePath, thumbnailPath, originalName, fileSize, imageWidth, imageHeight) =
                     await _fileStorage.SaveImageWithThumbnailAsync(file, folder, 200, cancellationToken);
 
                 var dataItem = new DataItem
@@ -152,6 +152,8 @@ public class DataItemService : IDataItemService
                     FilePath = filePath,
                     ThumbnailPath = thumbnailPath,
                     FileSizeKB = (int)(fileSize / 1024),
+                    Width = imageWidth > 0 ? imageWidth : null,
+                    Height = imageHeight > 0 ? imageHeight : null,
                     Status = DataItemStatus.Pending
                 };
 
