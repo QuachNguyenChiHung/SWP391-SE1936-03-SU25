@@ -1,6 +1,8 @@
 using DataLabeling.Application.DTOs.Common;
 using DataLabeling.Application.DTOs.Tasks;
+using DataLabeling.Application.Interfaces;
 using DataLabeling.Core.Enums;
+using DataLabeling.Core.Exceptions;
 using DataLabeling.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,10 +19,12 @@ namespace DataLabeling.API.Controllers;
 public class TasksController : ControllerBase
 {
     private readonly IUnitOfWork _uow;
+    private readonly ITaskService _taskService;
 
-    public TasksController(IUnitOfWork uow)
+    public TasksController(IUnitOfWork uow, ITaskService taskService)
     {
         _uow = uow;
+        _taskService = taskService;
     }
 
     private int GetUserId()
@@ -211,5 +215,157 @@ public class TasksController : ControllerBase
         await _uow.SaveChangesAsync(cancellationToken);
 
         return Ok(ApiResponse.SuccessResponse("Task submitted for review"));
+    }
+
+    /// <summary>
+    /// Create a new task and assign to an annotator (Admin/Manager only).
+    /// </summary>
+    [HttpPost]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(typeof(TaskAssignmentResultDto), 201)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<TaskAssignmentResultDto>> CreateTask(
+        [FromBody] CreateTaskRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
+        try
+        {
+            var result = await _taskService.CreateTaskAsync(request, userId, cancellationToken);
+            return CreatedAtAction(nameof(GetById), new { id = result.Task.Id }, result);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Assign additional items to an existing task (Admin/Manager only).
+    /// </summary>
+    [HttpPost("{id:int}/items")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(typeof(TaskAssignmentResultDto), 200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<TaskAssignmentResultDto>> AssignItems(
+        int id,
+        [FromBody] AssignItemsRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _taskService.AssignItemsAsync(id, request, cancellationToken);
+            return Ok(result);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Remove items from a task (Admin/Manager only).
+    /// Only items that haven't been started can be removed.
+    /// </summary>
+    [HttpDelete("{id:int}/items")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> RemoveItems(
+        int id,
+        [FromBody] int[] dataItemIds,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var removedCount = await _taskService.RemoveItemsAsync(id, dataItemIds, cancellationToken);
+            return Ok(new { success = true, message = $"{removedCount} item(s) removed from task" });
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Delete a task (Admin/Manager only).
+    /// Only tasks that haven't been worked on can be deleted.
+    /// </summary>
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> DeleteTask(int id, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _taskService.DeleteTaskAsync(id, cancellationToken);
+            return NoContent();
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Get unassigned items for a project (items available for task assignment).
+    /// </summary>
+    [HttpGet("projects/{projectId:int}/unassigned-items")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(typeof(PagedResult<UnassignedItemDto>), 200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<PagedResult<UnassignedItemDto>>> GetUnassignedItems(
+        int projectId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _taskService.GetUnassignedItemsAsync(projectId, pageNumber, pageSize, cancellationToken);
+            return Ok(result);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Get available annotators for task assignment.
+    /// Returns annotators sorted by active task count (least busy first).
+    /// </summary>
+    [HttpGet("annotators")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(typeof(IEnumerable<AnnotatorDto>), 200)]
+    public async Task<ActionResult<IEnumerable<AnnotatorDto>>> GetAvailableAnnotators(
+        CancellationToken cancellationToken = default)
+    {
+        var annotators = await _taskService.GetAvailableAnnotatorsAsync(cancellationToken);
+        return Ok(annotators);
     }
 }
