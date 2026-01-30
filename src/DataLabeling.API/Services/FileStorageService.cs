@@ -1,62 +1,11 @@
+using DataLabeling.Application.Interfaces;
+using SkiaSharp;
+
 namespace DataLabeling.API.Services;
 
 /// <summary>
-/// Service for file storage operations.
-/// Supports both public (uploads/) and private (storage/) folders.
+/// Implementation of file storage service.
 /// </summary>
-public interface IFileStorageService
-{
-    /// <summary>
-    /// Saves a file to the public uploads folder.
-    /// Files here are accessible via /uploads/{path} URL.
-    /// Use for: images, thumbnails, public assets.
-    /// </summary>
-    Task<(string FilePath, string FileName, long FileSize)> SaveFileAsync(
-        IFormFile file,
-        string folder,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Saves a file to the private storage folder.
-    /// Files here are NOT publicly accessible - must be served through controller.
-    /// Use for: guidelines, sensitive documents.
-    /// </summary>
-    Task<(string FilePath, string FileName, long FileSize)> SavePrivateFileAsync(
-        IFormFile file,
-        string folder,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Deletes a file from public uploads folder.
-    /// </summary>
-    Task DeleteFileAsync(string filePath);
-
-    /// <summary>
-    /// Deletes a file from private storage folder.
-    /// </summary>
-    Task DeletePrivateFileAsync(string filePath);
-
-    /// <summary>
-    /// Gets the public URL for a file in uploads folder.
-    /// </summary>
-    string GetFileUrl(string filePath);
-
-    /// <summary>
-    /// Gets the full file path for a private file (for streaming through controller).
-    /// </summary>
-    string GetPrivateFilePath(string filePath);
-
-    /// <summary>
-    /// Checks if a private file exists.
-    /// </summary>
-    bool PrivateFileExists(string filePath);
-
-    /// <summary>
-    /// Opens a read stream for a private file.
-    /// </summary>
-    Stream OpenPrivateFileRead(string filePath);
-}
-
 public class FileStorageService : IFileStorageService
 {
     private readonly string _publicRoot;   // uploads/ - publicly accessible
@@ -84,6 +33,93 @@ public class FileStorageService : IFileStorageService
         CancellationToken cancellationToken = default)
     {
         return await SaveFileInternalAsync(file, folder, _publicRoot, cancellationToken);
+    }
+
+    public async Task<(string FilePath, string ThumbnailPath, string FileName, long FileSize)> SaveImageWithThumbnailAsync(
+        IFormFile file,
+        string folder,
+        int maxThumbnailSize = 200,
+        CancellationToken cancellationToken = default)
+    {
+        if (file == null || file.Length == 0)
+            throw new ArgumentException("File is empty");
+
+        var folderPath = Path.Combine(_publicRoot, folder);
+        var thumbnailFolder = Path.Combine(folderPath, "thumbnails");
+
+        if (!Directory.Exists(folderPath))
+        {
+            Directory.CreateDirectory(folderPath);
+        }
+
+        if (!Directory.Exists(thumbnailFolder))
+        {
+            Directory.CreateDirectory(thumbnailFolder);
+        }
+
+        var fileExtension = Path.GetExtension(file.FileName);
+        var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+        var fullPath = Path.Combine(folderPath, uniqueFileName);
+        var thumbnailFileName = $"{Path.GetFileNameWithoutExtension(uniqueFileName)}_thumb.jpg";
+        var thumbnailFullPath = Path.Combine(thumbnailFolder, thumbnailFileName);
+
+        // Save original file
+        using (var stream = new FileStream(fullPath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream, cancellationToken);
+        }
+
+        // Generate thumbnail
+        try
+        {
+            await Task.Run(() => GenerateThumbnail(fullPath, thumbnailFullPath, maxThumbnailSize), cancellationToken);
+        }
+        catch
+        {
+            // If thumbnail generation fails, continue without thumbnail
+        }
+
+        var relativePath = Path.Combine(folder, uniqueFileName).Replace("\\", "/");
+        var thumbnailRelativePath = File.Exists(thumbnailFullPath)
+            ? Path.Combine(folder, "thumbnails", thumbnailFileName).Replace("\\", "/")
+            : null;
+
+        return (relativePath, thumbnailRelativePath!, file.FileName, file.Length);
+    }
+
+    private void GenerateThumbnail(string sourcePath, string thumbnailPath, int maxSize)
+    {
+        using var inputStream = File.OpenRead(sourcePath);
+        using var original = SKBitmap.Decode(inputStream);
+
+        if (original == null)
+            return;
+
+        // Calculate thumbnail dimensions maintaining aspect ratio
+        int width, height;
+        if (original.Width > original.Height)
+        {
+            width = maxSize;
+            height = (int)((float)original.Height / original.Width * maxSize);
+        }
+        else
+        {
+            height = maxSize;
+            width = (int)((float)original.Width / original.Height * maxSize);
+        }
+
+        // Ensure minimum dimensions
+        width = Math.Max(1, width);
+        height = Math.Max(1, height);
+
+        using var resized = original.Resize(new SKImageInfo(width, height), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
+        if (resized == null)
+            return;
+
+        using var image = SKImage.FromBitmap(resized);
+        using var data = image.Encode(SKEncodedImageFormat.Jpeg, 80);
+        using var outputStream = File.OpenWrite(thumbnailPath);
+        data.SaveTo(outputStream);
     }
 
     public async Task<(string FilePath, string FileName, long FileSize)> SavePrivateFileAsync(

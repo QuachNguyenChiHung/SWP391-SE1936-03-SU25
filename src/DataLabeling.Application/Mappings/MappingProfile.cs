@@ -1,4 +1,5 @@
 using AutoMapper;
+using DataLabeling.Application.DTOs.DataItems;
 using DataLabeling.Application.DTOs.Label;
 using DataLabeling.Application.DTOs.User;
 using DataLabeling.Core.Entities;
@@ -22,5 +23,12 @@ public class MappingProfile : Profile
         // Label mappings
         CreateMap<Label, LabelDto>();
         CreateMap<CreateLabelRequest, Label>();
+
+        // Dataset mappings
+        CreateMap<Dataset, DatasetDto>();
+
+        // DataItem mappings
+        CreateMap<DataItem, DataItemDto>();
+        CreateMap<DataItem, DataItemDetailDto>();
     }
 }

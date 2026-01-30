@@ -1,10 +1,11 @@
 using System.Text;
 using DataLabeling.API.Middlewares;
+using DataLabeling.API.Services;
 using DataLabeling.Application;
+using DataLabeling.Application.Interfaces;
 using DataLabeling.Application.Settings;
 using DataLabeling.Infrastructure;
 using DataLabeling.Infrastructure.Data;
-using DataLabeling.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;

@@ -1,10 +1,10 @@
 using DataLabeling.Application.DTOs.Common;
 using DataLabeling.Application.DTOs.Projects;
+using DataLabeling.Application.Interfaces;
 using DataLabeling.Core.Entities;
 using DataLabeling.Core.Enums;
 using DataLabeling.Core.Interfaces;
 using DataLabeling.Core.Interfaces.Repositories;
-using DataLabeling.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
