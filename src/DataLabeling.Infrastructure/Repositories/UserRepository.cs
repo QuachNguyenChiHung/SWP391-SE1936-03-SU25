@@ -97,4 +97,10 @@ public class UserRepository : Repository<User>, IUserRepository
                         && u.Status == UserStatus.Active)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<User?> GetByPasswordResetTokenAsync(string token, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .FirstOrDefaultAsync(u => u.PasswordResetToken == token, cancellationToken);
+    }
 }

@@ -36,4 +36,18 @@ public interface IAuthService
     /// <param name="email">The user's email address.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task ResendVerificationEmailAsync(string email, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Initiates the forgot password flow by sending a reset email.
+    /// </summary>
+    /// <param name="request">The forgot password request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resets a user's password using a valid reset token.
+    /// </summary>
+    /// <param name="request">The reset password request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default);
 }

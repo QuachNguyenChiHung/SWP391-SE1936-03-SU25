@@ -168,6 +168,42 @@ public class EmailService : IEmailService
         await SendEmailAsync(toEmail, subject, body, cancellationToken);
     }
 
+    public async Task SendPasswordResetEmailAsync(
+        string toEmail,
+        string userName,
+        string resetToken,
+        CancellationToken cancellationToken = default)
+    {
+        var resetLink = $"{_emailSettings.BaseUrl}/reset-password?token={resetToken}";
+
+        var subject = "Reset Your Password - Data Labeling System";
+        var body = $@"
+            <html>
+            <body style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
+                <div style='background-color: #f8f9fa; padding: 20px; border-radius: 8px;'>
+                    <h2 style='color: #333;'>Password Reset Request</h2>
+                    <p>Hi <strong>{userName}</strong>,</p>
+                    <p>We received a request to reset your password. Click the button below to create a new password:</p>
+                    <p style='margin: 30px 0; text-align: center;'>
+                        <a href='{resetLink}'
+                           style='background-color: #007bff; color: white; padding: 12px 24px;
+                                  text-decoration: none; border-radius: 4px; display: inline-block;'>
+                            Reset Password
+                        </a>
+                    </p>
+                    <p>Or copy and paste this link into your browser:</p>
+                    <p style='word-break: break-all; background-color: #e9ecef; padding: 10px; border-radius: 4px; font-size: 12px;'>{resetLink}</p>
+                    <p><strong>This link will expire in {_emailSettings.PasswordResetTokenExpiryHours} hour(s).</strong></p>
+                    <p style='color: #666;'>If you did not request a password reset, please ignore this email. Your password will remain unchanged.</p>
+                    <hr style='border: none; border-top: 1px solid #ddd; margin: 20px 0;'/>
+                    <p style='color: #999; font-size: 12px;'>Data Labeling System</p>
+                </div>
+            </body>
+            </html>";
+
+        await SendEmailAsync(toEmail, subject, body, cancellationToken);
+    }
+
     private async Task SendEmailAsync(
         string toEmail,
         string subject,

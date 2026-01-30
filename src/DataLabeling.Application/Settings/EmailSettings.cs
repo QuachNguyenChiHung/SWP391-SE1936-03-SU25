@@ -51,4 +51,9 @@ public class EmailSettings
     /// Email verification token expiry in hours.
     /// </summary>
     public int VerificationTokenExpiryHours { get; set; } = 24;
+
+    /// <summary>
+    /// Password reset token expiry in hours.
+    /// </summary>
+    public int PasswordResetTokenExpiryHours { get; set; } = 1;
 }

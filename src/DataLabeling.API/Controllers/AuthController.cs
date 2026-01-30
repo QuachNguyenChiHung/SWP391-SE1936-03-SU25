@@ -92,4 +92,40 @@ public class AuthController : ControllerBase
         await _authService.ResendVerificationEmailAsync(request.Email, cancellationToken);
         return Ok(ApiResponse.SuccessResponse("If your email is registered and not yet verified, you will receive a new verification email."));
     }
+
+    /// <summary>
+    /// Initiates the forgot password flow.
+    /// </summary>
+    /// <param name="request">Forgot password request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Confirmation message.</returns>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _authService.ForgotPasswordAsync(request, cancellationToken);
+        return Ok(ApiResponse.SuccessResponse("If your email is registered, you will receive a password reset email."));
+    }
+
+    /// <summary>
+    /// Resets a user's password using a valid reset token.
+    /// </summary>
+    /// <param name="request">Reset password request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Confirmation message.</returns>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _authService.ResetPasswordAsync(request, cancellationToken);
+        return Ok(ApiResponse.SuccessResponse("Password reset successfully. You can now log in with your new password."));
+    }
 }

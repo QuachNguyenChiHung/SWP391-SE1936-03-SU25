@@ -53,4 +53,9 @@ public interface IUserRepository : IRepository<User>
     /// Gets all admins and managers (for approval notifications).
     /// </summary>
     Task<IEnumerable<User>> GetAdminsAndManagersAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a user by password reset token.
+    /// </summary>
+    Task<User?> GetByPasswordResetTokenAsync(string token, CancellationToken cancellationToken = default);
 }

@@ -265,6 +265,74 @@ public class AuthService : IAuthService
             .Replace("=", "");
     }
 
+    /// <inheritdoc/>
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        var user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
+
+        // Return silently if user doesn't exist (security best practice - don't reveal if email exists)
+        if (user == null)
+        {
+            return;
+        }
+
+        // Only allow password reset for active users
+        if (user.Status != UserStatus.Active)
+        {
+            return;
+        }
+
+        // Generate password reset token
+        var resetToken = GenerateSecureToken();
+        user.PasswordResetToken = resetToken;
+        user.PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(_emailSettings.PasswordResetTokenExpiryHours);
+        user.UpdatedAt = DateTime.UtcNow;
+
+        _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Send password reset email
+        await _emailService.SendPasswordResetEmailAsync(
+            user.Email,
+            user.Name,
+            resetToken,
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        // Validate password confirmation
+        if (request.NewPassword != request.ConfirmPassword)
+        {
+            throw new ValidationException("Password and confirmation do not match.");
+        }
+
+        var user = await _userRepository.GetByPasswordResetTokenAsync(request.Token, cancellationToken);
+
+        if (user == null)
+        {
+            throw new ValidationException("Invalid or expired password reset token.");
+        }
+
+        // Check if token is expired
+        if (user.PasswordResetTokenExpiry < DateTime.UtcNow)
+        {
+            throw new ValidationException("Password reset token has expired. Please request a new one.");
+        }
+
+        // Update password
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        user.PasswordResetToken = null;
+        user.PasswordResetTokenExpiry = null;
+        user.FailedLoginAttempts = 0;
+        user.LockoutEnd = null;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
     /// <summary>
     /// Generates a JWT token for the specified user.
     /// </summary>

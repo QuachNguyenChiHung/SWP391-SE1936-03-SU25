@@ -66,6 +66,18 @@ public class User : BaseEntity
     /// </summary>
     public bool IsEmailVerified { get; set; } = false;
 
+    // ==================== Password Reset Properties ====================
+
+    /// <summary>
+    /// Token for password reset (cryptographically secure random string).
+    /// </summary>
+    public string? PasswordResetToken { get; set; }
+
+    /// <summary>
+    /// When the password reset token expires.
+    /// </summary>
+    public DateTime? PasswordResetTokenExpiry { get; set; }
+
     // ==================== Approval Properties ====================
 
     /// <summary>

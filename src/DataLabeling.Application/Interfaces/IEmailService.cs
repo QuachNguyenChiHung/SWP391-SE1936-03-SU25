@@ -58,4 +58,17 @@ public interface IEmailService
         string userName,
         string? reason = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends password reset email to user.
+    /// </summary>
+    /// <param name="toEmail">User email address.</param>
+    /// <param name="userName">User's name.</param>
+    /// <param name="resetToken">The password reset token.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task SendPasswordResetEmailAsync(
+        string toEmail,
+        string userName,
+        string resetToken,
+        CancellationToken cancellationToken = default);
 }
