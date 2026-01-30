@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<ILabelService, LabelService>();
         services.AddScoped<IDataItemService, DataItemService>();
         services.AddScoped<ITaskService, TaskService>();
+        services.AddScoped<IAnnotationService, AnnotationService>();
 
         return services;
     }
