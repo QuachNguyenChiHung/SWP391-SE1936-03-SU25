@@ -36,7 +36,7 @@ public interface ITaskService
     /// <summary>
     /// Deletes a task (only if not started or in progress).
     /// </summary>
-    Task DeleteTaskAsync(int taskId, CancellationToken cancellationToken = default);
+    Task DeleteTaskAsync(int taskId, int userId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets a task by ID with full details.

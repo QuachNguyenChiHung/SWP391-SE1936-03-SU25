@@ -36,12 +36,13 @@ public interface IAnnotationService
     Task<AnnotationDto> UpdateAsync(
         int id,
         UpdateAnnotationRequest request,
+        int userId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deletes an annotation.
     /// </summary>
-    Task DeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task DeleteAsync(int id, int userId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Saves all annotations for a data item (batch operation).

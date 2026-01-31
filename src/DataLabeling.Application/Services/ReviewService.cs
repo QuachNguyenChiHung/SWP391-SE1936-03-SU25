@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DataLabeling.Application.DTOs.Common;
 using DataLabeling.Application.DTOs.Reviews;
 using DataLabeling.Application.Interfaces;
@@ -14,10 +15,12 @@ namespace DataLabeling.Application.Services;
 public class ReviewService : IReviewService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IActivityLogService _activityLogService;
 
-    public ReviewService(IUnitOfWork unitOfWork)
+    public ReviewService(IUnitOfWork unitOfWork, IActivityLogService activityLogService)
     {
         _unitOfWork = unitOfWork;
+        _activityLogService = activityLogService;
     }
 
     public async Task<ReviewDto> CreateReviewAsync(
@@ -99,6 +102,16 @@ public class ReviewService : IReviewService
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Log activity
+        var action = request.Decision == ReviewDecision.Approved ? ActivityAction.Approve : ActivityAction.Reject;
+        await _activityLogService.LogAsync(
+            reviewerId,
+            action,
+            "DataItem",
+            dataItemId,
+            JsonSerializer.Serialize(new { reviewId = review.Id, decision = request.Decision.ToString(), feedback = request.Feedback }),
+            cancellationToken: cancellationToken);
 
         return await GetByIdAsync(review.Id, cancellationToken) ?? throw new Exception("Failed to create review");
     }

@@ -316,9 +316,13 @@ public class TasksController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> DeleteTask(int id, CancellationToken cancellationToken = default)
     {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
         try
         {
-            await _taskService.DeleteTaskAsync(id, cancellationToken);
+            await _taskService.DeleteTaskAsync(id, userId, cancellationToken);
             return NoContent();
         }
         catch (NotFoundException ex)

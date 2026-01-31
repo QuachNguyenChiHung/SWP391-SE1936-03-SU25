@@ -112,9 +112,13 @@ public class AnnotationsController : ControllerBase
         [FromBody] UpdateAnnotationRequest request,
         CancellationToken cancellationToken = default)
     {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
         try
         {
-            var annotation = await _annotationService.UpdateAsync(id, request, cancellationToken);
+            var annotation = await _annotationService.UpdateAsync(id, request, userId, cancellationToken);
             return Ok(annotation);
         }
         catch (NotFoundException ex)
@@ -138,9 +142,13 @@ public class AnnotationsController : ControllerBase
         int id,
         CancellationToken cancellationToken = default)
     {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
         try
         {
-            await _annotationService.DeleteAsync(id, cancellationToken);
+            await _annotationService.DeleteAsync(id, userId, cancellationToken);
             return NoContent();
         }
         catch (NotFoundException ex)

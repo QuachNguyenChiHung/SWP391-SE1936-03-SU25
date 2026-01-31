@@ -28,6 +28,7 @@ public class AuthService : IAuthService
     private readonly JwtSettings _jwtSettings;
     private readonly EmailSettings _emailSettings;
     private readonly IEmailService _emailService;
+    private readonly IActivityLogService _activityLogService;
 
     private const int MAX_FAILED_ATTEMPTS = 5;
     private const int LOCKOUT_MINUTES = 15;
@@ -38,7 +39,8 @@ public class AuthService : IAuthService
         IMapper mapper,
         IOptions<JwtSettings> jwtSettings,
         IOptions<EmailSettings> emailSettings,
-        IEmailService emailService)
+        IEmailService emailService,
+        IActivityLogService activityLogService)
     {
         _userRepository = userRepository;
         _unitOfWork = unitOfWork;
@@ -46,6 +48,7 @@ public class AuthService : IAuthService
         _jwtSettings = jwtSettings.Value;
         _emailSettings = emailSettings.Value;
         _emailService = emailService;
+        _activityLogService = activityLogService;
     }
 
     /// <inheritdoc/>
@@ -105,6 +108,14 @@ public class AuthService : IAuthService
         user.LockoutEnd = null;
         user.LastLoginAt = DateTime.UtcNow;
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Log successful login
+        await _activityLogService.LogAsync(
+            user.Id,
+            ActivityAction.Login,
+            "User",
+            user.Id,
+            cancellationToken: cancellationToken);
 
         // Generate JWT token
         var token = GenerateJwtToken(user);

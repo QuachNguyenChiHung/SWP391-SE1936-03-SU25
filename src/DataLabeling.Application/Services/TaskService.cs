@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AutoMapper;
 using DataLabeling.Application.DTOs.Common;
 using DataLabeling.Application.DTOs.Tasks;
@@ -16,11 +17,13 @@ public class TaskService : ITaskService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
+    private readonly IActivityLogService _activityLogService;
 
-    public TaskService(IUnitOfWork unitOfWork, IMapper mapper)
+    public TaskService(IUnitOfWork unitOfWork, IMapper mapper, IActivityLogService activityLogService)
     {
         _unitOfWork = unitOfWork;
         _mapper = mapper;
+        _activityLogService = activityLogService;
     }
 
     public async Task<TaskAssignmentResultDto> CreateTaskAsync(
@@ -78,6 +81,15 @@ public class TaskService : ITaskService
         // Reload task with details
         var taskWithDetails = await _unitOfWork.AnnotationTasks.GetWithDetailsAsync(task.Id, cancellationToken);
         result.Task = MapToTaskDto(taskWithDetails!);
+
+        // Log activity
+        await _activityLogService.LogAsync(
+            assignedById,
+            ActivityAction.Assign,
+            "AnnotationTask",
+            task.Id,
+            JsonSerializer.Serialize(new { projectId = request.ProjectId, annotatorId = request.AnnotatorId, itemCount = result.AssignedCount }),
+            cancellationToken: cancellationToken);
 
         return result;
     }
@@ -260,7 +272,7 @@ public class TaskService : ITaskService
         return removedCount;
     }
 
-    public async Task DeleteTaskAsync(int taskId, CancellationToken cancellationToken = default)
+    public async Task DeleteTaskAsync(int taskId, int userId, CancellationToken cancellationToken = default)
     {
         var task = await _unitOfWork.AnnotationTasks.GetWithTaskItemsAsync(taskId, cancellationToken);
         if (task == null)
@@ -274,6 +286,11 @@ public class TaskService : ITaskService
         var hasWorkedItems = task.TaskItems.Any(ti => ti.Status != TaskItemStatus.Assigned);
         if (hasWorkedItems)
             throw new ValidationException("Cannot delete a task with items that have been worked on");
+
+        // Capture task details for logging before deletion
+        var projectId = task.ProjectId;
+        var annotatorId = task.AnnotatorId;
+        var itemCount = task.TotalItems;
 
         // Reset all data item statuses back to Pending
         foreach (var taskItem in task.TaskItems)
@@ -290,6 +307,15 @@ public class TaskService : ITaskService
         // Delete task (cascade will delete task items)
         _unitOfWork.AnnotationTasks.Delete(task);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Log activity
+        await _activityLogService.LogAsync(
+            userId,
+            ActivityAction.Delete,
+            "AnnotationTask",
+            taskId,
+            JsonSerializer.Serialize(new { projectId, annotatorId, itemCount }),
+            cancellationToken: cancellationToken);
     }
 
     public async Task<TaskDetailDto?> GetTaskByIdAsync(int taskId, CancellationToken cancellationToken = default)

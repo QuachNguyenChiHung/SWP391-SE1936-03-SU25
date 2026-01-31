@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DataLabeling.Application.DTOs.Annotations;
 using DataLabeling.Application.Interfaces;
 using DataLabeling.Core.Entities;
@@ -13,10 +14,12 @@ namespace DataLabeling.Application.Services;
 public class AnnotationService : IAnnotationService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IActivityLogService _activityLogService;
 
-    public AnnotationService(IUnitOfWork unitOfWork)
+    public AnnotationService(IUnitOfWork unitOfWork, IActivityLogService activityLogService)
     {
         _unitOfWork = unitOfWork;
+        _activityLogService = activityLogService;
     }
 
     public async Task<IEnumerable<AnnotationDto>> GetByDataItemIdAsync(
@@ -86,6 +89,15 @@ public class AnnotationService : IAnnotationService
         await _unitOfWork.Annotations.AddAsync(annotation, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        // Log activity
+        await _activityLogService.LogAsync(
+            createdById,
+            ActivityAction.Create,
+            "Annotation",
+            annotation.Id,
+            JsonSerializer.Serialize(new { labelId = request.LabelId, dataItemId }),
+            cancellationToken: cancellationToken);
+
         return new AnnotationDto
         {
             Id = annotation.Id,
@@ -105,6 +117,7 @@ public class AnnotationService : IAnnotationService
     public async Task<AnnotationDto> UpdateAsync(
         int id,
         UpdateAnnotationRequest request,
+        int userId,
         CancellationToken cancellationToken = default)
     {
         var annotation = await _unitOfWork.Annotations.GetByIdAsync(id, cancellationToken);
@@ -138,17 +151,38 @@ public class AnnotationService : IAnnotationService
         _unitOfWork.Annotations.Update(annotation);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        // Log activity
+        await _activityLogService.LogAsync(
+            userId,
+            ActivityAction.Update,
+            "Annotation",
+            id,
+            JsonSerializer.Serialize(new { labelId = request.LabelId, dataItemId = annotation.DataItemId }),
+            cancellationToken: cancellationToken);
+
         return (await GetByIdAsync(id, cancellationToken))!;
     }
 
-    public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(int id, int userId, CancellationToken cancellationToken = default)
     {
         var annotation = await _unitOfWork.Annotations.GetByIdAsync(id, cancellationToken);
         if (annotation == null)
             throw new NotFoundException("Annotation", id);
 
+        var dataItemId = annotation.DataItemId;
+        var labelId = annotation.LabelId;
+
         _unitOfWork.Annotations.Delete(annotation);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Log activity
+        await _activityLogService.LogAsync(
+            userId,
+            ActivityAction.Delete,
+            "Annotation",
+            id,
+            JsonSerializer.Serialize(new { labelId, dataItemId }),
+            cancellationToken: cancellationToken);
     }
 
     public async Task<IEnumerable<AnnotationDto>> SaveAllAsync(
