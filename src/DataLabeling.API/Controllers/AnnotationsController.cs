@@ -278,4 +278,74 @@ public class AnnotationsController : ControllerBase
             return BadRequest(new { success = false, message = ex.Message });
         }
     }
+
+    // ==================== Re-annotation ====================
+
+    /// <summary>
+    /// Start re-annotation on a rejected task item.
+    /// Resets the item status so annotator can fix and re-submit.
+    /// </summary>
+    [HttpPost("task-items/{taskItemId:int}/re-annotate")]
+    [Authorize(Roles = "Annotator")]
+    [ProducesResponseType(typeof(TaskItemProgressDto), 200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<TaskItemProgressDto>> StartReAnnotation(
+        int taskItemId,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
+        try
+        {
+            var result = await _annotationService.StartReAnnotationAsync(taskItemId, userId, cancellationToken);
+            return Ok(result);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(403, new { success = false, message = ex.Message });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Get rejected items for a task that need re-annotation.
+    /// </summary>
+    [HttpGet("tasks/{taskId:int}/rejected-items")]
+    [Authorize(Roles = "Annotator")]
+    [ProducesResponseType(typeof(IEnumerable<RejectedItemDto>), 200)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<IEnumerable<RejectedItemDto>>> GetRejectedItems(
+        int taskId,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
+        try
+        {
+            var items = await _annotationService.GetRejectedItemsAsync(taskId, userId, cancellationToken);
+            return Ok(items);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(403, new { success = false, message = ex.Message });
+        }
+    }
 }

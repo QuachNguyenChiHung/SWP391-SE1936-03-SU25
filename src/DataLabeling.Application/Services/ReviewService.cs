@@ -100,6 +100,11 @@ public class ReviewService : IReviewService
         {
             await CheckAndUpdateTaskCompletionAsync(dataItemId, cancellationToken);
         }
+        // If rejected, reset TaskItem status so annotator can re-work
+        else
+        {
+            await ResetTaskItemForReAnnotationAsync(dataItemId, cancellationToken);
+        }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -359,6 +364,41 @@ public class ReviewService : IReviewService
                 task.CompletedAt = DateTime.UtcNow;
                 task.UpdatedAt = DateTime.UtcNow;
                 _unitOfWork.AnnotationTasks.Update(task);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Resets TaskItem and Task status when an item is rejected,
+    /// allowing the annotator to re-work on it.
+    /// </summary>
+    private async Task ResetTaskItemForReAnnotationAsync(int dataItemId, CancellationToken cancellationToken)
+    {
+        // Find task items for this data item
+        var taskItems = await _unitOfWork.TaskItems.GetByDataItemIdAsync(dataItemId, cancellationToken);
+
+        foreach (var taskItem in taskItems)
+        {
+            // Reset TaskItem status to InProgress (annotator needs to re-work)
+            taskItem.Status = TaskItemStatus.InProgress;
+            taskItem.CompletedAt = null;
+            _unitOfWork.TaskItems.Update(taskItem);
+
+            // Get the task and reset its status if needed
+            var task = await _unitOfWork.AnnotationTasks.GetByIdAsync(taskItem.TaskId, cancellationToken);
+            if (task != null)
+            {
+                // If task was Submitted, reset to InProgress
+                if (task.Status == AnnotationTaskStatus.Submitted)
+                {
+                    task.Status = AnnotationTaskStatus.InProgress;
+                    task.SubmittedAt = null;
+                    task.UpdatedAt = DateTime.UtcNow;
+                    _unitOfWork.AnnotationTasks.Update(task);
+                }
+
+                // Update task progress
+                await _unitOfWork.AnnotationTasks.UpdateProgressAsync(task.Id, cancellationToken);
             }
         }
     }

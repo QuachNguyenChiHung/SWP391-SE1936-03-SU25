@@ -423,4 +423,119 @@ public class AnnotationService : IAnnotationService
             UpdatedAt = annotation.UpdatedAt
         };
     }
+
+    // ==================== Re-annotation ====================
+
+    public async Task<TaskItemProgressDto> StartReAnnotationAsync(
+        int taskItemId,
+        int userId,
+        CancellationToken cancellationToken = default)
+    {
+        var taskItem = await _unitOfWork.TaskItems.GetWithDataItemAsync(taskItemId, cancellationToken);
+        if (taskItem == null)
+            throw new NotFoundException("TaskItem", taskItemId);
+
+        // Get task to validate user is the assigned annotator
+        var task = await _unitOfWork.AnnotationTasks.GetByIdAsync(taskItem.TaskId, cancellationToken);
+        if (task == null)
+            throw new NotFoundException("Task", taskItem.TaskId);
+
+        if (task.AnnotatorId != userId)
+            throw new ForbiddenException("You are not assigned to this task");
+
+        // Get data item
+        var dataItem = taskItem.DataItem ?? await _unitOfWork.DataItems.GetByIdAsync(taskItem.DataItemId, cancellationToken);
+        if (dataItem == null)
+            throw new NotFoundException("DataItem", taskItem.DataItemId);
+
+        // Can only start re-annotation if the item was rejected
+        if (dataItem.Status != DataItemStatus.Rejected)
+            throw new ValidationException($"Can only re-annotate rejected items. Current status: {dataItem.Status}");
+
+        // Reset TaskItem status to InProgress
+        taskItem.Status = TaskItemStatus.InProgress;
+        taskItem.CompletedAt = null; // Clear completed timestamp
+        _unitOfWork.TaskItems.Update(taskItem);
+
+        // Reset DataItem status to InProgress
+        dataItem.Status = DataItemStatus.InProgress;
+        dataItem.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.DataItems.Update(dataItem);
+
+        // Reset Task status to InProgress if it was Submitted
+        if (task.Status == AnnotationTaskStatus.Submitted)
+        {
+            task.Status = AnnotationTaskStatus.InProgress;
+            task.SubmittedAt = null;
+            task.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.AnnotationTasks.Update(task);
+        }
+
+        // Update task progress (decrement completed count)
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.AnnotationTasks.UpdateProgressAsync(task.Id, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Log activity
+        await _activityLogService.LogAsync(
+            userId,
+            ActivityAction.Update,
+            "TaskItem",
+            taskItemId,
+            JsonSerializer.Serialize(new { action = "StartReAnnotation", dataItemId = dataItem.Id }),
+            cancellationToken: cancellationToken);
+
+        return await GetTaskItemProgressDto(task.Id, taskItemId, cancellationToken);
+    }
+
+    public async Task<IEnumerable<RejectedItemDto>> GetRejectedItemsAsync(
+        int taskId,
+        int userId,
+        CancellationToken cancellationToken = default)
+    {
+        var task = await _unitOfWork.AnnotationTasks.GetWithTaskItemsAsync(taskId, cancellationToken);
+        if (task == null)
+            throw new NotFoundException("Task", taskId);
+
+        if (task.AnnotatorId != userId)
+            throw new ForbiddenException("You are not assigned to this task");
+
+        var rejectedItems = new List<RejectedItemDto>();
+
+        foreach (var taskItem in task.TaskItems)
+        {
+            var dataItem = await _unitOfWork.DataItems.GetByIdAsync(taskItem.DataItemId, cancellationToken);
+            if (dataItem == null || dataItem.Status != DataItemStatus.Rejected)
+                continue;
+
+            // Get the latest review with rejection details
+            var latestReview = await _unitOfWork.Reviews.GetLatestByDataItemIdAsync(dataItem.Id, cancellationToken);
+
+            var errorTypeNames = new List<string>();
+            if (latestReview != null)
+            {
+                var reviewWithErrors = await _unitOfWork.Reviews.GetWithErrorTypesAsync(latestReview.Id, cancellationToken);
+                if (reviewWithErrors != null)
+                {
+                    errorTypeNames = reviewWithErrors.ReviewErrorTypes
+                        .Select(ret => ret.ErrorType?.Name ?? "")
+                        .Where(n => !string.IsNullOrEmpty(n))
+                        .ToList();
+                }
+            }
+
+            rejectedItems.Add(new RejectedItemDto
+            {
+                TaskItemId = taskItem.Id,
+                DataItemId = dataItem.Id,
+                FileName = dataItem.FileName,
+                ThumbnailPath = dataItem.ThumbnailPath,
+                Feedback = latestReview?.Feedback,
+                ErrorTypes = errorTypeNames,
+                RejectedAt = latestReview?.CreatedAt ?? dataItem.UpdatedAt ?? DateTime.UtcNow
+            });
+        }
+
+        return rejectedItems.OrderByDescending(r => r.RejectedAt);
+    }
 }

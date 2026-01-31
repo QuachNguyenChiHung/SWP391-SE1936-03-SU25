@@ -78,6 +78,25 @@ public interface IAnnotationService
     Task<AnnotationEditorDto?> GetAnnotationEditorDataAsync(
         int taskItemId,
         CancellationToken cancellationToken = default);
+
+    // ==================== Re-annotation ====================
+
+    /// <summary>
+    /// Starts re-annotation on a rejected task item.
+    /// Resets TaskItem and DataItem status to InProgress.
+    /// </summary>
+    Task<TaskItemProgressDto> StartReAnnotationAsync(
+        int taskItemId,
+        int userId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets rejected items for a task that need re-annotation.
+    /// </summary>
+    Task<IEnumerable<RejectedItemDto>> GetRejectedItemsAsync(
+        int taskId,
+        int userId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -143,4 +162,18 @@ public class NavigationDto
     public int? NextTaskItemId { get; set; }
     public int CurrentIndex { get; set; }
     public int TotalItems { get; set; }
+}
+
+/// <summary>
+/// DTO for rejected items that need re-annotation.
+/// </summary>
+public class RejectedItemDto
+{
+    public int TaskItemId { get; set; }
+    public int DataItemId { get; set; }
+    public string FileName { get; set; } = string.Empty;
+    public string? ThumbnailPath { get; set; }
+    public string? Feedback { get; set; }
+    public List<string> ErrorTypes { get; set; } = new();
+    public DateTime RejectedAt { get; set; }
 }
