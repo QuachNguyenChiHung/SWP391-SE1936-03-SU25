@@ -1,6 +1,8 @@
 using AutoMapper;
+using DataLabeling.Application.DTOs.Annotations;
 using DataLabeling.Application.DTOs.Common;
 using DataLabeling.Application.DTOs.DataItems;
+using DataLabeling.Application.DTOs.Reviews;
 using DataLabeling.Application.Interfaces;
 using DataLabeling.Core.Entities;
 using DataLabeling.Core.Enums;
@@ -231,11 +233,14 @@ public class DataItemService : IDataItemService
         dto.Annotations = dataItem.Annotations.Select(a => new AnnotationDto
         {
             Id = a.Id,
+            DataItemId = a.DataItemId,
             LabelId = a.LabelId,
             LabelName = a.Label?.Name ?? "",
             LabelColor = a.Label?.Color ?? "",
             Coordinates = a.Coordinates ?? "",
+            Attributes = a.Attributes,
             CreatedAt = a.CreatedAt,
+            UpdatedAt = a.UpdatedAt,
             CreatedById = a.CreatedById,
             CreatedByName = a.CreatedBy?.Name ?? ""
         }).ToList();
@@ -244,12 +249,19 @@ public class DataItemService : IDataItemService
         dto.Reviews = dataItem.Reviews.Select(r => new ReviewDto
         {
             Id = r.Id,
-            Decision = r.Decision.ToString(),
-            Feedback = r.Feedback,
-            CreatedAt = r.CreatedAt,
+            DataItemId = r.DataItemId,
             ReviewerId = r.ReviewerId,
             ReviewerName = r.Reviewer?.Name ?? "",
-            ErrorTypes = r.ReviewErrorTypes?.Select(ret => ret.ErrorType?.Name ?? "").ToList() ?? new List<string>()
+            Decision = r.Decision,
+            Feedback = r.Feedback,
+            ErrorTypes = r.ReviewErrorTypes?.Select(ret => new ErrorTypeDto
+            {
+                Id = ret.ErrorType?.Id ?? 0,
+                Code = ret.ErrorType?.Code ?? "",
+                Name = ret.ErrorType?.Name ?? "",
+                Description = ret.ErrorType?.Description
+            }).ToList() ?? new List<ErrorTypeDto>(),
+            CreatedAt = r.CreatedAt
         }).ToList();
 
         return dto;
