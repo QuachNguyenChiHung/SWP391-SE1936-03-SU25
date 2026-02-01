@@ -12,9 +12,9 @@ public class AnnotatorStatsDto
 }
 
 /// <summary>
-/// Reviewer statistics.
+/// Reviewer statistics for dashboard.
 /// </summary>
-public class ReviewerStatsDto
+public class DashboardReviewerStatsDto
 {
     public int PendingReview { get; set; }
     public int ReviewedToday { get; set; }

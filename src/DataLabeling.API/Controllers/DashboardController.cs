@@ -119,7 +119,7 @@ public class DashboardController : ControllerBase
             1, 10, null, cancellationToken);
 
         var pendingQueue = (pendingItems ?? Enumerable.Empty<Core.Entities.DataItem>())
-            .Select(item => new PendingReviewItemDto
+            .Select(item => new DashboardPendingReviewItemDto
             {
                 DataItemId = item.Id,
                 FileName = item.FileName ?? "Unknown",
@@ -148,7 +148,7 @@ public class DashboardController : ControllerBase
         var today = DateTime.UtcNow.Date;
         var reviewsToday = allReviewsByUser.Count(r => r.CreatedAt.Date == today);
 
-        var stats = new ReviewerStatsDto
+        var stats = new DashboardReviewerStatsDto
         {
             PendingReview = pendingCount,
             ReviewedToday = reviewsToday,

@@ -44,7 +44,7 @@ public class RecentTaskDto
 /// <summary>
 /// Pending review item DTO for reviewer dashboard.
 /// </summary>
-public class PendingReviewItemDto
+public class DashboardPendingReviewItemDto
 {
     public int DataItemId { get; set; }
     public string FileName { get; set; } = default!;
