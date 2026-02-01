@@ -84,7 +84,7 @@ export const AdminPanel = ({ user }) => {
                     id: it.id,
                     name: it.name,
                     email: it.email,
-                    role: it.roleName || it.role, // Backend trả về roleName hoặc roleId
+                    role: it.roleName || it.role, 
                     active: it.status === 1,
                     createdAt: it.createdAt,
                     avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(it.email || it.name)}`
@@ -94,11 +94,9 @@ export const AdminPanel = ({ user }) => {
         } catch (err) {
             console.warn('Fetching detail failed, falling back to list data', err);
         }
-        // Fallback: Dùng dữ liệu có sẵn từ bảng nếu API detail lỗi
         setEditingUser({ ...user });
     };
 
-    // Lưu cập nhật User
     const handleSave = async (e) => {
         e.preventDefault();
         if (!editingUser) return;
@@ -123,7 +121,6 @@ export const AdminPanel = ({ user }) => {
         }
     };
 
-    // Tạo User mới
     const handleCreate = async (e) => {
         e.preventDefault();
         setUsersError(null);
@@ -149,7 +146,6 @@ export const AdminPanel = ({ user }) => {
         }
     };
 
-    // Xóa User
     const handleDelete = async () => {
         if (!deletingUser) return;
         try {
@@ -165,13 +161,11 @@ export const AdminPanel = ({ user }) => {
         }
     };
 
-    // Lọc danh sách theo tìm kiếm
     const filteredUsers = users.filter(u =>
         u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         u.email.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // --- 3. UI COMPONENTS ---
 
     const RoleBadge = ({ role }) => {
         const styles = {
@@ -200,7 +194,6 @@ export const AdminPanel = ({ user }) => {
 
     return (
         <div className="container-fluid py-4 animate-in fade-in">
-            {/* Header */}
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
                 <div>
                     <h2 className="h4 fw-bold text-dark mb-1">User Management</h2>
@@ -217,10 +210,8 @@ export const AdminPanel = ({ user }) => {
             </div>
 
             <div className="row g-4">
-                {/* --- Left Column: USER TABLE --- */}
                 <div className="col-12 col-lg-8">
                     <div className="card border-0 shadow-sm h-100 overflow-hidden">
-                        {/* Toolbar */}
                         <div className="card-header bg-white border-bottom py-3">
                             <InputGroup>
                                 <InputGroup.Text className="bg-light border-end-0">
@@ -238,14 +229,12 @@ export const AdminPanel = ({ user }) => {
                             </InputGroup>
                         </div>
 
-                        {/* Error Alert */}
                         {usersError && (
                             <div className="alert alert-danger m-3 d-flex align-items-center gap-2">
                                 <X size={18} /> {usersError}
                             </div>
                         )}
 
-                        {/* Table */}
                         <div className="table-responsive">
                             <table className="table table-hover align-middle mb-0">
                                 <thead className="bg-light">
@@ -294,7 +283,6 @@ export const AdminPanel = ({ user }) => {
                                                     </div>
                                                 </td>
                                                 <td className="text-end pe-4">
-                                                    {/* --- ACTION BUTTONS (Đã chỉnh sửa theo yêu cầu) --- */}
                                                     <div className="d-flex justify-content-end gap-2">
                                                         <button 
                                                             className="btn border-0 fw-medium px-3 py-1 rounded"
@@ -335,7 +323,6 @@ export const AdminPanel = ({ user }) => {
                     </div>
                 </div>
 
-                {/* --- Right Column: ACTIVITY LOG --- */}
                 <div className="col-12 col-lg-4">
                     <div className="card border-0 shadow-sm h-100">
                         <div className="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
@@ -371,9 +358,7 @@ export const AdminPanel = ({ user }) => {
                 </div>
             </div>
 
-            {/* --- MODALS SECTION --- */}
 
-            {/* 1. Create User Modal */}
             <Modal show={creatingUser} onHide={() => setCreatingUser(false)} centered backdrop="static">
                 <Modal.Header closeButton className="border-bottom-0 pb-0">
                     <Modal.Title className="fw-bold h5">Create New User</Modal.Title>
@@ -462,7 +447,6 @@ export const AdminPanel = ({ user }) => {
                 </Modal.Footer>
             </Modal>
 
-            {/* 2. Edit User Modal (Giao diện mới) */}
             <Modal show={!!editingUser} onHide={() => setEditingUser(null)} centered size="lg">
                 <Modal.Header closeButton className="border-bottom-0 pb-0 pt-4 px-4">
                     <div>
