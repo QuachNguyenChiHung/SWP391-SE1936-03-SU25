@@ -443,7 +443,6 @@ export const AdminPanel = ({ user }) => {
                 </Form>
             </Modal>
 
-            {/* 3. Delete Confirmation Modal */}
             <Modal show={!!deletingUser} onHide={() => setDeletingUser(null)} centered>
                 <Modal.Header closeButton>
                     <Modal.Title className="fw-bold h5">Delete User</Modal.Title>
