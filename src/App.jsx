@@ -173,6 +173,7 @@ function App() {
   const handleLogin = (user) => {
     setCurrentUser(user);
     // Lưu user vào cookie
+    //encodeURIComponent để tránh lỗi kí tự đặt biệt như: ; = " '
     document.cookie = `user=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=${60 * 60}`;
   };
 
