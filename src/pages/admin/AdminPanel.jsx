@@ -1,40 +1,164 @@
-import React, { useState } from 'react';
-import { MOCK_USERS, MOCK_ACTIVITY } from '../../services/mockData.js';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { MOCK_ACTIVITY } from '../../services/mockData.js';
 import { UserRole } from '../../types.js';
-import { Activity, UserPlus, Search, X, Check, Mail, Shield, User, UserIcon } from 'lucide-react';
-import './AdminPanel.css';
+import { 
+    Activity, UserPlus, Search, X, Check, Mail, Shield, User, 
+    UserIcon, Filter, RefreshCw, Trash2, AlertTriangle, 
+    Calendar, CheckCircle2, XCircle 
+} from 'lucide-react';
+import { Modal, Button, Form, InputGroup, Spinner, Row, Col } from 'react-bootstrap';
+
 export const AdminPanel = ({ user }) => {
-    const [users, setUsers] = useState(MOCK_USERS);
+    const [users, setUsers] = useState([]);
     const [editingUser, setEditingUser] = useState(null);
     const [creatingUser, setCreatingUser] = useState(false);
+    const [deletingUser, setDeletingUser] = useState(null);
     const [newUser, setNewUser] = useState({ username: '', password: '', email: '', role: UserRole.ANNOTATOR });
     const [searchQuery, setSearchQuery] = useState('');
+    const [loadingUsers, setLoadingUsers] = useState(false);
+    const [usersError, setUsersError] = useState(null);
 
-    const handleEdit = (user) => {
+    // --- 1. FETCH DATA ---
+    const fetchUsers = async () => {
+        setLoadingUsers(true);
+        setUsersError(null);
+        try {
+            const token = JSON.parse(localStorage.getItem('user'))?.token;
+            const res = await axios.get((import.meta.env.VITE_URL || '') + '/Users', {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+
+            const items = res?.data?.data?.items || [];
+            const mapped = items.map(it => ({
+                id: it.id,
+                name: it.name,
+                email: it.email,
+                role: it.roleName || it.role,
+                roleId: it.role,
+                status: it.statusName || it.status,
+                active: it.status === 1,
+                createdAt: it.createdAt,
+                lastLoginAt: it.lastLoginAt,
+                avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(it.email || it.name)}`
+            }));
+
+            setUsers(mapped);
+        } catch (err) {
+            console.error('Failed to load users', err?.response || err.message || err);
+            const apiErr = err?.response?.data || err?.message || 'Failed to load users';
+            setUsersError(typeof apiErr === 'string' ? apiErr : JSON.stringify(apiErr));
+        } finally {
+            setLoadingUsers(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchUsers();
+    }, []);
+
+    // --- 2. LOGIC FUNCTIONS ---
+    
+    // Helper: Chuyển đổi tên Role sang ID
+    const roleNameToId = (roleName) => {
+        switch ((roleName || '').toLowerCase()) {
+            case 'admin': return 1;
+            case 'manager': return 2;
+            case 'annotator': return 3;
+            case 'reviewer': return 4;
+            default: return 3;
+        }
+    };
+
+    // Xử lý khi bấm nút Edit -> Fetch chi tiết user
+    const handleEditClick = async (user) => {
+        try {
+            const token = JSON.parse(localStorage.getItem('user'))?.token;
+            // Gọi API lấy chi tiết user (nếu cần dữ liệu đầy đủ hơn từ list)
+            const res = await axios.get((import.meta.env.VITE_URL || '') + `/Users/${user.id}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            const it = res?.data?.data;
+            if (it) {
+                setEditingUser({
+                    id: it.id,
+                    name: it.name,
+                    email: it.email,
+                    role: it.roleName || it.role, 
+                    active: it.status === 1,
+                    createdAt: it.createdAt,
+                    avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(it.email || it.name)}`
+                });
+                return;
+            }
+        } catch (err) {
+            console.warn('Fetching detail failed, falling back to list data', err);
+        }
         setEditingUser({ ...user });
     };
 
-    const handleSave = (e) => {
+    const handleSave = async (e) => {
         e.preventDefault();
         if (!editingUser) return;
 
-        setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
-        setEditingUser(null);
+        const payload = {
+            name: editingUser.name,
+            role: roleNameToId(editingUser.role),
+            status: editingUser.active ? 1 : 0
+        };
+
+        try {
+            const token = JSON.parse(localStorage.getItem('user'))?.token;
+            await axios.put((import.meta.env.VITE_URL || '') + `/Users/${editingUser.id}`, payload, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+
+            await fetchUsers();
+            setEditingUser(null);
+        } catch (err) {
+            console.error('Failed to update user', err);
+            alert('Failed to update user: ' + (err?.response?.data?.message || err.message));
+        }
     };
 
-    const handleCreate = (e) => {
+    const handleCreate = async (e) => {
         e.preventDefault();
-        const createdUser = {
-            id: users.length + 1,
-            name: newUser.username,
+        setUsersError(null);
+        const payload = {
             email: newUser.email,
-            role: newUser.role,
-            active: true,
-            avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${newUser.username}`
+            password: newUser.password,
+            name: newUser.username,
+            role: roleNameToId(newUser.role)
         };
-        setUsers([...users, createdUser]);
-        setCreatingUser(false);
-        setNewUser({ username: '', password: '', email: '', role: UserRole.ANNOTATOR });
+
+        try {
+            const token = JSON.parse(localStorage.getItem('user'))?.token;
+            await axios.post((import.meta.env.VITE_URL || '') + '/Users', payload, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+
+            await fetchUsers();
+            setCreatingUser(false);
+            setNewUser({ username: '', password: '', email: '', role: UserRole.ANNOTATOR });
+        } catch (err) {
+            console.error('Failed to create user', err);
+            alert('Failed to create user: ' + (err?.response?.data?.message || err.message));
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!deletingUser) return;
+        try {
+            const token = JSON.parse(localStorage.getItem('user'))?.token;
+            await axios.delete((import.meta.env.VITE_URL || '') + `/Users/${deletingUser.id}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            await fetchUsers();
+            setDeletingUser(null);
+        } catch (err) {
+            console.error('Failed to delete user', err);
+            alert('Failed to delete user: ' + (err?.response?.data?.message || err.message));
+        }
     };
 
     const filteredUsers = users.filter(u =>
@@ -42,113 +166,150 @@ export const AdminPanel = ({ user }) => {
         u.email.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+
+    const RoleBadge = ({ role }) => {
+        const styles = {
+            ADMIN: 'bg-danger-subtle text-danger-emphasis border-danger-subtle',
+            MANAGER: 'bg-primary-subtle text-primary-emphasis border-primary-subtle',
+            ANNOTATOR: 'bg-secondary-subtle text-secondary-emphasis border-secondary-subtle',
+            REVIEWER: 'bg-warning-subtle text-warning-emphasis border-warning-subtle',
+        };
+        const roleKey = role ? role.toUpperCase() : 'ANNOTATOR';
+        const className = styles[roleKey] || styles.ANNOTATOR;
+        return (
+            <span className={`px-2 py-1 rounded-pill text-xs fw-bold border ${className}`} style={{ fontSize: '0.7rem' }}>
+                {role}
+            </span>
+        );
+    };
+
+    const StatusBadge = ({ active }) => (
+        <span className={`d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill text-xs fw-medium border ${
+            active ? 'bg-success-subtle text-success-emphasis border-success-subtle' : 'bg-light text-muted border-light-subtle'
+        }`} style={{ fontSize: '0.75rem' }}>
+            <span className={`rounded-circle ${active ? 'bg-success' : 'bg-secondary'}`} style={{ width: '6px', height: '6px' }}></span>
+            {active ? 'Active' : 'Inactive'}
+        </span>
+    );
+
     return (
-        <div className="h-100 d-flex flex-column gap-4 animate-in fade-in duration-500">
+        <div className="container-fluid py-4 animate-in fade-in">
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+                <div>
+                    <h2 className="h4 fw-bold text-dark mb-1">User Management</h2>
+                    <p className="text-muted small mb-0">Manage access, roles, and user activity.</p>
+                </div>
+                <div className="d-flex gap-2">
+                    <Button variant="light" className="border shadow-sm d-flex align-items-center gap-2 bg-white" onClick={fetchUsers}>
+                        <RefreshCw size={16} className={loadingUsers ? "spin-animation" : ""} /> Refresh
+                    </Button>
+                    <Button variant="primary" className="shadow-sm d-flex align-items-center gap-2" onClick={() => setCreatingUser(true)}>
+                        <UserPlus size={18} /> Add New User
+                    </Button>
+                </div>
+            </div>
 
             <div className="row g-4">
-                {/* Main User List */}
                 <div className="col-12 col-lg-8">
-                    <div className="card border shadow-sm h-100">
-                        <div className="card-header bg-white border-bottom">
-                            <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
-                                <div>
-                                    <h3 className="h5 fw-semibold mb-1">User Management</h3>
-                                    <p className="small text-muted mb-0">
-                                        Showing {filteredUsers.length} of {users.length} users
-                                    </p>
-                                </div>
-                                <div className="d-flex gap-2 w-100 search-container">
-                                    <div className="position-relative flex-grow-1">
-                                        <Search size={16} className="search-icon text-muted" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search users..."
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="form-control form-control-sm input-with-icon"
-                                            aria-label="Search users by name or email"
-                                        />
-                                        {searchQuery && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setSearchQuery('')}
-                                                className="search-clear-btn"
-                                                aria-label="Clear search">
-                                                <X size={16} />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <button
-                                        onClick={() => setCreatingUser(true)}
-                                        className="btn btn-dark btn-sm d-flex align-items-center gap-2 text-nowrap"
-                                        aria-label="Create new user">
-                                        <UserPlus size={16} />
-                                        Create User
-                                    </button>
-                                </div>
-                            </div>
+                    <div className="card border-0 shadow-sm h-100 overflow-hidden">
+                        <div className="card-header bg-white border-bottom py-3">
+                            <InputGroup>
+                                <InputGroup.Text className="bg-light border-end-0">
+                                    <Search size={16} className="text-muted" />
+                                </InputGroup.Text>
+                                <Form.Control
+                                    placeholder="Search users by name or email..."
+                                    className="bg-light border-start-0 ps-0 shadow-none"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                                <Button variant="outline-secondary" className="border-start-0 d-flex align-items-center gap-2">
+                                    <Filter size={16} /> Filter
+                                </Button>
+                            </InputGroup>
                         </div>
+
+                        {usersError && (
+                            <div className="alert alert-danger m-3 d-flex align-items-center gap-2">
+                                <X size={18} /> {usersError}
+                            </div>
+                        )}
 
                         <div className="table-responsive">
                             <table className="table table-hover align-middle mb-0">
-                                <thead className="table-light">
+                                <thead className="bg-light">
                                     <tr>
-                                        <th className="fw-semibold">User</th>
-                                        <th className="fw-semibold">Role</th>
-                                        <th className="fw-semibold">Status</th>
-                                        <th className="fw-semibold text-end">Actions</th>
+                                        <th className="ps-4 py-3 text-muted small text-uppercase fw-bold border-0">User Profile</th>
+                                        <th className="py-3 text-muted small text-uppercase fw-bold border-0">Role</th>
+                                        <th className="py-3 text-muted small text-uppercase fw-bold border-0">Status</th>
+                                        <th className="py-3 text-muted small text-uppercase fw-bold border-0">Joined</th>
+                                        <th className="pe-4 py-3 text-end text-muted small text-uppercase fw-bold border-0">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredUsers.length === 0 ? (
+                                    {loadingUsers ? (
                                         <tr>
-                                            <td colSpan="4" className="empty-state-container">
-                                                <Search size={48} className="empty-state-icon" />
-                                                <p className="text-muted mb-0">No users found matching "{searchQuery}"</p>
+                                            <td colSpan="5" className="text-center py-5">
+                                                <Spinner animation="border" variant="primary" size="sm" /> Loading users...
+                                            </td>
+                                        </tr>
+                                    ) : filteredUsers.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="5" className="text-center py-5 text-muted">
+                                                No users found matching your search.
                                             </td>
                                         </tr>
                                     ) : (
                                         filteredUsers.map((user) => (
-                                            <tr key={user.id}>
-                                                <td>
+                                            <tr key={user.id} className="border-bottom border-light group">
+                                                <td className="ps-4 py-3">
                                                     <div className="d-flex align-items-center gap-3">
-                                                        <img src={user.avatarUrl} alt={user.name} className="user-avatar" />
+                                                        <div className="position-relative">
+                                                            <img src={user.avatarUrl} alt="" className="rounded-circle border" width="40" height="40" />
+                                                            {user.active && <span className="position-absolute bottom-0 end-0 bg-success border border-white rounded-circle p-1" style={{width: 10, height: 10}}></span>}
+                                                        </div>
                                                         <div>
-                                                            <div className="fw-medium">{user.name}</div>
+                                                            <div className="fw-semibold text-dark mb-0">{user.name}</div>
                                                             <div className="small text-muted">{user.email}</div>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td>
-                                                    <span className={`badge rounded-pill text-black
-                                            ${user.role === 'ADMIN' ? 'bg-purple-light text-purple' : ''}
-                                            ${user.role === 'MANAGER' ? 'bg-indigo-light text-indigo' : ''}
-                                            ${user.role === 'ANNOTATOR' ? 'bg-blue-light text-primary' : ''}
-                                            ${user.role === 'REVIEWER' ? 'bg-orange-light text-warning' : ''}
-                                        `}>
-                                                        {user.role}
-                                                    </span>
+                                                <td><RoleBadge role={user.role} /></td>
+                                                <td><StatusBadge active={user.active} /></td>
+                                                <td className="text-muted small">
+                                                    <div className="d-flex align-items-center gap-2">
+                                                        <Calendar size={14}/>
+                                                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                                                    </div>
                                                 </td>
-                                                <td>
-                                                    {user.active ? (
-                                                        <span className="d-inline-flex align-items-center gap-2 small text-success fw-medium">
-                                                            <span className="status-dot active" aria-hidden="true"></span>
-                                                            <span aria-label="User status">Active</span>
-                                                        </span>
-                                                    ) : (
-                                                        <span className="d-inline-flex align-items-center gap-2 small text-muted fw-medium">
-                                                            <span className="status-dot inactive" aria-hidden="true"></span>
-                                                            <span aria-label="User status">Inactive</span>
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="text-end">
-                                                    <button
-                                                        onClick={() => handleEdit(user)}
-                                                        className="btn btn-link btn-sm text-primary p-0"
-                                                        aria-label={`Edit ${user.name}`}>
-                                                        Edit
-                                                    </button>
+                                                <td className="text-end pe-4">
+                                                    <div className="d-flex justify-content-end gap-2">
+                                                        <button 
+                                                            className="btn border-0 fw-medium px-3 py-1 rounded"
+                                                            style={{ 
+                                                                backgroundColor: '#eff6ff', // Xanh nhạt
+                                                                color: '#3b82f6',           // Xanh đậm
+                                                                fontSize: '0.85rem'
+                                                            }}
+                                                            onClick={(e) => { e.stopPropagation(); handleEditClick(user); }}
+                                                        >
+                                                            Edit
+                                                        </button>
+
+                                                        <button 
+                                                            className="btn border-0 p-1 rounded d-flex align-items-center justify-content-center"
+                                                            style={{ 
+                                                                backgroundColor: '#fef2f2', // Đỏ nhạt
+                                                                color: '#ef4444',           // Đỏ đậm
+                                                                width: '34px',
+                                                                height: '34px'
+                                                            }}
+                                                            onClick={(e) => { e.stopPropagation(); setDeletingUser(user); }}
+                                                            title="Delete User"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))
@@ -156,31 +317,38 @@ export const AdminPanel = ({ user }) => {
                                 </tbody>
                             </table>
                         </div>
+                        <div className="card-footer bg-white border-top py-3 text-muted small">
+                            Showing {filteredUsers.length} users
+                        </div>
                     </div>
                 </div>
 
-                {/* Activity Timeline Sidebar */}
                 <div className="col-12 col-lg-4">
-                    <div className="card border shadow-sm">
-                        <div className="card-header bg-light d-flex align-items-center justify-content-between">
-                            <h3 className="h6 fw-semibold mb-0 d-flex align-items-center gap-2">
-                                <Activity size={18} className="text-muted" />
-                                Activity Log
-                            </h3>
-                            <button className="btn btn-link btn-sm text-primary p-0">View All</button>
+                    <div className="card border-0 shadow-sm h-100">
+                        <div className="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                            <h6 className="fw-bold mb-0 d-flex align-items-center gap-2">
+                                <Activity size={18} className="text-primary" /> Recent Activity
+                            </h6>
+                            <Button variant="link" size="sm" className="text-muted p-0 text-decoration-none">View All</Button>
                         </div>
-                        <div className="card-body">
-                            <div className="position-relative border-start ps-4">
-                                {MOCK_ACTIVITY.map((log) => (
-                                    <div key={log.id} className="position-relative mb-4">
-                                        <div className="timeline-dot"></div>
-                                        <p className="small fw-medium mb-1">{log.action}</p>
-                                        <p className="text-muted mb-2 text-xs">{log.details}</p>
-                                        <div className="d-flex align-items-center gap-2">
-                                            <span className="badge bg-light text-dark font-monospace text-xxs">
-                                                {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                            <span className="text-muted text-xxs">by User #{log.userId}</span>
+                        <div className="card-body p-0">
+                            <div className="list-group list-group-flush">
+                                {MOCK_ACTIVITY.map((log, index) => (
+                                    <div key={log.id} className="list-group-item border-0 d-flex gap-3 py-3">
+                                        <div className="d-flex flex-column align-items-center">
+                                            <div className="rounded-circle bg-light border d-flex align-items-center justify-content-center" style={{ width: 32, height: 32 }}>
+                                                <User size={14} className="text-muted" />
+                                            </div>
+                                            {index !== MOCK_ACTIVITY.length - 1 && <div className="vr h-100 my-1 bg-secondary bg-opacity-25"></div>}
+                                        </div>
+                                        <div>
+                                            <p className="small mb-1 text-dark fw-medium">{log.action}</p>
+                                            <p className="text-muted small mb-1">{log.details}</p>
+                                            <div className="d-flex align-items-center gap-2 text-muted" style={{ fontSize: '0.7rem' }}>
+                                                <span>{new Date(log.timestamp).toLocaleString()}</span>
+                                                <span>•</span>
+                                                <span>User #{log.userId}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -188,248 +356,217 @@ export const AdminPanel = ({ user }) => {
                         </div>
                     </div>
                 </div>
-
             </div>
 
-            {/* Create User Modal */}
-            {creatingUser && (
-                <div
-                    className="modal show d-block modal-overlay"
-                    onClick={() => setCreatingUser(false)}
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="create-modal-title">
-                    <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-content animate-in zoom-in-95 duration-200">
-                            <div className="modal-header bg-light">
-                                <h5 id="create-modal-title" className="modal-title fw-semibold">Create User</h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => setCreatingUser(false)}
-                                    aria-label="Close dialog"
-                                ></button>
-                            </div>
 
-                            <form onSubmit={handleCreate}>
-                                <div className="modal-body">
-                                    <div className="mb-3">
-                                        <label htmlFor="create-username" className="form-label small fw-medium">Username</label>
-                                        <div className="position-relative">
-                                            <UserIcon size={16} className="input-icon text-muted" />
-                                            <input
-                                                id="create-username"
-                                                type="text"
-                                                value={newUser.username}
-                                                onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                                                className="form-control input-with-icon"
-                                                required
-                                                placeholder="Enter username"
-                                            />
-                                        </div>
-                                    </div>
+            <Modal show={creatingUser} onHide={() => setCreatingUser(false)} centered backdrop="static">
+                <Modal.Header closeButton className="border-bottom-0 pb-0">
+                    <Modal.Title className="fw-bold h5">Create New User</Modal.Title>
+                </Modal.Header>
+                <Form onSubmit={handleCreate}>
+                    <Modal.Body className="d-flex flex-column gap-3 pt-3">
+                        <Form.Group>
+                            <Form.Label className="small fw-bold text-muted">USERNAME</Form.Label>
+                            <InputGroup>
+                                <InputGroup.Text className="bg-light border-end-0"><UserIcon size={16} /></InputGroup.Text>
+                                <Form.Control 
+                                    className="border-start-0 ps-0 bg-light shadow-none"
+                                    placeholder="Enter username" 
+                                    value={newUser.username} 
+                                    onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} 
+                                    required 
+                                />
+                            </InputGroup>
+                        </Form.Group>
+                        <Form.Group>
+                            <Form.Label className="small fw-bold text-muted">EMAIL</Form.Label>
+                            <InputGroup>
+                                <InputGroup.Text className="bg-light border-end-0"><Mail size={16} /></InputGroup.Text>
+                                <Form.Control 
+                                    type="email"
+                                    className="border-start-0 ps-0 bg-light shadow-none"
+                                    placeholder="Enter email" 
+                                    value={newUser.email} 
+                                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} 
+                                    required 
+                                />
+                            </InputGroup>
+                        </Form.Group>
+                        <Form.Group>
+                            <Form.Label className="small fw-bold text-muted">PASSWORD</Form.Label>
+                            <InputGroup>
+                                <InputGroup.Text className="bg-light border-end-0"><Shield size={16} /></InputGroup.Text>
+                                <Form.Control 
+                                    type="password"
+                                    className="border-start-0 ps-0 bg-light shadow-none"
+                                    placeholder="Enter password" 
+                                    value={newUser.password} 
+                                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} 
+                                    required 
+                                />
+                            </InputGroup>
+                        </Form.Group>
+                        <Form.Group>
+                            <Form.Label className="small fw-bold text-muted">ROLE</Form.Label>
+                            <Form.Select 
+                                className="bg-light shadow-none cursor-pointer"
+                                value={newUser.role} 
+                                onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                            >
+                                {Object.values(UserRole).map(role => (
+                                    <option key={role} value={role}>{role}</option>
+                                ))}
+                            </Form.Select>
+                        </Form.Group>
+                    </Modal.Body>
+                    <Modal.Footer className="border-top-0 pt-0">
+                        <Button variant="light" onClick={() => setCreatingUser(false)}>Cancel</Button>
+                        <Button variant="primary" type="submit" className="d-flex align-items-center gap-2">
+                            <UserPlus size={16} /> Create User
+                        </Button>
+                    </Modal.Footer>
+                </Form>
+            </Modal>
 
-                                    <div className="mb-3">
-                                        <label htmlFor="create-password" className="form-label small fw-medium">Password</label>
-                                        <div className="position-relative">
-                                            <Shield size={16} className="input-icon text-muted" />
-                                            <input
-                                                id="create-password"
-                                                type="password"
-                                                value={newUser.password}
-                                                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                                                className="form-control input-with-icon"
-                                                required
-                                                placeholder="Enter password"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="mb-3">
-                                        <label htmlFor="create-email" className="form-label small fw-medium">Email Address</label>
-                                        <div className="position-relative">
-                                            <Mail size={16} className="input-icon text-muted" />
-                                            <input
-                                                id="create-email"
-                                                type="email"
-                                                value={newUser.email}
-                                                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                                                className="form-control input-with-icon"
-                                                required
-                                                placeholder="Enter email address"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="mb-3">
-                                        <label htmlFor="create-role" className="form-label small fw-medium">Role</label>
-                                        <div className="position-relative">
-                                            <Shield size={16} className="input-icon input-icon-no-pointer text-muted" />
-                                            <select
-                                                id="create-role"
-                                                value={newUser.role}
-                                                onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                                                className="form-select input-with-icon"
-                                            >
-                                                {Object.values(UserRole).map(role => (
-                                                    <option key={role} value={role}>{role}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="modal-footer bg-light">
-                                    <button
-                                        type="button"
-                                        onClick={() => setCreatingUser(false)}
-                                        className="btn btn-secondary">
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="btn btn-primary">
-                                        Create User
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+            <Modal show={!!deletingUser} onHide={() => setDeletingUser(null)} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title className="fw-bold h5">Delete User</Modal.Title>
+                </Modal.Header>
+                <Modal.Body className="d-flex gap-3 align-items-start">
+                    <AlertTriangle size={36} className="text-warning" />
+                    <div>
+                        <p className="mb-1 fw-bold">Are you sure you want to delete this user?</p>
+                        <p className="small text-muted mb-0">This action cannot be undone. User: <strong>{deletingUser?.name}</strong> ({deletingUser?.email})</p>
                     </div>
-                </div>
-            )}
+                </Modal.Body>
+                <Modal.Footer className="bg-light">
+                    <Button variant="light" onClick={() => setDeletingUser(null)}>Cancel</Button>
+                    <Button variant="danger" onClick={async () => { await handleDelete(); }}>
+                        Delete
+                    </Button>
+                </Modal.Footer>
+            </Modal>
 
-            {/* Edit User Modal */}
-            {editingUser && (
-                <div
-                    className="modal show d-block modal-overlay"
-                    onClick={() => setEditingUser(null)}
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="edit-modal-title">
-                    <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-content animate-in zoom-in-95 duration-200">
-                            <div className="modal-header bg-light">
-                                <h5 id="edit-modal-title" className="modal-title fw-semibold">Edit User</h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => setEditingUser(null)}
-                                    aria-label="Close dialog"
-                                ></button>
-                            </div>
-
-                            <form onSubmit={handleSave}>
-                                <div className="modal-body">
-                                    <div className="d-flex align-items-center gap-3 mb-4">
-                                        <img src={editingUser.avatarUrl} alt={editingUser.name} className="profile-photo-large border" />
-                                        <div>
-                                            <p className="small text-muted mb-1">Profile Photo</p>
-                                            <button type="button" className="btn btn-link btn-sm p-0 text-primary">Change</button>
-                                        </div>
-                                    </div>
-
-                                    <div className="mb-3">
-                                        <label htmlFor="edit-name" className="form-label small fw-medium">Full Name</label>
-                                        <div className="position-relative">
-                                            <UserIcon size={16} className="input-icon text-muted" />
-                                            <input
-                                                id="edit-name"
-                                                type="text"
-                                                value={editingUser.name}
-                                                onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
-                                                className="form-control input-with-icon"
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="mb-3">
-                                        <label htmlFor="edit-email" className="form-label small fw-medium">Email Address</label>
-                                        <div className="position-relative">
-                                            <Mail size={16} className="input-icon text-muted" />
-                                            <input
-                                                id="edit-email"
-                                                type="email"
-                                                value={editingUser.email}
-                                                onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-                                                className="form-control input-with-icon"
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="row g-3 mb-3">
-                                        <div className="col-6">
-                                            <label htmlFor="edit-role" className="form-label small fw-medium">Role</label>
-                                            <div className="position-relative">
-                                                <Shield size={16} className="input-icon input-icon-no-pointer text-muted" />
-                                                <select
-                                                    id="edit-role"
-                                                    value={editingUser.role}
-                                                    onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
-                                                    className="form-select input-with-icon"
-                                                >
-                                                    {Object.values(UserRole).map(role => (
-                                                        <option key={role} value={role}>{role}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <div className="col-6">
-                                            <label className="form-label small fw-medium">Status</label>
-                                            <div className="d-flex align-items-center gap-3 h-100">
-                                                <div className="form-check">
-                                                    <input
-                                                        type="radio"
-                                                        className="form-check-input"
-                                                        id="statusActive"
-                                                        name="userStatus"
-                                                        checked={editingUser.active}
-                                                        onChange={() => setEditingUser({ ...editingUser, active: true })}
-                                                    />
-                                                    <label className="form-check-label small" htmlFor="statusActive">Active</label>
-                                                </div>
-                                                <div className="form-check">
-                                                    <input
-                                                        type="radio"
-                                                        className="form-check-input"
-                                                        id="statusInactive"
-                                                        name="userStatus"
-                                                        checked={!editingUser.active}
-                                                        onChange={() => setEditingUser({ ...editingUser, active: false })}
-                                                    />
-                                                    <label className="form-check-label small" htmlFor="statusInactive">Inactive</label>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="modal-footer bg-light">
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditingUser(null)}
-                                        className="btn btn-secondary">
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="btn btn-primary">
-                                        Save Changes
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+            <Modal show={!!editingUser} onHide={() => setEditingUser(null)} centered size="lg">
+                <Modal.Header closeButton className="border-bottom-0 pb-0 pt-4 px-4">
+                    <div>
+                        <Modal.Title className="fw-bold h5">Edit User Profile</Modal.Title>
+                        <p className="text-muted small mb-0">Update personal details and permissions.</p>
                     </div>
-                </div>
-            )}
+                </Modal.Header>
+                <Form onSubmit={handleSave}>
+                    <Modal.Body className="p-4">
+                        {editingUser && (
+                            <div className="row g-4">
+                                {/* Avatar Header */}
+                                <div className="col-12 d-flex align-items-center gap-3 p-3 bg-light rounded-3 border border-dashed">
+                                    <img src={editingUser.avatarUrl} className="rounded-circle bg-white shadow-sm" width="64" height="64" alt="" />
+                                    <div>
+                                        <div className="fw-bold fs-5">{editingUser.name}</div>
+                                        <div className="text-muted small">{editingUser.email}</div>
+                                    </div>
+                                </div>
+
+                                <Col md={6}>
+                                    <Form.Label className="small fw-bold text-muted text-uppercase mb-1">Full Name</Form.Label>
+                                    <InputGroup>
+                                        <InputGroup.Text className="bg-white border-end-0 text-muted"><User size={16}/></InputGroup.Text>
+                                        <Form.Control 
+                                            className="border-start-0 ps-0 shadow-none"
+                                            value={editingUser.name} 
+                                            onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })} 
+                                            required
+                                        />
+                                    </InputGroup>
+                                </Col>
+
+                                <Col md={6}>
+                                    <Form.Label className="small fw-bold text-muted text-uppercase mb-1">Email</Form.Label>
+                                    <InputGroup>
+                                        <InputGroup.Text className="bg-light border-end-0 text-muted"><Mail size={16}/></InputGroup.Text>
+                                        <Form.Control 
+                                            className="border-start-0 ps-0 bg-light shadow-none"
+                                            type="email" 
+                                            value={editingUser.email} 
+                                            onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })} 
+                                            required
+                                        />
+                                    </InputGroup>
+                                </Col>
+
+                                <Col md={6}>
+                                    <Form.Label className="small fw-bold text-muted text-uppercase mb-1">Role</Form.Label>
+                                    <Form.Select 
+                                        className="shadow-none cursor-pointer"
+                                        value={editingUser.role} 
+                                        onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                                    >
+                                        {Object.values(UserRole).map(role => (
+                                            <option key={role} value={role}>{role}</option>
+                                        ))}
+                                    </Form.Select>
+                                </Col>
+
+                                <Col md={6}>
+                                    <Form.Label className="small fw-bold text-muted text-uppercase mb-1">Account Status</Form.Label>
+                                    <div className="d-flex gap-2 h-100 align-items-center">
+                                        <div 
+                                            className={`flex-fill border rounded p-2 d-flex align-items-center gap-2 cursor-pointer transition-all ${editingUser.active ? 'border-success bg-success-subtle' : 'border-light bg-light'}`}
+                                            onClick={() => setEditingUser({ ...editingUser, active: true })}
+                                        >
+                                            <div className={`rounded-circle p-1 ${editingUser.active ? 'bg-success text-white' : 'bg-secondary text-white'}`}>
+                                                <CheckCircle2 size={12}/>
+                                            </div>
+                                            <span className={`small fw-medium ${editingUser.active ? 'text-success-emphasis' : 'text-muted'}`}>Active</span>
+                                        </div>
+
+                                        <div 
+                                            className={`flex-fill border rounded p-2 d-flex align-items-center gap-2 cursor-pointer transition-all ${!editingUser.active ? 'border-danger bg-danger-subtle' : 'border-light bg-light'}`}
+                                            onClick={() => setEditingUser({ ...editingUser, active: false })}
+                                        >
+                                            <div className={`rounded-circle p-1 ${!editingUser.active ? 'bg-danger text-white' : 'bg-secondary text-white'}`}>
+                                                <XCircle size={12}/>
+                                            </div>
+                                            <span className={`small fw-medium ${!editingUser.active ? 'text-danger-emphasis' : 'text-muted'}`}>Inactive</span>
+                                        </div>
+                                    </div>
+                                </Col>
+                            </div>
+                        )}
+                    </Modal.Body>
+                    <Modal.Footer className="border-0 px-4 pb-4 pt-0">
+                        <Button variant="light" onClick={() => setEditingUser(null)} className="px-4">Cancel</Button>
+                        <Button variant="primary" type="submit" className="px-4">Save Changes</Button>
+                    </Modal.Footer>
+                </Form>
+            </Modal>
+
+            {/* 3. Delete Confirmation Modal */}
+            <Modal show={!!deletingUser} onHide={() => setDeletingUser(null)} centered>
+                <Modal.Header closeButton className="border-bottom-0">
+                    <Modal.Title className="fw-bold h5 text-danger d-flex align-items-center gap-2">
+                        <AlertTriangle size={24} /> Delete User
+                    </Modal.Title>
+                </Modal.Header>
+                <Modal.Body className="pt-0">
+                    {deletingUser && (
+                        <div>
+                            <p className="mb-3">Are you sure you want to delete this user? This action cannot be undone.</p>
+                            <div className="d-flex align-items-center gap-3 p-3 bg-danger-subtle rounded border border-danger-subtle">
+                                <img src={deletingUser.avatarUrl} className="rounded-circle bg-white" width="48" height="48" alt="" />
+                                <div>
+                                    <div className="fw-bold text-danger-emphasis">{deletingUser.name}</div>
+                                    <div className="small text-danger-emphasis opacity-75">{deletingUser.email}</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </Modal.Body>
+                <Modal.Footer className="border-top-0">
+                    <Button variant="light" onClick={() => setDeletingUser(null)}>Cancel</Button>
+                    <Button variant="danger" onClick={handleDelete}>Delete User</Button>
+                </Modal.Footer>
+            </Modal>
         </div>
     );
 };
-
-
-
-
-
-
