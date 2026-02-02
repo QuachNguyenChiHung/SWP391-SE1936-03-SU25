@@ -34,13 +34,14 @@ export const ManagerProjects = ({ user }) => {
 
     const handleCreateProject = async () => {
         try {
-            const response = await axios.post(import.meta.env.VITE_URL + "/Projects", {
+
+            const response = await api.post("/Projects", {
                 name: projectName,
                 description: projectDescription,
                 type: parseInt(projectType)
             }, {
                 headers: {
-                    'Authorization': `Bearer ${JSON.parse(localStorage.getItem('user')).token}`
+                    'Authorization': `Bearer ${getInforFromCookie().token}`
                 }
             });
             alert("Project created successfully");
