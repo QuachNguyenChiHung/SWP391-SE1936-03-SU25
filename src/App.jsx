@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Layout } from './components/Layout.jsx';
 import { Login } from './components/Login.jsx';
+import ForgotPassword from './pages/auth/ForgotPassword.jsx';
+import ChangePassword from './pages/auth/ChangePassword.jsx';
 import { HomePage } from './pages/HomePage.jsx';
 import { ManagerDashboard } from './pages/manager/ManagerDashboard.jsx';
 import { ManagerProjects } from './pages/manager/ManagerProjects.jsx';
@@ -75,6 +77,8 @@ const AppRoutes = ({ user, onLogout }) => {
     return <Routes>
       <Route path="/" element={<HomePageWrapper />} />
       <Route path="/login" element={<LoginWrapper onLogin={() => { }} />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/change-password" element={<ChangePassword />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>;
   }
@@ -199,6 +203,8 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePageWrapper />} />
           <Route path="/login" element={<LoginWrapper onLogin={handleLogin} />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/change-password" element={<ChangePassword />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       ) : (

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 import { ArrowRight, Mail, Lock, AlertCircle, CheckCircle, Eye, EyeOff, Loader2, Check } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../ultis/api.js';
 import './Login.css';
 
@@ -59,6 +60,13 @@ export const Login = ({ onLogin }) => {
       console.error('Login error:', error);
       setError('Invalid email or password. Please try again.');
     }
+  };
+
+  const navigate = useNavigate();
+
+  const goForgot = (e) => {
+    e.preventDefault();
+    navigate('/forgot-password');
   };
 
   // ===== RENDER =====
@@ -205,7 +213,7 @@ export const Login = ({ onLogin }) => {
                   Remember me
                 </label>
               </div>
-              <a href="#" className="forgot-password">
+              <a href="#" onClick={goForgot} className="forgot-password">
                 Forgot Password?
               </a>
             </div>
