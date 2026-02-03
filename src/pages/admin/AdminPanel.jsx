@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../ultis/api.js';
+import getInforFromCookie from '../../ultis/getInfoFromCookie.js';
 import { MOCK_ACTIVITY } from '../../services/mockData.js';
 import { UserRole } from '../../types.js';
 import { 
@@ -24,8 +25,9 @@ export const AdminPanel = ({ user }) => {
         setLoadingUsers(true);
         setUsersError(null);
         try {
-            const token = JSON.parse(localStorage.getItem('user'))?.token;
-            const res = await axios.get((import.meta.env.VITE_URL || '') + '/Users', {
+            const userInfo = getInforFromCookie();
+            const token = userInfo?.token;
+            const res = await api.get('/Users', {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
 
