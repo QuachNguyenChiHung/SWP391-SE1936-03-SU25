@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../ultis/api.js';
+import getInforFromCookie from '../../ultis/getInfoFromCookie.js';
 import { MOCK_ACTIVITY } from '../../services/mockData.js';
 import { UserRole } from '../../types.js';
 import { 
@@ -19,13 +20,13 @@ export const AdminPanel = ({ user }) => {
     const [loadingUsers, setLoadingUsers] = useState(false);
     const [usersError, setUsersError] = useState(null);
 
-    // --- 1. FETCH DATA ---
     const fetchUsers = async () => {
         setLoadingUsers(true);
         setUsersError(null);
         try {
-            const token = JSON.parse(localStorage.getItem('user'))?.token;
-            const res = await axios.get((import.meta.env.VITE_URL || '') + '/Users', {
+            const userInfo = getInforFromCookie();
+            const token = userInfo?.token;
+            const res = await api.get('/Users', {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
 
@@ -57,9 +58,7 @@ export const AdminPanel = ({ user }) => {
         fetchUsers();
     }, []);
 
-    // --- 2. LOGIC FUNCTIONS ---
     
-    // Helper: Chuyển đổi tên Role sang ID
     const roleNameToId = (roleName) => {
         switch ((roleName || '').toLowerCase()) {
             case 'admin': return 1;
@@ -70,11 +69,9 @@ export const AdminPanel = ({ user }) => {
         }
     };
 
-    // Xử lý khi bấm nút Edit -> Fetch chi tiết user
     const handleEditClick = async (user) => {
         try {
             const token = JSON.parse(localStorage.getItem('user'))?.token;
-            // Gọi API lấy chi tiết user (nếu cần dữ liệu đầy đủ hơn từ list)
             const res = await axios.get((import.meta.env.VITE_URL || '') + `/Users/${user.id}`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
