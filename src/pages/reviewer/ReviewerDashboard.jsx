@@ -3,6 +3,8 @@ import { MOCK_TASKS, MOCK_PROJECTS } from '../../services/mockData.js';
 import { DataItemStatus } from '../../types.js';
 import { Eye, ThumbsUp, ThumbsDown, PieChart, Plus, CheckCircle2, AlertCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import getInforFromCookie from '../../ultis/getInfoFromCookie.js';
+import { UserRole } from '../../types.js';
 
 export const ReviewerDashboard = ({ user }) => {
     const navigate = useNavigate();
@@ -23,6 +25,11 @@ export const ReviewerDashboard = ({ user }) => {
         { label: 'Rejected (Incorrect)', value: incorrectItems, icon: ThumbsDown, color: 'text-red-600', bg: 'bg-red-50' },
         { label: 'Approval Rate', value: `${accuracy}%`, icon: PieChart, color: 'text-blue-600', bg: 'bg-blue-50' },
     ];
+
+    // determine current user role from cookie
+    const cookieUser = getInforFromCookie();
+    const currentRole = cookieUser?.user?.roleName || cookieUser?.user?.role || cookieUser?.role || null;
+    const isAdmin = currentRole === UserRole.ADMIN || currentRole === 'Admin' || currentRole === 'ADMIN';
 
     return (
         <div className="h-100 d-flex flex-column gap-4 animate-in fade-in duration-300">
@@ -65,60 +72,73 @@ export const ReviewerDashboard = ({ user }) => {
                     <div className="card border shadow-sm h-100">
                         <div className="card-body">
                             <div className="d-flex justify-content-between align-items-center mb-4">
-                                <h3 className="h5 fw-semibold mb-0">Project Progress</h3>
+                                <h3 className="h5 fw-semibold mb-0">Progress Info</h3>
                             </div>
-                            <div style={{ height: '16rem' }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={MOCK_PROJECTS}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                        <XAxis dataKey="name" tick={{ fontSize: 10 }} tickFormatter={(value) => value.split(' ')[0]} />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Bar dataKey="completedItems" fill="#4f46e5" radius={[4, 4, 0, 0]} name="Completed" />
-                                        <Bar dataKey="totalItems" fill="#e2e8f0" radius={[4, 4, 0, 0]} name="Total" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
+                            {(() => {
+                                const total = MOCK_TASKS.length;
+                                const pending = MOCK_TASKS.filter(t => t.status !== DataItemStatus.ACCEPTED && t.status !== DataItemStatus.REJECTED).length;
+                                const pendingPct = total ? Math.round((pending / total) * 100) : 0;
+                                return (
+                                    <div>
+                                        <div className="d-flex gap-3 mb-3">
+                                            <div className="card flex-fill border-0 shadow-sm">
+                                                <div className="card-body">
+                                                    <p className="small text-muted mb-1">Pending</p>
+                                                    <p className="h4 fw-bold mb-0 text-warning">{pending}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="d-flex justify-content-between small text-muted mt-2 align-items-center">
+                                                <span className="fw-semibold">Pending: {pending} left</span>
+                                                <button onClick={() => navigate('/reviewer/reviews')} className="btn btn-sm btn-outline-primary">Open review queue</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
 
-                <div className="col-12 col-lg-6">
-                    <div className="card border shadow-sm h-100">
-                        <div className="card-body">
-                            <h3 className="h5 fw-semibold mb-4">Recent Activity</h3>
-                            <div className="d-flex flex-column gap-3">
-                                <div className="d-flex align-items-start gap-3 pb-3 border-bottom">
-                                    <div className="p-2 bg-blue-light text-blue rounded-circle mt-1">
-                                        <Plus size={14} />
+                {isAdmin && (
+                    <div className="col-12 col-lg-6">
+                        <div className="card border shadow-sm h-100">
+                            <div className="card-body">
+                                <h3 className="h5 fw-semibold mb-4">Recent Activity</h3>
+                                <div className="d-flex flex-column gap-3">
+                                    <div className="d-flex align-items-start gap-3 pb-3 border-bottom">
+                                        <div className="p-2 bg-blue-light text-blue rounded-circle mt-1">
+                                            <Plus size={14} />
+                                        </div>
+                                        <div>
+                                            <p className="small fw-medium text-dark mb-1">New Project "Lidar Scan 04" Created</p>
+                                            <p className="text-muted" style={{ fontSize: '0.75rem' }}>2 hours ago by Morgan</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="small fw-medium text-dark mb-1">New Project "Lidar Scan 04" Created</p>
-                                        <p className="text-muted" style={{ fontSize: '0.75rem' }}>2 hours ago by Morgan</p>
+                                    <div className="d-flex align-items-start gap-3 pb-3 border-bottom">
+                                        <div className="p-2 bg-green-light text-green rounded-circle mt-1">
+                                            <CheckCircle2 size={14} />
+                                        </div>
+                                        <div>
+                                            <p className="small fw-medium text-dark mb-1">Batch #203 Completed</p>
+                                            <p className="text-muted" style={{ fontSize: '0.75rem' }}>5 hours ago by Sam</p>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="d-flex align-items-start gap-3 pb-3 border-bottom">
-                                    <div className="p-2 bg-green-light text-green rounded-circle mt-1">
-                                        <CheckCircle2 size={14} />
-                                    </div>
-                                    <div>
-                                        <p className="small fw-medium text-dark mb-1">Batch #203 Completed</p>
-                                        <p className="text-muted" style={{ fontSize: '0.75rem' }}>5 hours ago by Sam</p>
-                                    </div>
-                                </div>
-                                <div className="d-flex align-items-start gap-3">
-                                    <div className="p-2 bg-red-light text-red rounded-circle mt-1">
-                                        <AlertCircle size={14} />
-                                    </div>
-                                    <div>
-                                        <p className="small fw-medium text-dark mb-1">Task Rejection Rate Spiked</p>
-                                        <p className="text-muted" style={{ fontSize: '0.75rem' }}>Yesterday in Project Alpha</p>
+                                    <div className="d-flex align-items-start gap-3">
+                                        <div className="p-2 bg-red-light text-red rounded-circle mt-1">
+                                            <AlertCircle size={14} />
+                                        </div>
+                                        <div>
+                                            <p className="small fw-medium text-dark mb-1">Task Rejection Rate Spiked</p>
+                                            <p className="text-muted" style={{ fontSize: '0.75rem' }}>Yesterday in Project Alpha</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

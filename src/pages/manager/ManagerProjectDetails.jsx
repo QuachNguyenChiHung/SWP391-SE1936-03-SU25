@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Plus, MoreHorizontal, Tag, FileText,
@@ -13,6 +13,7 @@ import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 import Form from 'react-bootstrap/Form';
+import api from '../../ultis/api.js';
 
 export const ManagerProjectDetails = ({ user }) => {
     const { pid } = useParams();
@@ -29,14 +30,22 @@ export const ManagerProjectDetails = ({ user }) => {
     // Add Label Modal States
     const [isAddLabelOpen, setIsAddLabelOpen] = useState(false);
     const [newLabelName, setNewLabelName] = useState('');
+    const [listLabels, setListLabels] = useState([]);
     const [newLabelColor, setNewLabelColor] = useState('#000000');
     const [addLabelError, setAddLabelError] = useState('');
+    // Edit/Delete Label Modals
+    const [isEditLabelOpen, setIsEditLabelOpen] = useState(false);
+    const [editLabelName, setEditLabelName] = useState('');
+    const [editLabelColor, setEditLabelColor] = useState('#000000');
+    const [currentEditingLabel, setCurrentEditingLabel] = useState(null);
+    const [isDeleteLabelOpen, setIsDeleteLabelOpen] = useState(false);
+    const [labelToDelete, setLabelToDelete] = useState(null);
 
     // Guidelines Modal States
     const [isGuidelinesModalOpen, setIsGuidelinesModalOpen] = useState(false);
     const [guidelinesText, setGuidelinesText] = useState('');
     const [isEditingGuidelines, setIsEditingGuidelines] = useState(false);
-
+    const [dataSet, setDataSet] = useState([]);
     // Delete Modal State
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -46,23 +55,28 @@ export const ManagerProjectDetails = ({ user }) => {
     const [editDescription, setEditDescription] = useState('');
     const [editStatus, setEditStatus] = useState(ProjectStatus.NOT_STARTED);
     const [editDeadline, setEditDeadline] = useState('');
-
     // --- LOGIC: Load Project ---
     useEffect(() => {
         if (!pid) {
             navigate('/manager/projects', { replace: true });
             return;
         }
-        const foundProject = MOCK_PROJECTS.find(p => p.id === pid);
-        if (foundProject) {
-            setProject(foundProject);
-            setGuidelinesText(foundProject.guidelines || '');
-            setActiveTab('Overview');
-        } else {
-            navigate('/manager/projects', { replace: true });
-        }
-    }, [pid, navigate]);
-
+    }, [pid]);
+    useEffect(() => {
+        (async () => {
+            try {
+                const response = await api.get(`/Projects/${pid}`);
+                const dataResponse = await api.get(`/projects/${pid}/data-items`);
+                const listLabelsResponse = await api.get(`/projects/${pid}/labels`);
+                setProject(response.data);
+                //do it later
+                setDataSet(dataResponse.data);
+                setListLabels(listLabelsResponse.data.data);
+            } catch (error) {
+                console.warn('Failed to fetch project details', error);
+            }
+        })();
+    }, []);
     const handleBackToProjects = () => navigate('/manager/projects');
     const toggleGroup = (userId) => setExpandedTaskGroups(prev => ({ ...prev, [userId]: !prev[userId] }));
 
@@ -74,7 +88,16 @@ export const ManagerProjectDetails = ({ user }) => {
         }
     };
     const removeSelectedFile = (index) => setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-    
+    const handleDelete = async () => {
+
+        try {
+            await api.delete(`/Projects/${pid}`);
+        } catch (error) {
+            alert('Failed to delete project. Read the note below the Delete button for more information.');
+            console.warn('Failed to delete project', error.response);
+        }
+        setShowDeleteModal(false);
+    };
     const handleImport = () => {
         if (!project || selectedFiles.length === 0) return;
         let progress = 0;
@@ -136,12 +159,12 @@ export const ManagerProjectDetails = ({ user }) => {
             return;
         }
         try {
-             // Mock update logic
-             const updated = { ...project, name: editName, description: editDescription, status: editStatus, deadline: editDeadline ? new Date(editDeadline).toISOString() : null };
-             const idx = MOCK_PROJECTS.findIndex(p => p.id === project.id);
-             if (idx !== -1) MOCK_PROJECTS[idx] = { ...MOCK_PROJECTS[idx], ...updated };
-             setProject(updated);
-             alert('Project updated locally (mock)');
+            // Mock update logic
+            const updated = { ...project, name: editName, description: editDescription, status: editStatus, deadline: editDeadline ? new Date(editDeadline).toISOString() : null };
+            const idx = MOCK_PROJECTS.findIndex(p => p.id === project.id);
+            if (idx !== -1) MOCK_PROJECTS[idx] = { ...MOCK_PROJECTS[idx], ...updated };
+            setProject(updated);
+            alert('Project updated locally (mock)');
         } catch (error) {
             console.warn('Update failed', error);
         }
@@ -155,18 +178,61 @@ export const ManagerProjectDetails = ({ user }) => {
         setAddLabelError('');
         setIsAddLabelOpen(true);
     };
-    const handleSaveLabel = () => {
+    const handleSaveLabel = async () => {
         const hexRe = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/;
         if (!hexRe.test(newLabelColor)) {
             setAddLabelError('Mã màu phải là mã hex hợp lệ bắt đầu bằng #, ví dụ: #000000');
             return;
         }
-        const label = { id: `c${Date.now()}`, name: newLabelName || 'New Label', color: newLabelColor, hotkey: null };
-        if (project) {
-            project.classes.push(label);
-            setProject({ ...project });
+        try {
+            await api.post(`/projects/${pid}/labels`, { name: newLabelName, color: newLabelColor });
+            setListLabels(prev => [...prev, { id: `label-${Date.now()}`, name: newLabelName, color: newLabelColor }]);
+        } catch (error) {
+
         }
         setIsAddLabelOpen(false);
+    };
+
+    // --- LOGIC: open edit/delete modals ---
+    const openEditLabelModal = (label, e) => {
+        if (e) e.stopPropagation();
+        setCurrentEditingLabel(label);
+        setEditLabelName(label.name || '');
+        setEditLabelColor(label.color || '#000000');
+        setIsEditLabelOpen(true);
+    };
+
+    const openDeleteLabelModal = (label, e) => {
+        if (e) e.stopPropagation();
+        setLabelToDelete(label);
+        setIsDeleteLabelOpen(true);
+    };
+
+    const handleEditLabelSubmit = async () => {
+        if (!currentEditingLabel) return;
+        try {
+            await api.put(`/labels/${currentEditingLabel.id}`, { name: editLabelName, color: editLabelColor });
+            setListLabels(prev => prev.map(l => l.id === currentEditingLabel.id ? { ...l, name: editLabelName, color: editLabelColor } : l));
+            setIsEditLabelOpen(false);
+            setCurrentEditingLabel(null);
+        } catch (err) {
+            console.error('Update label failed', err);
+            alert('Failed to update label');
+        }
+    };
+
+    const handleDeleteLabelConfirm = async () => {
+        if (!labelToDelete) return;
+        try {
+            await api.delete(`/labels/${labelToDelete.id}`);
+            setListLabels(prev => prev.filter(l => l.id !== labelToDelete.id));
+            setIsDeleteLabelOpen(false);
+            setLabelToDelete(null);
+            alert('Label deleted');
+        } catch (err) {
+            console.error('Delete label failed', err);
+            alert('Failed to delete label');
+        }
     };
 
     // --- Component: Status Badge ---
@@ -180,11 +246,11 @@ export const ManagerProjectDetails = ({ user }) => {
             [DataItemStatus.IN_PROGRESS]: 'bg-info-subtle text-info-emphasis border-info-subtle',
             [DataItemStatus.ACCEPTED]: 'bg-success-subtle text-success-emphasis border-success-subtle',
             [DataItemStatus.REJECTED]: 'bg-danger-subtle text-danger-emphasis border-danger-subtle',
-            [DataItemStatus.NOT_ASSIGNED]: 'bg-light text-muted border-light-subtle',
+            [DataItemStatus.NOT_ASSIGNED]: 'bg-light text-muted -subtle',
         };
         return (
-            <span className={`px-2 py-1 rounded-pill text-uppercase fw-bold border ${styles[status] || 'bg-light text-muted'}`} style={{fontSize: '0.7rem'}}>
-                {status?.replace(/_/g, ' ')}
+            <span className={`px-2 py-1 rounded-pill text-uppercase fw-bold border ${styles[status] || 'bg-light text-muted'}`} style={{ fontSize: '0.7rem' }}>
+                {status}
             </span>
         );
     };
@@ -197,7 +263,7 @@ export const ManagerProjectDetails = ({ user }) => {
         { id: 'Labels', icon: Tag },
         { id: 'Tasks', icon: Layers }
     ];
-    
+
     const projectTasks = MOCK_TASKS.filter(t => t.projectId === project.id);
     const tasksByAssignee = projectTasks.reduce((acc, task) => {
         const key = task.assignedTo || 'Unassigned';
@@ -216,10 +282,7 @@ export const ManagerProjectDetails = ({ user }) => {
                 <div>
                     <h2 className="h4 fw-bold text-dark mb-1">{project.name}</h2>
                     <div className="d-flex align-items-center gap-2">
-                        <span className="text-muted small border-end pe-2 me-1">{project.type.replace(/_/g, ' ')}</span>
-                        <span className={`badge ${project.priority === 'HIGH' ? 'bg-danger' : project.priority === 'MEDIUM' ? 'bg-warning text-dark' : 'bg-secondary'}`}>
-                            {project.priority} Priority
-                        </span>
+                        <span className="text-muted small border-end pe-2 me-1">{project.type}</span>
                     </div>
                 </div>
             </div>
@@ -231,11 +294,11 @@ export const ManagerProjectDetails = ({ user }) => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
                         return (
-                            <button 
+                            <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id)} 
+                                onClick={() => setActiveTab(tab.id)}
                                 className={`d-flex align-items-center gap-2 px-1 py-3 bg-transparent border-0 position-relative transition-all`}
-                                style={{ 
+                                style={{
                                     cursor: 'pointer',
                                     color: isActive ? '#0d6efd' : '#6c757d',
                                     fontWeight: isActive ? '600' : '500',
@@ -245,9 +308,9 @@ export const ManagerProjectDetails = ({ user }) => {
                                 <Icon size={18} />
                                 <span>{tab.id}</span>
                                 {isActive && (
-                                    <div 
-                                        className="position-absolute bottom-0 start-0 w-100 bg-primary" 
-                                        style={{ height: '3px', borderTopLeftRadius: '3px', borderTopRightRadius: '3px' }} 
+                                    <div
+                                        className="position-absolute bottom-0 start-0 w-100 bg-primary"
+                                        style={{ height: '3px', borderTopLeftRadius: '3px', borderTopRightRadius: '3px' }}
                                     />
                                 )}
                             </button>
@@ -306,21 +369,24 @@ export const ManagerProjectDetails = ({ user }) => {
                                     <h5 className="fw-bold mb-3">Quick Actions</h5>
                                     <div className="d-grid gap-2">
                                         <Button variant="light" className="text-start d-flex justify-content-between align-items-center p-3 border bg-white" onClick={() => setIsImportModalOpen(true)}>
-                                            <span className="d-flex align-items-center gap-2"><Upload size={18} className="text-primary"/> Import Dataset</span>
-                                            <ChevronRight size={16} className="text-muted"/>
+                                            <span className="d-flex align-items-center gap-2"><Upload size={18} className="text-primary" /> Import Dataset</span>
+                                            <ChevronRight size={16} className="text-muted" />
                                         </Button>
                                         <Button variant="light" className="text-start d-flex justify-content-between align-items-center p-3 border bg-white" onClick={openGuidelines}>
-                                            <span className="d-flex align-items-center gap-2"><FileText size={18} className="text-info"/> Guidelines</span>
-                                            <ChevronRight size={16} className="text-muted"/>
+                                            <span className="d-flex align-items-center gap-2"><FileText size={18} className="text-info" /> Guidelines</span>
+                                            <ChevronRight size={16} className="text-muted" />
                                         </Button>
                                         <Button variant="light" className="text-start d-flex justify-content-between align-items-center p-3 border bg-white" onClick={openEditProject}>
-                                            <span className="d-flex align-items-center gap-2"><Pencil size={18} className="text-warning"/> Edit Project</span>
-                                            <ChevronRight size={16} className="text-muted"/>
+                                            <span className="d-flex align-items-center gap-2"><Pencil size={18} className="text-warning" /> Edit Project</span>
+                                            <ChevronRight size={16} className="text-muted" />
                                         </Button>
-                                        <hr className="my-2"/>
+                                        <hr className="my-2" />
                                         <Button variant="outline-danger" onClick={() => setShowDeleteModal(true)}>
-                                            <Trash2 size={18} className="me-2"/> Delete Project
+                                            <Trash2 size={18} className="me-2" /> Delete Project
                                         </Button>
+                                        <p>In case of unable to delete an item:</p>
+                                        <p>1. Item has associated tasks and dataset that must be deleted first.</p>
+                                        <div>2. There is a server issue. Please contact support.</div>
                                     </div>
                                 </div>
                             </div>
@@ -374,7 +440,7 @@ export const ManagerProjectDetails = ({ user }) => {
                                                 </td>
                                             </tr>
                                         )
-                                    }) : <tr><td colSpan={4} className="text-center py-5 text-muted">No data found</td></tr>}
+                                    }) : <tr><td colSpan={4} className="text-center py-5 text-muted">No tasks found</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -383,33 +449,41 @@ export const ManagerProjectDetails = ({ user }) => {
 
                 {activeTab === 'Labels' && (
                     <div>
-                         <div className="d-flex justify-content-between align-items-center mb-4">
+                        <div className="d-flex justify-content-between align-items-center mb-4">
                             <div><h5 className="fw-bold mb-0">Labels</h5><small className="text-muted">Manage object classes</small></div>
-                            <Button variant="primary" size="sm" onClick={openAddLabel} className="d-flex align-items-center gap-2"><Plus size={16}/> Add Label</Button>
+                            <Button variant="primary" size="sm" onClick={openAddLabel} className="d-flex align-items-center gap-2"><Plus size={16} /> Add Label</Button>
                         </div>
                         <div className="row g-3">
-                            {project.classes.map(cls => (
-                                <div key={cls.id} className="col-12 col-md-6 col-lg-3">
-                                    <div className="card h-100 border-0 shadow-sm">
-                                        <div className="card-body d-flex align-items-center justify-content-between">
-                                            <div className="d-flex align-items-center gap-3">
-                                                <div className="rounded shadow-sm" style={{width: 36, height: 36, backgroundColor: cls.color}}></div>
-                                                <div>
-                                                    <div className="fw-bold text-dark">{cls.name}</div>
-                                                    {cls.hotkey && <small className="text-muted border px-1 rounded bg-light">Key: {cls.hotkey}</small>}
+                            {listLabels && listLabels.length > 0 ? (
+                                listLabels.map(cls => (
+                                    <div key={cls.id} className="col-12 col-md-6 col-lg-3">
+                                        <div className="card h-100 border-0 shadow-sm">
+                                            <div className="card-body d-flex align-items-center justify-content-between">
+                                                <div className="d-flex align-items-center gap-3">
+                                                    <div className="rounded shadow-sm" style={{ width: 36, height: 36, backgroundColor: cls.color }}></div>
+                                                    <div>
+                                                        <div className="fw-bold text-dark">{cls.name}</div>
+                                                        {cls.hotkey && <small className="text-muted border px-1 rounded bg-light">Key: {cls.hotkey}</small>}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="d-flex gap-1">
-                                                <Button variant="link" className="text-muted p-1"><Pencil size={16}/></Button>
-                                                <Button variant="link" className="text-danger p-1"><Trash2 size={16}/></Button>
+                                                <div className="d-flex gap-1">
+                                                    <Button variant="link" className="text-muted p-1" onClick={(e) => openEditLabelModal(cls, e)}><Pencil size={16} /></Button>
+                                                    <Button variant="link" className="text-danger p-1" onClick={(e) => openDeleteLabelModal(cls, e)}><Trash2 size={16} /></Button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
+                                ))
+                            ) : (
+                                <div className="col-12">
+                                    <div className="card border-0 shadow-sm">
+                                        <div className="card-body text-center py-5 text-muted">No labels found</div>
+                                    </div>
                                 </div>
-                            ))}
+                            )}
                             {/* Nút thêm mới dạng card */}
                             <div className="col-12 col-md-6 col-lg-3">
-                                <button onClick={openAddLabel} className="card border border-2 border-dashed bg-light h-100 w-100 p-0 text-muted hover-bg-light" style={{minHeight: '80px'}}>
+                                <button onClick={openAddLabel} className="card border border-2 border-dashed bg-light h-100 w-100 p-0 text-muted hover-bg-light" style={{ minHeight: '80px' }}>
                                     <div className="card-body d-flex flex-column align-items-center justify-content-center">
                                         <Plus size={24} className="mb-1" />
                                         <span className="small fw-medium">Create New Label</span>
@@ -419,81 +493,81 @@ export const ManagerProjectDetails = ({ user }) => {
                         </div>
                     </div>
                 )}
-                 
-                 {activeTab === 'Tasks' && (
+
+                {activeTab === 'Tasks' && (
                     <div className="d-flex flex-column gap-3">
                         <div className="d-flex justify-content-between align-items-center mb-2">
-                             <div>
+                            <div>
                                 <h5 className="fw-bold mb-0">Task Assignments</h5>
                                 <small className="text-muted">Track assignments</small>
-                             </div>
-                             <div className="d-flex gap-2">
+                            </div>
+                            <div className="d-flex gap-2">
                                 <Button variant="outline-secondary" size="sm">Auto-Assign</Button>
-                                <Button variant="primary" size="sm" className="d-flex align-items-center gap-2"><Plus size={16}/> Assign</Button>
-                             </div>
+                                <Button variant="primary" size="sm" className="d-flex align-items-center gap-2"><Plus size={16} /> Assign</Button>
+                            </div>
                         </div>
                         {Object.entries(tasksByAssignee).map(([assigneeId, tasks]) => {
-                             const assignee = MOCK_USERS.find(u => u.id === assigneeId);
-                             const isExpanded = expandedTaskGroups[assigneeId] ?? true;
-                             const completedCount = tasks.filter(t => t.status === DataItemStatus.COMPLETED || t.status === DataItemStatus.ACCEPTED).length;
-                             const progress = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
-                             
-                             return (
-                                 <div key={assigneeId} className="card border-0 shadow-sm overflow-hidden">
-                                     <div className="card-header bg-white py-3 d-flex align-items-center justify-content-between cursor-pointer border-bottom-0" onClick={() => toggleGroup(assigneeId)}>
-                                         <div className="d-flex align-items-center gap-3">
-                                             <Button variant="link" className="p-0 text-muted text-decoration-none" onClick={(e) => { e.stopPropagation(); toggleGroup(assigneeId); }}>
-                                                 {isExpanded ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}
-                                             </Button>
-                                             <div className="d-flex align-items-center gap-3">
-                                                 {assignee ? (
-                                                     <img src={assignee.avatarUrl} alt="" className="rounded-circle border" width="36" height="36" />
-                                                 ) : <div className="rounded-circle bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center text-secondary small fw-bold" style={{width: 36, height: 36}}>?</div>}
-                                                 <div>
-                                                     <div className="fw-bold mb-0 lh-1 text-dark">{assignee ? assignee.name : "Unassigned"}</div>
-                                                     <small className="text-muted">{tasks.length} items</small>
-                                                 </div>
-                                             </div>
-                                         </div>
-                                         <div className="d-flex align-items-center gap-4">
-                                             <div className="d-none d-md-block" style={{width: '180px'}}>
-                                                 <div className="d-flex justify-content-between small text-muted mb-1">
-                                                     <span>Progress</span>
-                                                     <span className="fw-bold">{progress}%</span>
-                                                 </div>
-                                                 <ProgressBar now={progress} style={{height: '6px'}} variant={progress === 100 ? 'success' : 'primary'}/>
-                                             </div>
-                                             <span className="badge bg-light text-dark border px-3 py-2">{completedCount} / {tasks.length} Done</span>
-                                         </div>
-                                     </div>
-                                     {isExpanded && <div className="card-body bg-light bg-opacity-50 p-3 border-top">
-                                         <div className="d-flex flex-column gap-2">
-                                             {tasks.map(t => (
-                                                 <div key={t.id} className="bg-white p-2 rounded shadow-sm d-flex justify-content-between align-items-center border-0">
-                                                     <div className="d-flex gap-3 align-items-center">
-                                                         <img src={t.imageUrl} width="48" height="36" className="rounded object-fit-cover border"/>
-                                                         <div>
-                                                             <div className="small fw-bold text-dark">{t.itemName}</div>
-                                                             <div className="d-flex gap-2 align-items-center text-muted" style={{fontSize: '11px'}}>
-                                                                 <span>ID: {t.id}</span>
-                                                                 <span>•</span>
-                                                                 <span><Tag size={10}/> {t.annotations.length} Objects</span>
-                                                             </div>
-                                                         </div>
-                                                     </div>
-                                                     <div className="d-flex align-items-center gap-3">
-                                                         <StatusBadge status={t.status}/>
-                                                         <Button variant="link" className="text-muted p-0"><MoreHorizontal size={16}/></Button>
-                                                     </div>
-                                                 </div>
-                                             ))}
-                                         </div>
-                                     </div>}
-                                 </div>
-                             )
+                            const assignee = MOCK_USERS.find(u => u.id === assigneeId);
+                            const isExpanded = expandedTaskGroups[assigneeId] ?? true;
+                            const completedCount = tasks.filter(t => t.status === DataItemStatus.COMPLETED || t.status === DataItemStatus.ACCEPTED).length;
+                            const progress = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
+
+                            return (
+                                <div key={assigneeId} className="card border-0 shadow-sm overflow-hidden">
+                                    <div className="card-header bg-white py-3 d-flex align-items-center justify-content-between cursor-pointer border-bottom-0" onClick={() => toggleGroup(assigneeId)}>
+                                        <div className="d-flex align-items-center gap-3">
+                                            <Button variant="link" className="p-0 text-muted text-decoration-none" onClick={(e) => { e.stopPropagation(); toggleGroup(assigneeId); }}>
+                                                {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                            </Button>
+                                            <div className="d-flex align-items-center gap-3">
+                                                {assignee ? (
+                                                    <img src={assignee.avatarUrl} alt="" className="rounded-circle border" width="36" height="36" />
+                                                ) : <div className="rounded-circle bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center text-secondary small fw-bold" style={{ width: 36, height: 36 }}>?</div>}
+                                                <div>
+                                                    <div className="fw-bold mb-0 lh-1 text-dark">{assignee ? assignee.name : "Unassigned"}</div>
+                                                    <small className="text-muted">{tasks.length} items</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="d-flex align-items-center gap-4">
+                                            <div className="d-none d-md-block" style={{ width: '180px' }}>
+                                                <div className="d-flex justify-content-between small text-muted mb-1">
+                                                    <span>Progress</span>
+                                                    <span className="fw-bold">{progress}%</span>
+                                                </div>
+                                                <ProgressBar now={progress} style={{ height: '6px' }} variant={progress === 100 ? 'success' : 'primary'} />
+                                            </div>
+                                            <span className="badge bg-light text-dark border px-3 py-2">{completedCount} / {tasks.length} Done</span>
+                                        </div>
+                                    </div>
+                                    {isExpanded && <div className="card-body bg-light bg-opacity-50 p-3 border-top">
+                                        <div className="d-flex flex-column gap-2">
+                                            {tasks.map(t => (
+                                                <div key={t.id} className="bg-white p-2 rounded shadow-sm d-flex justify-content-between align-items-center border-0">
+                                                    <div className="d-flex gap-3 align-items-center">
+                                                        <img src={t.imageUrl} width="48" height="36" className="rounded object-fit-cover border" />
+                                                        <div>
+                                                            <div className="small fw-bold text-dark">{t.itemName}</div>
+                                                            <div className="d-flex gap-2 align-items-center text-muted" style={{ fontSize: '11px' }}>
+                                                                <span>ID: {t.id}</span>
+                                                                <span>•</span>
+                                                                <span><Tag size={10} /> {t.annotations.length} Objects</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="d-flex align-items-center gap-3">
+                                                        <StatusBadge status={t.status} />
+                                                        <Button variant="link" className="text-muted p-0"><MoreHorizontal size={16} /></Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>}
+                                </div>
+                            )
                         })}
                     </div>
-                 )}
+                )}
             </div>
 
             {/* ================= MODALS SECTION (Giữ nguyên logic cũ) ================= */}
@@ -504,7 +578,7 @@ export const ManagerProjectDetails = ({ user }) => {
                 <Modal.Body>Are you sure you want to delete this project? This action cannot be undone.</Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>Close</Button>
-                    <Button variant="danger" onClick={() => setShowDeleteModal(false)}>Delete</Button>
+                    <Button variant="danger" onClick={handleDelete}>Delete</Button>
                 </Modal.Footer>
             </Modal>
 
@@ -512,7 +586,7 @@ export const ManagerProjectDetails = ({ user }) => {
             <Modal show={isImportModalOpen} onHide={() => !uploadProgress && setIsImportModalOpen(false)} centered size="lg">
                 <Modal.Header closeButton={!uploadProgress}>
                     <Modal.Title className="d-flex align-items-center gap-2">
-                        <Upload size={20} className="text-primary"/> Import Dataset
+                        <Upload size={20} className="text-primary" /> Import Dataset
                     </Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
@@ -520,14 +594,14 @@ export const ManagerProjectDetails = ({ user }) => {
                         <div className="text-center py-4">
                             <h5 className="mb-3">Uploading Files...</h5>
                             <p className="text-muted small">{uploadProgress}% Complete</p>
-                            <ProgressBar now={uploadProgress} striped variant="primary" animated className="mx-auto" style={{maxWidth: '300px'}} />
+                            <ProgressBar now={uploadProgress} striped variant="primary" animated className="mx-auto" style={{ maxWidth: '300px' }} />
                         </div>
                     ) : (
                         <div className="d-flex flex-column gap-3">
                             <div className="border border-2 border-dashed rounded p-5 text-center bg-light position-relative">
                                 <input type="file" multiple accept="image/*" onChange={handleFileSelect} className="position-absolute top-0 start-0 w-100 h-100 opacity-0 cursor-pointer" />
                                 <div className="rounded-circle bg-primary bg-opacity-10 d-inline-flex p-3 mb-2 text-primary">
-                                    <ImageIcon size={24}/>
+                                    <ImageIcon size={24} />
                                 </div>
                                 <p className="mb-0 fw-medium">Drag & Drop or Click to Upload</p>
                                 <small className="text-muted">Support JPG, PNG, JPEG (Max 10MB)</small>
@@ -538,17 +612,17 @@ export const ManagerProjectDetails = ({ user }) => {
                                         <small className="fw-bold">Selected Files ({selectedFiles.length})</small>
                                         <Button variant="link" className="text-danger p-0 text-decoration-none small" onClick={() => setSelectedFiles([])}>Clear All</Button>
                                     </div>
-                                    <div className="p-2" style={{maxHeight: '150px', overflowY: 'auto'}}>
+                                    <div className="p-2" style={{ maxHeight: '150px', overflowY: 'auto' }}>
                                         {selectedFiles.map((f, i) => (
                                             <div key={i} className="d-flex justify-content-between align-items-center p-2 border-bottom last-border-0">
                                                 <div className="d-flex align-items-center gap-2 text-truncate">
-                                                    <img src={URL.createObjectURL(f)} width="30" height="30" className="rounded object-fit-cover"/>
+                                                    <img src={URL.createObjectURL(f)} width="30" height="30" className="rounded object-fit-cover" />
                                                     <div>
-                                                        <div className="small fw-medium text-truncate" style={{maxWidth: '200px'}}>{f.name}</div>
-                                                        <div className="small text-muted" style={{fontSize: '10px'}}>{(f.size / 1024).toFixed(1)} KB</div>
+                                                        <div className="small fw-medium text-truncate" style={{ maxWidth: '200px' }}>{f.name}</div>
+                                                        <div className="small text-muted" style={{ fontSize: '10px' }}>{(f.size / 1024).toFixed(1)} KB</div>
                                                     </div>
                                                 </div>
-                                                <Button variant="link" className="text-muted p-0" onClick={() => removeSelectedFile(i)}><X size={16}/></Button>
+                                                <Button variant="link" className="text-muted p-0" onClick={() => removeSelectedFile(i)}><X size={16} /></Button>
                                             </div>
                                         ))}
                                     </div>
@@ -568,20 +642,20 @@ export const ManagerProjectDetails = ({ user }) => {
             {/* 3. Guidelines Modal */}
             <Modal show={isGuidelinesModalOpen} onHide={() => setIsGuidelinesModalOpen(false)} centered size="lg">
                 <Modal.Header closeButton>
-                    <Modal.Title className="d-flex align-items-center gap-2"><FileText size={20} className="text-primary"/> Project Guidelines</Modal.Title>
+                    <Modal.Title className="d-flex align-items-center gap-2"><FileText size={20} className="text-primary" /> Project Guidelines</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
                     {isEditingGuidelines ? (
                         <div className="d-flex flex-column gap-2">
-                             <label className="small fw-bold text-muted">EDIT CONTENT</label>
-                             <Form.Control as="textarea" rows={10} value={guidelinesText} onChange={(e) => setGuidelinesText(e.target.value)} placeholder="Enter detailed instructions..." />
+                            <label className="small fw-bold text-muted">EDIT CONTENT</label>
+                            <Form.Control as="textarea" rows={10} value={guidelinesText} onChange={(e) => setGuidelinesText(e.target.value)} placeholder="Enter detailed instructions..." />
                         </div>
                     ) : (
                         <div className="d-flex flex-column gap-2">
-                             <label className="small fw-bold text-muted">CURRENT GUIDELINES</label>
-                             <div className="p-3 bg-light rounded border" style={{minHeight: '200px', whiteSpace: 'pre-line'}}>
-                                 {guidelinesText || "No guidelines set for this project."}
-                             </div>
+                            <label className="small fw-bold text-muted">CURRENT GUIDELINES</label>
+                            <div className="p-3 bg-light rounded border" style={{ minHeight: '200px', whiteSpace: 'pre-line' }}>
+                                {guidelinesText || "No guidelines set for this project."}
+                            </div>
                         </div>
                     )}
                 </Modal.Body>
@@ -589,10 +663,10 @@ export const ManagerProjectDetails = ({ user }) => {
                     {isEditingGuidelines ? (
                         <>
                             <Button variant="light" onClick={() => setIsEditingGuidelines(false)}>Cancel</Button>
-                            <Button variant="primary" onClick={handleSaveGuidelines} className="d-flex align-items-center gap-2"><Save size={16}/> Save Changes</Button>
+                            <Button variant="primary" onClick={handleSaveGuidelines} className="d-flex align-items-center gap-2"><Save size={16} /> Save Changes</Button>
                         </>
                     ) : (
-                        <Button variant="outline-primary" onClick={() => setIsEditingGuidelines(true)} className="w-100 d-flex align-items-center justify-content-center gap-2"><Pencil size={16}/> Edit Guidelines</Button>
+                        <Button variant="outline-primary" onClick={() => setIsEditingGuidelines(true)} className="w-100 d-flex align-items-center justify-content-center gap-2"><Pencil size={16} /> Edit Guidelines</Button>
                     )}
                 </Modal.Footer>
             </Modal>
@@ -601,18 +675,18 @@ export const ManagerProjectDetails = ({ user }) => {
             <Modal show={isEditProjectOpen} onHide={() => setIsEditProjectOpen(false)} centered>
                 <Modal.Header closeButton>
                     <Modal.Title className="d-flex align-items-center gap-2">
-                         <div className="p-1 bg-primary bg-opacity-10 rounded text-primary"><Pencil size={20}/></div>
-                         Edit Project
+                        <div className="p-1 bg-primary bg-opacity-10 rounded text-primary"><Pencil size={20} /></div>
+                        Edit Project
                     </Modal.Title>
                 </Modal.Header>
                 <Modal.Body className="d-flex flex-column gap-3">
                     <Form.Group>
                         <Form.Label className="fw-semibold">Project Name</Form.Label>
-                        <Form.Control value={editName} onChange={(e) => setEditName(e.target.value)}/>
+                        <Form.Control value={editName} onChange={(e) => setEditName(e.target.value)} />
                     </Form.Group>
                     <Form.Group>
                         <Form.Label className="fw-semibold">Description</Form.Label>
-                        <Form.Control as="textarea" rows={3} value={editDescription} onChange={(e) => setEditDescription(e.target.value)}/>
+                        <Form.Control as="textarea" rows={3} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
                     </Form.Group>
                     <Form.Group>
                         <Form.Label className="fw-semibold">Status</Form.Label>
@@ -622,40 +696,79 @@ export const ManagerProjectDetails = ({ user }) => {
                     </Form.Group>
                     <Form.Group>
                         <Form.Label className="fw-semibold">Deadline</Form.Label>
-                        <Form.Control type="datetime-local" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)}/>
+                        <Form.Control type="datetime-local" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)} />
                     </Form.Group>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="light" onClick={() => setIsEditProjectOpen(false)}>Cancel</Button>
-                    <Button variant="primary" onClick={handleSaveProjectUpdate} className="d-flex align-items-center gap-2"><Save size={16}/> Save Changes</Button>
+                    <Button variant="primary" onClick={handleSaveProjectUpdate} className="d-flex align-items-center gap-2"><Save size={16} /> Save Changes</Button>
                 </Modal.Footer>
             </Modal>
 
             {/* 5. Add Label Modal */}
             <Modal show={isAddLabelOpen} onHide={() => setIsAddLabelOpen(false)} centered>
                 <Modal.Header closeButton>
-                     <Modal.Title className="d-flex align-items-center gap-2">
-                        <div className="p-1 bg-primary bg-opacity-10 rounded text-primary"><Plus size={20}/></div>
+                    <Modal.Title className="d-flex align-items-center gap-2">
+                        <div className="p-1 bg-primary bg-opacity-10 rounded text-primary"><Plus size={20} /></div>
                         Create New Label
-                     </Modal.Title>
+                    </Modal.Title>
                 </Modal.Header>
                 <Modal.Body className="d-flex flex-column gap-3">
                     <Form.Group>
                         <Form.Label className="small fw-bold text-muted">LABEL NAME</Form.Label>
-                        <Form.Control placeholder="Enter label name" value={newLabelName} onChange={(e) => setNewLabelName(e.target.value)}/>
+                        <Form.Control required placeholder="Enter label name" value={newLabelName} onChange={(e) => setNewLabelName(e.target.value)} />
                     </Form.Group>
                     <Form.Group>
-                         <Form.Label className="small fw-bold text-muted">COLOR</Form.Label>
-                         <div className="d-flex gap-2">
-                            <Form.Control type="color" value={newLabelColor} onChange={(e) => setNewLabelColor(e.target.value)} className="form-control-color" style={{width: '3rem'}} title="Choose your color"/>
-                            <Form.Control value={newLabelColor} onChange={(e) => setNewLabelColor(e.target.value)} placeholder="#000000"/>
-                         </div>
+                        <Form.Label className="small fw-bold text-muted">COLOR</Form.Label>
+                        <div className="d-flex gap-2">
+                            <Form.Control required type="color" value={newLabelColor} onChange={(e) => setNewLabelColor(e.target.value)} className="form-control-color" style={{ width: '3rem' }} title="Choose your color" />
+                        </div>
                     </Form.Group>
                     {addLabelError && <div className="text-danger small">{addLabelError}</div>}
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="light" onClick={() => setIsAddLabelOpen(false)}>Cancel</Button>
                     <Button variant="primary" onClick={handleSaveLabel}>Create Label</Button>
+                </Modal.Footer>
+            </Modal>
+            {/* Edit Label Modal */}
+            <Modal show={isEditLabelOpen} onHide={() => { setIsEditLabelOpen(false); setCurrentEditingLabel(null); }} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title className="d-flex align-items-center gap-2">
+                        <div className="p-1 bg-primary bg-opacity-10 rounded text-primary"><Pencil size={20} /></div>
+                        Edit Label
+                    </Modal.Title>
+                </Modal.Header>
+                <Modal.Body className="d-flex flex-column gap-3">
+                    <Form.Group>
+                        <Form.Label className="small fw-bold text-muted">LABEL NAME</Form.Label>
+                        <Form.Control value={editLabelName} onChange={(e) => setEditLabelName(e.target.value)} />
+                    </Form.Group>
+                    <Form.Group>
+                        <Form.Label className="small fw-bold text-muted">COLOR</Form.Label>
+                        <div className="d-flex gap-2">
+                            <Form.Control type="color" value={editLabelColor} onChange={(e) => setEditLabelColor(e.target.value)} className="form-control-color" style={{ width: '3rem' }} title="Choose your color" />
+                            <Form.Control value={editLabelColor} onChange={(e) => setEditLabelColor(e.target.value)} />
+                        </div>
+                    </Form.Group>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="light" onClick={() => { setIsEditLabelOpen(false); setCurrentEditingLabel(null); }}>Cancel</Button>
+                    <Button variant="primary" onClick={handleEditLabelSubmit}>Save</Button>
+                </Modal.Footer>
+            </Modal>
+
+            {/* Delete Label Confirmation Modal */}
+            <Modal show={isDeleteLabelOpen} onHide={() => { setIsDeleteLabelOpen(false); setLabelToDelete(null); }} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title>Confirm Delete</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    Are you sure you want to delete label "{labelToDelete?.name}"? This action cannot be undone.
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="light" onClick={() => { setIsDeleteLabelOpen(false); setLabelToDelete(null); }}>Cancel</Button>
+                    <Button variant="danger" onClick={handleDeleteLabelConfirm}>Delete</Button>
                 </Modal.Footer>
             </Modal>
         </div>

@@ -3,10 +3,10 @@ import api from '../../ultis/api.js';
 import getInforFromCookie from '../../ultis/getInfoFromCookie.js';
 import { MOCK_ACTIVITY } from '../../services/mockData.js';
 import { UserRole } from '../../types.js';
-import { 
-    Activity, UserPlus, Search, X, Check, Mail, Shield, User, 
-    UserIcon, Filter, RefreshCw, Trash2, AlertTriangle, 
-    Calendar, CheckCircle2, XCircle 
+import {
+    Activity, UserPlus, Search, X, Check, Mail, Shield, User,
+    UserIcon, Filter, RefreshCw, Trash2, AlertTriangle,
+    Calendar, CheckCircle2, XCircle
 } from 'lucide-react';
 import { Modal, Button, Form, InputGroup, Spinner, Row, Col } from 'react-bootstrap';
 
@@ -58,7 +58,7 @@ export const AdminPanel = ({ user }) => {
         fetchUsers();
     }, []);
 
-    
+
     const roleNameToId = (roleName) => {
         switch ((roleName || '').toLowerCase()) {
             case 'admin': return 1;
@@ -81,7 +81,7 @@ export const AdminPanel = ({ user }) => {
                     id: it.id,
                     name: it.name,
                     email: it.email,
-                    role: it.roleName || it.role, 
+                    role: it.roleName || it.role,
                     active: it.status === 1,
                     createdAt: it.createdAt,
                     avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(it.email || it.name)}`
@@ -181,9 +181,8 @@ export const AdminPanel = ({ user }) => {
     };
 
     const StatusBadge = ({ active }) => (
-        <span className={`d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill text-xs fw-medium border ${
-            active ? 'bg-success-subtle text-success-emphasis border-success-subtle' : 'bg-light text-muted border-light-subtle'
-        }`} style={{ fontSize: '0.75rem' }}>
+        <span className={`d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill text-xs fw-medium border ${active ? 'bg-success-subtle text-success-emphasis border-success-subtle' : 'bg-light text-muted border-light-subtle'
+            }`} style={{ fontSize: '0.75rem' }}>
             <span className={`rounded-circle ${active ? 'bg-success' : 'bg-secondary'}`} style={{ width: '6px', height: '6px' }}></span>
             {active ? 'Active' : 'Inactive'}
         </span>
@@ -208,7 +207,7 @@ export const AdminPanel = ({ user }) => {
 
             <div className="row g-4">
                 <div className="col-12 col-lg-8">
-                    <div className="card border-0 shadow-sm h-100 overflow-hidden">
+                    <div className="card border shadow-sm h-100 overflow-hidden">
                         <div className="card-header bg-white border-bottom py-3">
                             <InputGroup>
                                 <InputGroup.Text className="bg-light border-end-0">
@@ -236,11 +235,11 @@ export const AdminPanel = ({ user }) => {
                             <table className="table table-hover align-middle mb-0">
                                 <thead className="bg-light">
                                     <tr>
-                                        <th className="ps-4 py-3 text-muted small text-uppercase fw-bold border-0">User Profile</th>
-                                        <th className="py-3 text-muted small text-uppercase fw-bold border-0">Role</th>
-                                        <th className="py-3 text-muted small text-uppercase fw-bold border-0">Status</th>
-                                        <th className="py-3 text-muted small text-uppercase fw-bold border-0">Joined</th>
-                                        <th className="pe-4 py-3 text-end text-muted small text-uppercase fw-bold border-0">Actions</th>
+                                        <th className="ps-4 py-3 text-muted small text-uppercase fw-bold border">User Profile</th>
+                                        <th className="py-3 text-muted small text-uppercase fw-bold border">Role</th>
+                                        <th className="py-3 text-muted small text-uppercase fw-bold border">Status</th>
+                                        <th className="py-3 text-muted small text-uppercase fw-bold border">Joined</th>
+                                        <th className="pe-4 py-3 text-end text-muted small text-uppercase fw-bold border">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -263,7 +262,7 @@ export const AdminPanel = ({ user }) => {
                                                     <div className="d-flex align-items-center gap-3">
                                                         <div className="position-relative">
                                                             <img src={user.avatarUrl} alt="" className="rounded-circle border" width="40" height="40" />
-                                                            {user.active && <span className="position-absolute bottom-0 end-0 bg-success border border-white rounded-circle p-1" style={{width: 10, height: 10}}></span>}
+                                                            {user.active && <span className="position-absolute bottom-0 end-0 bg-success border border-white rounded-circle p-1" style={{ width: 10, height: 10 }}></span>}
                                                         </div>
                                                         <div>
                                                             <div className="fw-semibold text-dark mb-0">{user.name}</div>
@@ -275,15 +274,15 @@ export const AdminPanel = ({ user }) => {
                                                 <td><StatusBadge active={user.active} /></td>
                                                 <td className="text-muted small">
                                                     <div className="d-flex align-items-center gap-2">
-                                                        <Calendar size={14}/>
+                                                        <Calendar size={14} />
                                                         {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
                                                     </div>
                                                 </td>
                                                 <td className="text-end pe-4">
                                                     <div className="d-flex justify-content-end gap-2">
-                                                        <button 
-                                                            className="btn border-0 fw-medium px-3 py-1 rounded"
-                                                            style={{ 
+                                                        <button
+                                                            className="btn border fw-medium px-3 py-1 rounded"
+                                                            style={{
                                                                 backgroundColor: '#eff6ff', // Xanh nhạt
                                                                 color: '#3b82f6',           // Xanh đậm
                                                                 fontSize: '0.85rem'
@@ -293,9 +292,9 @@ export const AdminPanel = ({ user }) => {
                                                             Edit
                                                         </button>
 
-                                                        <button 
-                                                            className="btn border-0 p-1 rounded d-flex align-items-center justify-content-center"
-                                                            style={{ 
+                                                        <button
+                                                            className="btn border p-1 rounded d-flex align-items-center justify-content-center"
+                                                            style={{
                                                                 backgroundColor: '#fef2f2', // Đỏ nhạt
                                                                 color: '#ef4444',           // Đỏ đậm
                                                                 width: '34px',
@@ -321,7 +320,7 @@ export const AdminPanel = ({ user }) => {
                 </div>
 
                 <div className="col-12 col-lg-4">
-                    <div className="card border-0 shadow-sm h-100">
+                    <div className="card border shadow-sm h-100">
                         <div className="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
                             <h6 className="fw-bold mb-0 d-flex align-items-center gap-2">
                                 <Activity size={18} className="text-primary" /> Recent Activity
@@ -331,7 +330,7 @@ export const AdminPanel = ({ user }) => {
                         <div className="card-body p-0">
                             <div className="list-group list-group-flush">
                                 {MOCK_ACTIVITY.map((log, index) => (
-                                    <div key={log.id} className="list-group-item border-0 d-flex gap-3 py-3">
+                                    <div key={log.id} className="list-group-item border d-flex gap-3 py-3">
                                         <div className="d-flex flex-column align-items-center">
                                             <div className="rounded-circle bg-light border d-flex align-items-center justify-content-center" style={{ width: 32, height: 32 }}>
                                                 <User size={14} className="text-muted" />
@@ -366,12 +365,12 @@ export const AdminPanel = ({ user }) => {
                             <Form.Label className="small fw-bold text-muted">USERNAME</Form.Label>
                             <InputGroup>
                                 <InputGroup.Text className="bg-light border-end-0"><UserIcon size={16} /></InputGroup.Text>
-                                <Form.Control 
+                                <Form.Control
                                     className="border-start-0 ps-0 bg-light shadow-none"
-                                    placeholder="Enter username" 
-                                    value={newUser.username} 
-                                    onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} 
-                                    required 
+                                    placeholder="Enter username"
+                                    value={newUser.username}
+                                    onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                                    required
                                 />
                             </InputGroup>
                         </Form.Group>
@@ -379,13 +378,13 @@ export const AdminPanel = ({ user }) => {
                             <Form.Label className="small fw-bold text-muted">EMAIL</Form.Label>
                             <InputGroup>
                                 <InputGroup.Text className="bg-light border-end-0"><Mail size={16} /></InputGroup.Text>
-                                <Form.Control 
+                                <Form.Control
                                     type="email"
                                     className="border-start-0 ps-0 bg-light shadow-none"
-                                    placeholder="Enter email" 
-                                    value={newUser.email} 
-                                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} 
-                                    required 
+                                    placeholder="Enter email"
+                                    value={newUser.email}
+                                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                                    required
                                 />
                             </InputGroup>
                         </Form.Group>
@@ -393,21 +392,21 @@ export const AdminPanel = ({ user }) => {
                             <Form.Label className="small fw-bold text-muted">PASSWORD</Form.Label>
                             <InputGroup>
                                 <InputGroup.Text className="bg-light border-end-0"><Shield size={16} /></InputGroup.Text>
-                                <Form.Control 
+                                <Form.Control
                                     type="password"
                                     className="border-start-0 ps-0 bg-light shadow-none"
-                                    placeholder="Enter password" 
-                                    value={newUser.password} 
-                                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} 
-                                    required 
+                                    placeholder="Enter password"
+                                    value={newUser.password}
+                                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                                    required
                                 />
                             </InputGroup>
                         </Form.Group>
                         <Form.Group>
                             <Form.Label className="small fw-bold text-muted">ROLE</Form.Label>
-                            <Form.Select 
+                            <Form.Select
                                 className="bg-light shadow-none cursor-pointer"
-                                value={newUser.role} 
+                                value={newUser.role}
                                 onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
                             >
                                 {Object.values(UserRole).map(role => (
@@ -467,11 +466,11 @@ export const AdminPanel = ({ user }) => {
                                 <Col md={6}>
                                     <Form.Label className="small fw-bold text-muted text-uppercase mb-1">Full Name</Form.Label>
                                     <InputGroup>
-                                        <InputGroup.Text className="bg-white border-end-0 text-muted"><User size={16}/></InputGroup.Text>
-                                        <Form.Control 
+                                        <InputGroup.Text className="bg-white border-end-0 text-muted"><User size={16} /></InputGroup.Text>
+                                        <Form.Control
                                             className="border-start-0 ps-0 shadow-none"
-                                            value={editingUser.name} 
-                                            onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })} 
+                                            value={editingUser.name}
+                                            onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
                                             required
                                         />
                                     </InputGroup>
@@ -480,12 +479,12 @@ export const AdminPanel = ({ user }) => {
                                 <Col md={6}>
                                     <Form.Label className="small fw-bold text-muted text-uppercase mb-1">Email</Form.Label>
                                     <InputGroup>
-                                        <InputGroup.Text className="bg-light border-end-0 text-muted"><Mail size={16}/></InputGroup.Text>
-                                        <Form.Control 
+                                        <InputGroup.Text className="bg-light border-end-0 text-muted"><Mail size={16} /></InputGroup.Text>
+                                        <Form.Control
                                             className="border-start-0 ps-0 bg-light shadow-none"
-                                            type="email" 
-                                            value={editingUser.email} 
-                                            onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })} 
+                                            type="email"
+                                            value={editingUser.email}
+                                            onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
                                             required
                                         />
                                     </InputGroup>
@@ -493,9 +492,9 @@ export const AdminPanel = ({ user }) => {
 
                                 <Col md={6}>
                                     <Form.Label className="small fw-bold text-muted text-uppercase mb-1">Role</Form.Label>
-                                    <Form.Select 
+                                    <Form.Select
                                         className="shadow-none cursor-pointer"
-                                        value={editingUser.role} 
+                                        value={editingUser.role}
                                         onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
                                     >
                                         {Object.values(UserRole).map(role => (
@@ -507,22 +506,22 @@ export const AdminPanel = ({ user }) => {
                                 <Col md={6}>
                                     <Form.Label className="small fw-bold text-muted text-uppercase mb-1">Account Status</Form.Label>
                                     <div className="d-flex gap-2 h-100 align-items-center">
-                                        <div 
+                                        <div
                                             className={`flex-fill border rounded p-2 d-flex align-items-center gap-2 cursor-pointer transition-all ${editingUser.active ? 'border-success bg-success-subtle' : 'border-light bg-light'}`}
                                             onClick={() => setEditingUser({ ...editingUser, active: true })}
                                         >
                                             <div className={`rounded-circle p-1 ${editingUser.active ? 'bg-success text-white' : 'bg-secondary text-white'}`}>
-                                                <CheckCircle2 size={12}/>
+                                                <CheckCircle2 size={12} />
                                             </div>
                                             <span className={`small fw-medium ${editingUser.active ? 'text-success-emphasis' : 'text-muted'}`}>Active</span>
                                         </div>
 
-                                        <div 
+                                        <div
                                             className={`flex-fill border rounded p-2 d-flex align-items-center gap-2 cursor-pointer transition-all ${!editingUser.active ? 'border-danger bg-danger-subtle' : 'border-light bg-light'}`}
                                             onClick={() => setEditingUser({ ...editingUser, active: false })}
                                         >
                                             <div className={`rounded-circle p-1 ${!editingUser.active ? 'bg-danger text-white' : 'bg-secondary text-white'}`}>
-                                                <XCircle size={12}/>
+                                                <XCircle size={12} />
                                             </div>
                                             <span className={`small fw-medium ${!editingUser.active ? 'text-danger-emphasis' : 'text-muted'}`}>Inactive</span>
                                         </div>
@@ -531,7 +530,7 @@ export const AdminPanel = ({ user }) => {
                             </div>
                         )}
                     </Modal.Body>
-                    <Modal.Footer className="border-0 px-4 pb-4 pt-0">
+                    <Modal.Footer className="border px-4 pb-4 pt-0">
                         <Button variant="light" onClick={() => setEditingUser(null)} className="px-4">Cancel</Button>
                         <Button variant="primary" type="submit" className="px-4">Save Changes</Button>
                     </Modal.Footer>

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Plus, Calendar, Tag, Layers, Clock, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 import { MOCK_PROJECTS } from '../../services/mockData.js';
 import { ProjectStatus } from '../../types.js';
 import axios from 'axios';
+import api from '../../ultis/api.js';
 
 export const ManagerProjects = ({ user }) => {
     const navigate = useNavigate();
@@ -12,25 +13,27 @@ export const ManagerProjects = ({ user }) => {
     const [projectDescription, setProjectDescription] = useState('');
     const [projectType, setProjectType] = useState('1');
     const [projects, setProjects] = useState([]);
-    
+    const pageLength = 12;
     // State để xử lý hiệu ứng hover cho từng card
     const [hoveredProject, setHoveredProject] = useState(null);
 
     const handleProjectClick = (project) => {
-        navigate(`/manager/projects/${project.id}`);
+        const convertProjectId = project.id + "";
+        navigate(`/manager/projects/${convertProjectId}`);
     };
-
+    const [param] = useSearchParams();
+    const page = param.get("page") || 1;
     useEffect(() => {
         (async () => {
             try {
-                // Giữ nguyên logic API cũ của bạn
-                const p = await axios.get(import.meta.env.VITE_URL + "/api/Project/manager/" + user.user.id);
-                // setProjects(p.data); 
+                const p = await api.get(`/Projects/?pageNumber=${page}&pageSize=${pageLength}`);
+                setProjects(p.data.items);
+                console.log(p.data.items);
             } catch (e) {
                 console.log(e);
             }
         })();
-    }, []);
+    }, [page]);
 
     const handleCreateProject = async () => {
         try {
@@ -59,7 +62,7 @@ export const ManagerProjects = ({ user }) => {
     // Component Badge hiển thị trạng thái đẹp hơn với icon
     const StatusBadge = ({ status }) => {
         const config = {
-            [ProjectStatus.PENDING]: { bg: '#fff7ed', text: '#c2410c', icon: Clock, label: 'Pending' }, 
+            [ProjectStatus.PENDING]: { bg: '#fff7ed', text: '#c2410c', icon: Clock, label: 'Pending' },
             [ProjectStatus.FINISHED]: { bg: '#ecfdf5', text: '#047857', icon: CheckCircle2, label: 'Finished' },
             [ProjectStatus.NOT_STARTED]: { bg: '#f1f5f9', text: '#475569', icon: AlertCircle, label: 'Not Started' },
             [ProjectStatus.CANCELLED]: { bg: '#fef2f2', text: '#b91c1c', icon: XCircle, label: 'Cancelled' },
@@ -69,23 +72,23 @@ export const ManagerProjects = ({ user }) => {
         const Icon = style.icon;
 
         return (
-            <span className="d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill border" 
-                  style={{ 
-                      backgroundColor: style.bg, 
-                      color: style.text, 
-                      borderColor: 'transparent', 
-                      fontSize: '0.75rem', 
-                      fontWeight: 600 
-                  }}>
+            <span className="d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill border"
+                style={{
+                    backgroundColor: style.bg,
+                    color: style.text,
+                    borderColor: 'transparent',
+                    fontSize: '0.75rem',
+                    fontWeight: 600
+                }}>
                 <Icon size={12} />
-                {status ? status.replace(/_/g, ' ') : style.label}
+                {status ? status : style.label}
             </span>
         );
     };
 
     return (
         <div className="container-fluid py-4" style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
-            
+
             {/* Header Section */}
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-5">
                 <div>
@@ -105,10 +108,10 @@ export const ManagerProjects = ({ user }) => {
 
             {/* Projects Grid */}
             <div className="row g-4">
-                {MOCK_PROJECTS.map((project) => {
+                {projects.map((project) => {
                     const isHovered = hoveredProject === project.id;
                     const progress = project.totalItems > 0 ? Math.round((project.completedItems / project.totalItems) * 100) : 0;
-                    
+
                     return (
                         <div key={project.id} className="col-12 col-md-6 col-xl-4">
                             <div
@@ -121,19 +124,19 @@ export const ManagerProjects = ({ user }) => {
                                     cursor: 'pointer',
                                     transition: 'all 0.3s ease',
                                     transform: isHovered ? 'translateY(-5px)' : 'translateY(0)',
-                                    boxShadow: isHovered 
-                                        ? '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' 
+                                    boxShadow: isHovered
+                                        ? '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
                                         : '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)'
                                 }}
                             >
                                 <div className="card-body p-4 d-flex flex-column">
                                     {/* Card Header */}
                                     <div className="d-flex justify-content-between align-items-start mb-3">
-                                        <div className="p-2 rounded-3" 
-                                             style={{ 
-                                                 backgroundColor: project.type === 'IMAGE_BOUNDING_BOX' ? '#eff6ff' : '#f5f3ff', // Blue-50 or Violet-50
-                                                 color: project.type === 'IMAGE_BOUNDING_BOX' ? '#2563eb' : '#7c3aed' 
-                                             }}>
+                                        <div className="p-2 rounded-3"
+                                            style={{
+                                                backgroundColor: project.type === 'IMAGE_BOUNDING_BOX' ? '#eff6ff' : '#f5f3ff', // Blue-50 or Violet-50
+                                                color: project.type === 'IMAGE_BOUNDING_BOX' ? '#2563eb' : '#7c3aed'
+                                            }}>
                                             <Layers size={22} />
                                         </div>
                                         <StatusBadge status={project.status} />
@@ -142,10 +145,10 @@ export const ManagerProjects = ({ user }) => {
                                     {/* Card Content */}
                                     <div className="mb-3">
                                         <h3 className="h6 fw-bold text-dark mb-2 text-truncate">{project.name}</h3>
-                                        <p className="text-muted small mb-0" style={{ 
-                                            display: '-webkit-box', 
-                                            WebkitLineClamp: 2, 
-                                            WebkitBoxOrient: 'vertical', 
+                                        <p className="text-muted small mb-0" style={{
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical',
                                             overflow: 'hidden',
                                             height: '2.6em',
                                             lineHeight: '1.3em'
@@ -164,8 +167,8 @@ export const ManagerProjects = ({ user }) => {
                                             <div
                                                 className="progress-bar"
                                                 role="progressbar"
-                                                style={{ 
-                                                    width: `${progress}%`, 
+                                                style={{
+                                                    width: `${progress}%`,
                                                     backgroundColor: progress === 100 ? '#10b981' : '#4f46e5',
                                                     borderRadius: '10px',
                                                     transition: 'width 0.5s ease'
@@ -175,15 +178,22 @@ export const ManagerProjects = ({ user }) => {
                                     </div>
 
                                     {/* Card Footer */}
-                                    <div className="pt-3 mt-3 border-top d-flex justify-content-between align-items-center text-muted" style={{ fontSize: '0.8rem' }}>
+                                    <div className="pt-3 mt-3 border-top d-flex justify-content-between text-muted" style={{ fontSize: '0.8rem', flexDirection: 'column' }}>
                                         <div className="d-flex align-items-center gap-1">
                                             <Calendar size={14} />
-                                            <span>{new Date(project.createdDate).toLocaleDateString()}</span>
+                                            <span>{new Date(project.createdAt).toLocaleDateString()}</span>
                                         </div>
-                                        <div className="d-flex align-items-center gap-1 bg-light px-2 py-1 rounded">
-                                            <Tag size={13} />
-                                            <span className="fw-medium">{project.classes?.length || 0} Labels</span>
+                                        <div className="d-flex gap-3">
+                                            <div className="d-flex align-items-center gap-1">
+                                                <Calendar size={14} />
+                                                <span>Deadline:{new Date(project.deadline).toLocaleDateString()}</span>
+                                            </div>
+                                            <div className="d-flex align-items-center gap-1 bg-light px-2 py-1 rounded">
+                                                <Tag size={13} />
+                                                <span className="fw-medium">{project.classes?.length || 0} Labels</span>
+                                            </div>
                                         </div>
+
                                     </div>
                                 </div>
                             </div>
@@ -203,7 +213,7 @@ export const ManagerProjects = ({ user }) => {
                                     <h5 className="modal-title fw-bold h5">Create New Project</h5>
                                     <button onClick={() => setIsCreateProjectModalOpen(false)} className="btn-close shadow-none"></button>
                                 </div>
-                                
+
                                 <div className="modal-body p-4">
                                     <div className="d-flex flex-column gap-3">
                                         <div>

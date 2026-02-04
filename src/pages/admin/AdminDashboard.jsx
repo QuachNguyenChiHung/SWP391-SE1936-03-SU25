@@ -27,13 +27,13 @@ export const AdminDashboard = ({ user }) => {
                     <h2 className="display-6 fw-bold text-dark mb-0">Hello, {user.name} 👋</h2>
                     <p className="text-muted mb-0">Here's what's happening with your projects today.</p>
                 </div>
-               
+
             </div>
 
             <div className="row g-4 mb-5">
                 {stats.map((stat) => (
                     <div key={stat.label} className="col-12 col-md-6 col-lg-3">
-                        <div className="card border-0 shadow-sm hover-lift transition-all" style={{ borderRadius: '16px' }}>
+                        <div className="card border shadow-sm hover-lift transition-all" style={{ borderRadius: '16px' }}>
                             <div className="card-body p-4">
                                 <div className="d-flex align-items-center justify-content-between mb-3">
                                     <div className="p-3 rounded-3" style={{ backgroundColor: stat.bg, color: stat.color }}>
@@ -52,26 +52,26 @@ export const AdminDashboard = ({ user }) => {
             <div className="row g-4">
                 {/* Chart Section */}
                 <div className="col-12 col-lg-8">
-                    <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
+                    <div className="card border shadow-sm h-100" style={{ borderRadius: '16px' }}>
                         <div className="card-body p-4">
                             <div className="d-flex justify-content-between align-items-center mb-4">
                                 <h5 className="fw-bold mb-0">Project Performance</h5>
-                                <button className="btn btn-light btn-sm rounded-circle"><MoreVertical size={16}/></button>
+                                <button className="btn btn-light btn-sm rounded-circle"><MoreVertical size={16} /></button>
                             </div>
                             <div style={{ height: '300px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={MOCK_PROJECTS}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                        <XAxis 
-                                            dataKey="name" 
-                                            axisLine={false} 
-                                            tickLine={false} 
+                                        <XAxis
+                                            dataKey="name"
+                                            axisLine={false}
+                                            tickLine={false}
                                             tick={{ fill: '#94a3b8', fontSize: 12 }}
                                             tickFormatter={(value) => value.length > 10 ? `${value.substring(0, 8)}...` : value}
                                         />
                                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                                        <Tooltip 
-                                            cursor={{fill: '#f8fafc'}}
+                                        <Tooltip
+                                            cursor={{ fill: '#f8fafc' }}
                                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                                         />
                                         <Bar dataKey="completedItems" fill="#4f46e5" radius={[6, 6, 0, 0]} barSize={30} />
@@ -85,14 +85,14 @@ export const AdminDashboard = ({ user }) => {
 
                 {/* Activity Feed */}
                 <div className="col-12 col-lg-4">
-                    <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
+                    <div className="card border shadow-sm h-100" style={{ borderRadius: '16px' }}>
                         <div className="card-body p-4">
                             <h5 className="fw-bold mb-4">Recent Activity</h5>
                             <div className="timeline-container">
                                 {[
-                                    { title: 'New Project Created', time: '2 hours ago', icon: <Plus size={14}/>, color: 'bg-primary' },
-                                    { title: 'Batch #203 Completed', time: '5 hours ago', icon: <CheckCircle2 size={14}/>, color: 'bg-success' },
-                                    { title: 'Rejection Rate Spike', time: 'Yesterday', icon: <AlertCircle size={14}/>, color: 'bg-danger' }
+                                    { title: 'New Project Created', time: '2 hours ago', icon: <Plus size={14} />, color: 'bg-primary' },
+                                    { title: 'Batch #203 Completed', time: '5 hours ago', icon: <CheckCircle2 size={14} />, color: 'bg-success' },
+                                    { title: 'Rejection Rate Spike', time: 'Yesterday', icon: <AlertCircle size={14} />, color: 'bg-danger' }
                                 ].map((item, idx) => (
                                     <div key={idx} className="d-flex gap-3 mb-4 position-relative">
                                         <div className={`${item.color} text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm`} style={{ width: '32px', height: '32px', flexShrink: 0, zIndex: 1 }}>
@@ -106,7 +106,7 @@ export const AdminDashboard = ({ user }) => {
                                     </div>
                                 ))}
                             </div>
-                            <button 
+                            <button
                                 onClick={() => navigate('/admin/users')}
                                 className="btn btn-dark w-100 py-2 rounded-3 mt-3 fw-medium d-flex align-items-center justify-content-center gap-2"
                             >
