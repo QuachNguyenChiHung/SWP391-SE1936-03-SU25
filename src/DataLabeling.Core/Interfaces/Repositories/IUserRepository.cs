@@ -58,4 +58,9 @@ public interface IUserRepository : IRepository<User>
     /// Gets a user by password reset token.
     /// </summary>
     Task<User?> GetByPasswordResetTokenAsync(string token, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if user has any related data (projects, tasks, annotations, reviews).
+    /// </summary>
+    Task<bool> HasRelatedDataAsync(int userId, CancellationToken cancellationToken = default);
 }

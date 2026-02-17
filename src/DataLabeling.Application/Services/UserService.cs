@@ -135,11 +135,18 @@ public class UserService : IUserService
             throw new NotFoundException("User", id);
         }
 
-        // Soft delete by setting status to Inactive
-        user.Status = UserStatus.Inactive;
-        user.UpdatedAt = DateTime.UtcNow;
+        // Check for related data before hard delete
+        bool hasRelatedData = await _userRepository.HasRelatedDataAsync(id, cancellationToken);
 
-        _userRepository.Update(user);
+        if (hasRelatedData)
+        {
+            throw new ValidationException(
+                "Cannot delete user with existing data. " +
+                "Please reassign or delete related projects, tasks, and annotations first.");
+        }
+
+        // Hard delete
+        _userRepository.Delete(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 

@@ -103,4 +103,12 @@ public class UserRepository : Repository<User>, IUserRepository
         return await _dbSet
             .FirstOrDefaultAsync(u => u.PasswordResetToken == token, cancellationToken);
     }
+
+    public async Task<bool> HasRelatedDataAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Projects.AnyAsync(p => p.CreatedById == userId, cancellationToken)
+            || await _context.AnnotationTasks.AnyAsync(t => t.AnnotatorId == userId || t.AssignedById == userId, cancellationToken)
+            || await _context.Annotations.AnyAsync(a => a.CreatedById == userId, cancellationToken)
+            || await _context.Reviews.AnyAsync(r => r.ReviewerId == userId, cancellationToken);
+    }
 }
