@@ -34,8 +34,13 @@ builder.Services.AddScoped<IExportService>(sp =>
     return new ExportService(unitOfWork, env.ContentRootPath);
 });
 
-// Add Controllers
-builder.Services.AddControllers();
+// Add Controllers with JSON options for enum serialization
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(
+            new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 
 // Add JWT Authentication
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()!;
