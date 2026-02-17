@@ -138,15 +138,16 @@ public class AuthService : IAuthService
             throw new ValidationException("Self-registration is only allowed for Annotator or Reviewer roles.");
         }
 
-        // Check if email already exists (return generic message for security)
+        // Validate password confirmation
+        if (request.Password != request.ConfirmPassword)
+        {
+            throw new ValidationException("Password and confirmation do not match.");
+        }
+
+        // Check if email already exists
         if (await _userRepository.EmailExistsAsync(request.Email, cancellationToken))
         {
-            // Return success message even if email exists (security best practice)
-            return new RegisterResponse
-            {
-                Message = "If this email is not already registered, you will receive a verification email shortly.",
-                Email = request.Email
-            };
+            throw new ValidationException("This email address is already registered. Please use a different email or try logging in.");
         }
 
         // Generate verification token

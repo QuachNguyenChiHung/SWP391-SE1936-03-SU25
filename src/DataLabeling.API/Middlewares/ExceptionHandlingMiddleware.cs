@@ -74,7 +74,7 @@ public class ExceptionHandlingMiddleware
 
             _ => (
                 HttpStatusCode.InternalServerError,
-                ApiResponse.FailureResponse("An unexpected error occurred.")
+                ApiResponse.FailureResponse($"An unexpected error occurred: {exception.Message}")
             )
         };
 
