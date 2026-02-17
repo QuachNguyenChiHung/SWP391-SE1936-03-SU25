@@ -27,5 +27,7 @@ namespace DataLabeling.Application.DTOs.Projects
         public bool HasGuideline { get; set; }
         public int LabelCount { get; set; }
         public int TaskCount { get; set; }
+        public int TotalItems { get; set; }
+        public int FinishedItems { get; set; }
     }
 }

@@ -20,6 +20,7 @@ public class ProjectRepository : Repository<Project>, IProjectRepository
         return await _dbSet
             .Include(p => p.CreatedBy)
             .Include(p => p.Dataset)
+                .ThenInclude(d => d!.DataItems)
             .Include(p => p.Guideline)
             .Include(p => p.Labels.OrderBy(l => l.DisplayOrder))
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
@@ -70,6 +71,7 @@ public class ProjectRepository : Repository<Project>, IProjectRepository
         var items = await query
             .Include(p => p.CreatedBy)
             .Include(p => p.Dataset)
+                .ThenInclude(d => d!.DataItems)
             .OrderByDescending(p => p.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -87,6 +89,8 @@ public class ProjectRepository : Repository<Project>, IProjectRepository
                         p.Deadline.Value <= targetDate &&
                         p.Status == ProjectStatus.Active)
             .Include(p => p.CreatedBy)
+            .Include(p => p.Dataset)
+                .ThenInclude(d => d!.DataItems)
             .OrderBy(p => p.Deadline)
             .ToListAsync(cancellationToken);
     }

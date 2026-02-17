@@ -12,4 +12,6 @@ public class ProjectDto
     public DateOnly? Deadline { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public int TotalItems { get; set; }
+    public int FinishedItems { get; set; }
 }

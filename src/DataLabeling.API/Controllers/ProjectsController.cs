@@ -82,7 +82,9 @@ public class ProjectsController : ControllerBase
             Status = p.Status,
             Deadline = p.Deadline,
             CreatedAt = p.CreatedAt,
-            UpdatedAt = p.UpdatedAt
+            UpdatedAt = p.UpdatedAt,
+            TotalItems = p.Dataset?.DataItems?.Count ?? 0,
+            FinishedItems = p.Dataset?.DataItems?.Count(d => d.Status == DataItemStatus.Approved) ?? 0
         }).ToList();
 
         return Ok(new PagedResult<ProjectDto>
@@ -120,7 +122,9 @@ public class ProjectsController : ControllerBase
             HasDataset = project.Dataset != null,
             HasGuideline = project.Guideline != null,
             LabelCount = project.Labels.Count,
-            TaskCount = project.Tasks.Count
+            TaskCount = project.Tasks.Count,
+            TotalItems = project.Dataset?.DataItems?.Count ?? 0,
+            FinishedItems = project.Dataset?.DataItems?.Count(d => d.Status == DataItemStatus.Approved) ?? 0
         };
 
         return Ok(dto);
@@ -161,7 +165,9 @@ public class ProjectsController : ControllerBase
             Status = p.Status,
             Deadline = p.Deadline,
             CreatedAt = p.CreatedAt,
-            UpdatedAt = p.UpdatedAt
+            UpdatedAt = p.UpdatedAt,
+            TotalItems = p.Dataset?.DataItems?.Count ?? 0,
+            FinishedItems = p.Dataset?.DataItems?.Count(d => d.Status == DataItemStatus.Approved) ?? 0
         });
 
         return Ok(result);
@@ -222,7 +228,9 @@ public class ProjectsController : ControllerBase
             Status = project.Status,
             Deadline = project.Deadline,
             CreatedAt = project.CreatedAt,
-            UpdatedAt = project.UpdatedAt
+            UpdatedAt = project.UpdatedAt,
+            TotalItems = 0,
+            FinishedItems = 0
         };
 
         return CreatedAtAction(nameof(GetById), new { id = project.Id }, dto);
