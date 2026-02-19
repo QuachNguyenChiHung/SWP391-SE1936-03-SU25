@@ -1,6 +1,9 @@
+using System.Security.Claims;
 using DataLabeling.Application.DTOs.Common;
 using DataLabeling.Application.DTOs.Label;
 using DataLabeling.Application.Interfaces;
+using DataLabeling.Core.Enums;
+using DataLabeling.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,10 +17,44 @@ namespace DataLabeling.API.Controllers;
 public class LabelsController : ControllerBase
 {
     private readonly ILabelService _labelService;
+    private readonly IUnitOfWork _uow;
 
-    public LabelsController(ILabelService labelService)
+    public LabelsController(ILabelService labelService, IUnitOfWork uow)
     {
         _labelService = labelService;
+        _uow = uow;
+    }
+
+    private int GetCurrentUserId()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)
+                 ?? User.FindFirst("sub");
+        return claim != null && int.TryParse(claim.Value, out int id) ? id : 0;
+    }
+
+    private UserRole GetCurrentUserRole()
+    {
+        var roleClaim = User.FindFirst(ClaimTypes.Role) ?? User.FindFirst("role");
+        return roleClaim != null && Enum.TryParse<UserRole>(roleClaim.Value, out var role)
+            ? role : UserRole.Annotator;
+    }
+
+    /// <summary>
+    /// Checks if the current user owns the project or is an Admin.
+    /// </summary>
+    private async Task<IActionResult?> CheckProjectOwnership(int projectId, CancellationToken cancellationToken)
+    {
+        var project = await _uow.Projects.GetByIdAsync(projectId, cancellationToken);
+        if (project == null)
+            return NotFound(ApiResponse.FailureResponse("Project not found."));
+
+        var userId = GetCurrentUserId();
+        var role = GetCurrentUserRole();
+        if (role != UserRole.Admin && project.CreatedById != userId)
+            return StatusCode(StatusCodes.Status403Forbidden,
+                ApiResponse.FailureResponse("You do not have permission to manage labels for this project."));
+
+        return null;
     }
 
     /// <summary>
@@ -72,6 +109,9 @@ public class LabelsController : ControllerBase
         [FromBody] CreateLabelRequest request,
         CancellationToken cancellationToken)
     {
+        var ownershipError = await CheckProjectOwnership(projectId, cancellationToken);
+        if (ownershipError != null) return ownershipError;
+
         var result = await _labelService.CreateAsync(projectId, request, cancellationToken);
         return CreatedAtAction(
             nameof(GetById),
@@ -99,6 +139,13 @@ public class LabelsController : ControllerBase
         [FromBody] UpdateLabelRequest request,
         CancellationToken cancellationToken)
     {
+        var label = await _uow.Labels.GetByIdAsync(id, cancellationToken);
+        if (label == null)
+            return NotFound(ApiResponse.FailureResponse("Label not found."));
+
+        var ownershipError = await CheckProjectOwnership(label.ProjectId, cancellationToken);
+        if (ownershipError != null) return ownershipError;
+
         var result = await _labelService.UpdateAsync(id, request, cancellationToken);
         return Ok(ApiResponse<LabelDto>.SuccessResponse(result, "Label updated successfully."));
     }
@@ -118,6 +165,13 @@ public class LabelsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
+        var label = await _uow.Labels.GetByIdAsync(id, cancellationToken);
+        if (label == null)
+            return NotFound(ApiResponse.FailureResponse("Label not found."));
+
+        var ownershipError = await CheckProjectOwnership(label.ProjectId, cancellationToken);
+        if (ownershipError != null) return ownershipError;
+
         await _labelService.DeleteAsync(id, cancellationToken);
         return Ok(ApiResponse.SuccessResponse("Label deleted successfully."));
     }
@@ -141,6 +195,9 @@ public class LabelsController : ControllerBase
         [FromBody] ReorderLabelsRequest request,
         CancellationToken cancellationToken)
     {
+        var ownershipError = await CheckProjectOwnership(projectId, cancellationToken);
+        if (ownershipError != null) return ownershipError;
+
         await _labelService.ReorderAsync(projectId, request.LabelIds, cancellationToken);
         return Ok(ApiResponse.SuccessResponse("Labels reordered successfully."));
     }

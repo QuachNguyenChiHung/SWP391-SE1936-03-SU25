@@ -218,27 +218,18 @@ public class DashboardController : ControllerBase
             CompletionRate = totalItems > 0 ? (double)completedItems / totalItems * 100 : 0
         };
 
-        // Get team performance (simplified - just get annotators with their task counts)
-        var allTasks = await _uow.AnnotationTasks.GetPagedAsync(1, 1000, null, null, null, cancellationToken);
-        var taskItems = allTasks.Items?.ToList() ?? new List<Core.Entities.AnnotationTask>();
+        // Get team performance - grouped at DB level to avoid loading all tasks
+        var annotatorPerformance = await _uow.AnnotationTasks.GetAnnotatorPerformanceAsync(10, cancellationToken);
 
-        var tasksByAnnotator = taskItems
-            .GroupBy(t => t.AnnotatorId)
-            .Select(g =>
-            {
-                var firstTask = g.First();
-                return new TeamPerformanceDto
-                {
-                    UserId = g.Key,
-                    UserName = firstTask.Annotator?.Name ?? "Unknown",
-                    Role = "Annotator",
-                    TasksCompleted = g.Count(t => t.Status == AnnotationTaskStatus.Completed),
-                    ItemsProcessed = g.Sum(t => t.CompletedItems),
-                    AverageAccuracy = 0 // Would need review data to calculate
-                };
-            })
-            .Take(10)
-            .ToList();
+        var tasksByAnnotator = annotatorPerformance.Select(a => new TeamPerformanceDto
+        {
+            UserId = a.AnnotatorId,
+            UserName = a.AnnotatorName,
+            Role = "Annotator",
+            TasksCompleted = a.TasksCompleted,
+            ItemsProcessed = a.ItemsProcessed,
+            AverageAccuracy = 0 // Would need review data to calculate
+        }).ToList();
 
         var result = new ManagerDashboardDto
         {

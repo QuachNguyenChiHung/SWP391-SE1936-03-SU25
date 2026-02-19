@@ -118,7 +118,7 @@ public class ProjectsController : ControllerBase
             CreatedAt = project.CreatedAt,
             UpdatedAt = project.UpdatedAt,
             CreatedById = project.CreatedById,
-            CreatedByName = project.CreatedBy.Name,
+            CreatedByName = project.CreatedBy?.Name ?? "Unknown",
             HasDataset = project.Dataset != null,
             HasGuideline = project.Guideline != null,
             LabelCount = project.Labels.Count,

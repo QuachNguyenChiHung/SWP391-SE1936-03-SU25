@@ -500,29 +500,33 @@ public class AnnotationService : IAnnotationService
         if (task.AnnotatorId != userId)
             throw new ForbiddenException("You are not assigned to this task");
 
-        var rejectedItems = new List<RejectedItemDto>();
+        // Filter to rejected items using already-loaded DataItem navigation
+        var rejectedTaskItems = task.TaskItems
+            .Where(ti => ti.DataItem?.Status == DataItemStatus.Rejected)
+            .ToList();
 
-        foreach (var taskItem in task.TaskItems)
+        if (!rejectedTaskItems.Any())
+            return Enumerable.Empty<RejectedItemDto>();
+
+        // Batch load latest reviews for all rejected data items
+        var rejectedDataItemIds = rejectedTaskItems.Select(ti => ti.DataItemId).ToList();
+        var reviewsByDataItem = new Dictionary<int, Review?>();
+        foreach (var dataItemId in rejectedDataItemIds)
         {
-            var dataItem = await _unitOfWork.DataItems.GetByIdAsync(taskItem.DataItemId, cancellationToken);
-            if (dataItem == null || dataItem.Status != DataItemStatus.Rejected)
-                continue;
+            // GetLatestByDataItemIdAsync already includes ReviewErrorTypes with ErrorType
+            reviewsByDataItem[dataItemId] = await _unitOfWork.Reviews.GetLatestByDataItemIdAsync(dataItemId, cancellationToken);
+        }
 
-            // Get the latest review with rejection details
-            var latestReview = await _unitOfWork.Reviews.GetLatestByDataItemIdAsync(dataItem.Id, cancellationToken);
+        var rejectedItems = new List<RejectedItemDto>();
+        foreach (var taskItem in rejectedTaskItems)
+        {
+            var dataItem = taskItem.DataItem!;
+            var latestReview = reviewsByDataItem.GetValueOrDefault(dataItem.Id);
 
-            var errorTypeNames = new List<string>();
-            if (latestReview != null)
-            {
-                var reviewWithErrors = await _unitOfWork.Reviews.GetWithErrorTypesAsync(latestReview.Id, cancellationToken);
-                if (reviewWithErrors != null)
-                {
-                    errorTypeNames = reviewWithErrors.ReviewErrorTypes
-                        .Select(ret => ret.ErrorType?.Name ?? "")
-                        .Where(n => !string.IsNullOrEmpty(n))
-                        .ToList();
-                }
-            }
+            var errorTypeNames = latestReview?.ReviewErrorTypes
+                .Select(ret => ret.ErrorType?.Name ?? "")
+                .Where(n => !string.IsNullOrEmpty(n))
+                .ToList() ?? new List<string>();
 
             rejectedItems.Add(new RejectedItemDto
             {

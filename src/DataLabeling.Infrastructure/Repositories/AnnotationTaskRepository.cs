@@ -94,6 +94,22 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
         return (items, totalCount);
     }
 
+    public async Task<IEnumerable<AnnotatorPerformance>> GetAnnotatorPerformanceAsync(int limit = 10, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .GroupBy(t => new { t.AnnotatorId, AnnotatorName = t.Annotator!.Name })
+            .Select(g => new AnnotatorPerformance
+            {
+                AnnotatorId = g.Key.AnnotatorId,
+                AnnotatorName = g.Key.AnnotatorName,
+                TasksCompleted = g.Count(t => t.Status == AnnotationTaskStatus.Completed),
+                ItemsProcessed = g.Sum(t => t.CompletedItems)
+            })
+            .OrderByDescending(a => a.TasksCompleted)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task UpdateProgressAsync(int taskId, CancellationToken cancellationToken = default)
     {
         var task = await _dbSet

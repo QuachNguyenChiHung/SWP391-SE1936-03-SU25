@@ -48,4 +48,20 @@ public interface IAnnotationTaskRepository : IRepository<AnnotationTask>
     /// Updates task progress counters.
     /// </summary>
     Task UpdateProgressAsync(int taskId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets annotator performance statistics grouped by annotator at DB level.
+    /// </summary>
+    Task<IEnumerable<AnnotatorPerformance>> GetAnnotatorPerformanceAsync(int limit = 10, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Annotator performance statistics.
+/// </summary>
+public class AnnotatorPerformance
+{
+    public int AnnotatorId { get; set; }
+    public string AnnotatorName { get; set; } = "";
+    public int TasksCompleted { get; set; }
+    public int ItemsProcessed { get; set; }
 }

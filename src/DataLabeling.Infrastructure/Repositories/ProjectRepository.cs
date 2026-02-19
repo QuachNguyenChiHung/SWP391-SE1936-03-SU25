@@ -23,6 +23,7 @@ public class ProjectRepository : Repository<Project>, IProjectRepository
                 .ThenInclude(d => d!.DataItems)
             .Include(p => p.Guideline)
             .Include(p => p.Labels.OrderBy(l => l.DisplayOrder))
+            .Include(p => p.Tasks)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 

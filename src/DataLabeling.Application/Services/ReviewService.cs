@@ -118,7 +118,7 @@ public class ReviewService : IReviewService
             JsonSerializer.Serialize(new { reviewId = review.Id, decision = request.Decision.ToString(), feedback = request.Feedback }),
             cancellationToken: cancellationToken);
 
-        return await GetByIdAsync(review.Id, cancellationToken) ?? throw new Exception("Failed to create review");
+        return await GetByIdAsync(review.Id, cancellationToken) ?? throw new InvalidOperationException("Failed to retrieve created review.");
     }
 
     public async Task<ReviewDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -182,36 +182,16 @@ public class ReviewService : IReviewService
         var (items, totalCount) = await _unitOfWork.Reviews.GetPendingReviewItemsPagedAsync(
             pageNumber, pageSize, projectId, cancellationToken);
 
-        var result = new List<PendingReviewItemDto>();
-
-        foreach (var item in items)
+        // Items are already loaded with Dataset.Project, TaskItems.Task.Annotator, and Annotations
+        // via GetPendingReviewItemsPagedAsync - use navigation properties directly to avoid N+1
+        var result = items.Select(item =>
         {
-            var dataset = await _unitOfWork.Datasets.GetByIdAsync(item.DatasetId, cancellationToken);
-            var project = dataset != null
-                ? await _unitOfWork.Projects.GetByIdAsync(dataset.ProjectId, cancellationToken)
-                : null;
+            var project = item.Dataset?.Project;
+            var taskItem = item.TaskItems?.FirstOrDefault();
+            var annotatorName = taskItem?.Task?.Annotator?.Name ?? "";
+            var submittedAt = taskItem?.CompletedAt ?? item.UpdatedAt ?? item.CreatedAt;
 
-            // Get annotator name from task
-            var taskItems = await _unitOfWork.TaskItems.GetByDataItemIdAsync(item.Id, cancellationToken);
-            var taskItem = taskItems.FirstOrDefault();
-            string annotatorName = "";
-            DateTime submittedAt = item.UpdatedAt ?? item.CreatedAt;
-
-            if (taskItem != null)
-            {
-                var task = await _unitOfWork.AnnotationTasks.GetByIdAsync(taskItem.TaskId, cancellationToken);
-                if (task != null)
-                {
-                    var annotator = await _unitOfWork.Users.GetByIdAsync(task.AnnotatorId, cancellationToken);
-                    annotatorName = annotator?.Name ?? "";
-                    submittedAt = taskItem.CompletedAt ?? submittedAt;
-                }
-            }
-
-            // Get annotation count
-            var annotations = await _unitOfWork.Annotations.GetByDataItemIdAsync(item.Id, cancellationToken);
-
-            result.Add(new PendingReviewItemDto
+            return new PendingReviewItemDto
             {
                 Id = item.Id,
                 DatasetId = item.DatasetId,
@@ -220,11 +200,11 @@ public class ReviewService : IReviewService
                 FileName = item.FileName,
                 FilePath = item.FilePath,
                 ThumbnailPath = item.ThumbnailPath,
-                AnnotationCount = annotations.Count(),
+                AnnotationCount = item.Annotations?.Count ?? 0,
                 AnnotatorName = annotatorName,
                 SubmittedAt = submittedAt
-            });
-        }
+            };
+        }).ToList();
 
         return new PagedResult<PendingReviewItemDto>
         {
@@ -342,20 +322,12 @@ public class ReviewService : IReviewService
 
         foreach (var taskItem in taskItems)
         {
+            // GetWithTaskItemsAsync already includes TaskItems with DataItem navigation
             var task = await _unitOfWork.AnnotationTasks.GetWithTaskItemsAsync(taskItem.TaskId, cancellationToken);
             if (task == null) continue;
 
-            // Check if all items in the task are approved
-            bool allApproved = true;
-            foreach (var ti in task.TaskItems)
-            {
-                var di = await _unitOfWork.DataItems.GetByIdAsync(ti.DataItemId, cancellationToken);
-                if (di == null || di.Status != DataItemStatus.Approved)
-                {
-                    allApproved = false;
-                    break;
-                }
-            }
+            // Check if all items in the task are approved using already-loaded DataItem navigation
+            bool allApproved = task.TaskItems.All(ti => ti.DataItem?.Status == DataItemStatus.Approved);
 
             // If all items approved, mark task as completed
             if (allApproved && task.Status == AnnotationTaskStatus.Submitted)

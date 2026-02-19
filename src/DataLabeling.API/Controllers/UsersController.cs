@@ -30,7 +30,11 @@ public class UsersController : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)
                           ?? User.FindFirst("sub");
-        return int.Parse(userIdClaim!.Value);
+
+        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+            throw new Core.Exceptions.UnauthorizedException("User ID not found in token.");
+
+        return userId;
     }
 
     /// <summary>
@@ -122,7 +126,7 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
-    /// Deletes a user (soft delete).
+    /// Deletes a user (hard delete).
     /// </summary>
     /// <param name="id">User ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -134,6 +138,9 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
+        if (id == GetCurrentUserId())
+            return BadRequest(ApiResponse.FailureResponse("Cannot delete yourself."));
+
         await _userService.DeleteAsync(id, cancellationToken);
         return Ok(ApiResponse.SuccessResponse("User deleted successfully."));
     }

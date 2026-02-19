@@ -106,8 +106,8 @@ public class ExportService : IExportService
         if (!File.Exists(filePath))
             throw new NotFoundException("Export file", fileName);
 
-        var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        return Task.FromResult<Stream>(stream);
+        Stream stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, useAsync: true);
+        return Task.FromResult(stream);
     }
 
     public bool ExportFileExists(string fileName)
