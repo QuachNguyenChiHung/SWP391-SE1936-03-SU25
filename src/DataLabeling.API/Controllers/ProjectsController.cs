@@ -56,8 +56,8 @@ public class ProjectsController : ControllerBase
     /// Admin sees all projects, others see only their own.
     /// </summary>
     [HttpGet]
-    [ProducesResponseType(typeof(PagedResult<ProjectDto>), 200)]
-    public async Task<ActionResult<PagedResult<ProjectDto>>> GetProjects(
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<ProjectDto>>), 200)]
+    public async Task<ActionResult<ApiResponse<PagedResult<ProjectDto>>>> GetProjects(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] ProjectStatus? status = null,
@@ -87,25 +87,27 @@ public class ProjectsController : ControllerBase
             FinishedItems = p.Dataset?.DataItems?.Count(d => d.Status == DataItemStatus.Approved) ?? 0
         }).ToList();
 
-        return Ok(new PagedResult<ProjectDto>
+        var pagedResult = new PagedResult<ProjectDto>
         {
             Items = result,
             TotalCount = totalCount,
             PageNumber = pageNumber,
             PageSize = pageSize
-        });
+        };
+
+        return Ok(ApiResponse<PagedResult<ProjectDto>>.SuccessResponse(pagedResult));
     }
 
     /// <summary>
     /// Get project by ID with full details.
     /// </summary>
     [HttpGet("{id:int}")]
-    [ProducesResponseType(typeof(ProjectDetailDto), 200)]
+    [ProducesResponseType(typeof(ApiResponse<ProjectDetailDto>), 200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<ProjectDetailDto>> GetById(int id, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<ApiResponse<ProjectDetailDto>>> GetById(int id, CancellationToken cancellationToken = default)
     {
         var project = await _uow.Projects.GetWithDetailsAsync(id, cancellationToken);
-        if (project == null) return NotFound();
+        if (project == null) return NotFound(ApiResponse.FailureResponse("Project not found"));
 
         var dto = new ProjectDetailDto
         {
@@ -127,21 +129,21 @@ public class ProjectsController : ControllerBase
             FinishedItems = project.Dataset?.DataItems?.Count(d => d.Status == DataItemStatus.Approved) ?? 0
         };
 
-        return Ok(dto);
+        return Ok(ApiResponse<ProjectDetailDto>.SuccessResponse(dto));
     }
 
     /// <summary>
     /// Get project statistics (item counts by status).
     /// </summary>
     [HttpGet("{id:int}/statistics")]
-    [ProducesResponseType(typeof(ProjectStatistics), 200)]
+    [ProducesResponseType(typeof(ApiResponse<ProjectStatistics>), 200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<ProjectStatistics>> GetStatistics(int id, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<ApiResponse<ProjectStatistics>>> GetStatistics(int id, CancellationToken cancellationToken = default)
     {
         var stats = await _uow.Projects.GetStatisticsAsync(id, cancellationToken);
-        if (stats == null) return NotFound("Project or dataset not found");
+        if (stats == null) return NotFound(ApiResponse.FailureResponse("Project or dataset not found"));
 
-        return Ok(stats);
+        return Ok(ApiResponse<ProjectStatistics>.SuccessResponse(stats));
     }
 
     /// <summary>
@@ -149,8 +151,8 @@ public class ProjectsController : ControllerBase
     /// </summary>
     [HttpGet("upcoming-deadlines")]
     [Authorize(Roles = "Admin,Manager")]
-    [ProducesResponseType(typeof(IEnumerable<ProjectDto>), 200)]
-    public async Task<ActionResult<IEnumerable<ProjectDto>>> GetUpcomingDeadlines(
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<ProjectDto>>), 200)]
+    public async Task<ActionResult<ApiResponse<IEnumerable<ProjectDto>>>> GetUpcomingDeadlines(
         [FromQuery] int daysAhead = 7,
         CancellationToken cancellationToken = default)
     {
@@ -170,7 +172,7 @@ public class ProjectsController : ControllerBase
             FinishedItems = p.Dataset?.DataItems?.Count(d => d.Status == DataItemStatus.Approved) ?? 0
         });
 
-        return Ok(result);
+        return Ok(ApiResponse<IEnumerable<ProjectDto>>.SuccessResponse(result));
     }
 
     /// <summary>
@@ -178,9 +180,9 @@ public class ProjectsController : ControllerBase
     /// </summary>
     [HttpPost]
     [Authorize(Roles = "Admin,Manager")]
-    [ProducesResponseType(typeof(ProjectDto), 201)]
+    [ProducesResponseType(typeof(ApiResponse<ProjectDto>), 201)]
     [ProducesResponseType(400)]
-    public async Task<ActionResult<ProjectDto>> Create(
+    public async Task<ActionResult<ApiResponse<ProjectDto>>> Create(
         [FromBody] CreateProjectRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -188,7 +190,7 @@ public class ProjectsController : ControllerBase
 
         if (userId == 0)
         {
-            return Unauthorized(new { success = false, message = "User ID not found in token" });
+            return Unauthorized(ApiResponse.FailureResponse("User ID not found in token"));
         }
 
         var project = new Project
@@ -233,7 +235,8 @@ public class ProjectsController : ControllerBase
             FinishedItems = 0
         };
 
-        return CreatedAtAction(nameof(GetById), new { id = project.Id }, dto);
+        return CreatedAtAction(nameof(GetById), new { id = project.Id },
+            ApiResponse<ProjectDto>.SuccessResponse(dto, "Project created successfully."));
     }
 
     /// <summary>
@@ -241,7 +244,7 @@ public class ProjectsController : ControllerBase
     /// </summary>
     [HttpPut("{id:int}")]
     [Authorize(Roles = "Admin,Manager")]
-    [ProducesResponseType(204)]
+    [ProducesResponseType(typeof(ApiResponse), 200)]
     [ProducesResponseType(403)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> Update(
@@ -253,7 +256,7 @@ public class ProjectsController : ControllerBase
         var role = GetUserRole();
 
         var project = await _uow.Projects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return NotFound();
+        if (project == null) return NotFound(ApiResponse.FailureResponse("Project not found"));
 
         if (project.CreatedById != userId && role != UserRole.Admin)
             return Forbid();
@@ -265,7 +268,7 @@ public class ProjectsController : ControllerBase
         _uow.Projects.Update(project);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        return NoContent();
+        return Ok(ApiResponse.SuccessResponse("Project updated successfully."));
     }
 
     /// <summary>
@@ -273,7 +276,7 @@ public class ProjectsController : ControllerBase
     /// </summary>
     [HttpPatch("{id:int}/status")]
     [Authorize(Roles = "Admin,Manager")]
-    [ProducesResponseType(204)]
+    [ProducesResponseType(typeof(ApiResponse), 200)]
     [ProducesResponseType(403)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> ChangeStatus(
@@ -285,7 +288,7 @@ public class ProjectsController : ControllerBase
         var role = GetUserRole();
 
         var project = await _uow.Projects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return NotFound();
+        if (project == null) return NotFound(ApiResponse.FailureResponse("Project not found"));
 
         if (project.CreatedById != userId && role != UserRole.Admin)
             return Forbid();
@@ -295,7 +298,7 @@ public class ProjectsController : ControllerBase
         _uow.Projects.Update(project);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        return NoContent();
+        return Ok(ApiResponse.SuccessResponse("Project status updated successfully."));
     }
 
     /// <summary>
@@ -303,7 +306,7 @@ public class ProjectsController : ControllerBase
     /// </summary>
     [HttpDelete("{id:int}")]
     [Authorize(Roles = "Admin,Manager")]
-    [ProducesResponseType(204)]
+    [ProducesResponseType(typeof(ApiResponse), 200)]
     [ProducesResponseType(403)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken = default)
@@ -312,7 +315,7 @@ public class ProjectsController : ControllerBase
         var role = GetUserRole();
 
         var project = await _uow.Projects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return NotFound();
+        if (project == null) return NotFound(ApiResponse.FailureResponse("Project not found"));
 
         if (project.CreatedById != userId && role != UserRole.Admin)
             return Forbid();
@@ -320,7 +323,7 @@ public class ProjectsController : ControllerBase
         _uow.Projects.Delete(project);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        return NoContent();
+        return Ok(ApiResponse.SuccessResponse("Project deleted successfully."));
     }
 
     // ==================== GUIDELINE ENDPOINTS ====================
@@ -331,7 +334,7 @@ public class ProjectsController : ControllerBase
     /// </summary>
     [HttpPost("{id:int}/guideline/upload")]
     [Authorize(Roles = "Admin,Manager")]
-    [ProducesResponseType(200)]
+    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(403)]
     [ProducesResponseType(404)]
@@ -341,29 +344,26 @@ public class ProjectsController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         if (file == null || file.Length == 0)
-            return BadRequest(new { success = false, message = "No file uploaded" });
+            return BadRequest(ApiResponse.FailureResponse("No file uploaded"));
 
         // Validate file type
         var allowedExtensions = new[] { ".pdf", ".docx", ".doc", ".txt", ".md", ".html" };
         var extension = Path.GetExtension(file.FileName).ToLower();
 
         if (!allowedExtensions.Contains(extension))
-            return BadRequest(new
-            {
-                success = false,
-                message = $"File type not allowed. Allowed: {string.Join(", ", allowedExtensions)}"
-            });
+            return BadRequest(ApiResponse.FailureResponse(
+                $"File type not allowed. Allowed: {string.Join(", ", allowedExtensions)}"));
 
         // Validate file size (max 10MB)
         if (file.Length > 10 * 1024 * 1024)
-            return BadRequest(new { success = false, message = "File size must be less than 10MB" });
+            return BadRequest(ApiResponse.FailureResponse("File size must be less than 10MB"));
 
         var userId = GetUserId();
         var role = GetUserRole();
 
         var project = await _uow.Projects.GetByIdAsync(id, cancellationToken);
         if (project == null)
-            return NotFound(new { success = false, message = "Project not found" });
+            return NotFound(ApiResponse.FailureResponse("Project not found"));
 
         // Check permission
         if (project.CreatedById != userId && role != UserRole.Admin)
@@ -414,18 +414,13 @@ public class ProjectsController : ControllerBase
 
         await _uow.SaveChangesAsync(cancellationToken);
 
-        return Ok(new
+        return Ok(ApiResponse<object>.SuccessResponse(new
         {
-            success = true,
-            message = "Guideline file uploaded successfully",
-            data = new
-            {
-                fileName = fileName,
-                fileSize = fileSize,
-                downloadUrl = $"/api/projects/{id}/guideline/download",
-                version = existingGuideline?.Version + 1 ?? 1
-            }
-        });
+            fileName,
+            fileSize,
+            downloadUrl = $"/api/projects/{id}/guideline/download",
+            version = existingGuideline?.Version + 1 ?? 1
+        }, "Guideline file uploaded successfully"));
     }
 
     /// <summary>
@@ -442,14 +437,14 @@ public class ProjectsController : ControllerBase
         var guideline = await _uow.Guidelines.GetByProjectIdAsync(id, cancellationToken);
 
         if (guideline == null)
-            return NotFound(new { success = false, message = "Guideline not found" });
+            return NotFound(ApiResponse.FailureResponse("Guideline not found"));
 
         if (string.IsNullOrEmpty(guideline.FilePath))
-            return NotFound(new { success = false, message = "Guideline file not found" });
+            return NotFound(ApiResponse.FailureResponse("Guideline file not found"));
 
         // Check if file exists in private storage
         if (!_fileStorage.PrivateFileExists(guideline.FilePath))
-            return NotFound(new { success = false, message = "File not found on server" });
+            return NotFound(ApiResponse.FailureResponse("File not found on server"));
 
         // Stream file from private storage
         var stream = _fileStorage.OpenPrivateFileRead(guideline.FilePath);
@@ -465,16 +460,16 @@ public class ProjectsController : ControllerBase
     /// Note: FileUrl is not provided for security - use download endpoint instead.
     /// </summary>
     [HttpGet("{id:int}/guideline")]
-    [ProducesResponseType(typeof(GuidelineDto), 200)]
+    [ProducesResponseType(typeof(ApiResponse<GuidelineDto>), 200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<GuidelineDto>> GetGuideline(
+    public async Task<ActionResult<ApiResponse<GuidelineDto>>> GetGuideline(
         int id,
         CancellationToken cancellationToken = default)
     {
         var guideline = await _uow.Guidelines.GetByProjectIdAsync(id, cancellationToken);
 
         if (guideline == null)
-            return NotFound(new { success = false, message = "Guideline not found" });
+            return NotFound(ApiResponse.FailureResponse("Guideline not found"));
 
         var dto = new GuidelineDto
         {
@@ -493,6 +488,6 @@ public class ProjectsController : ControllerBase
             UpdatedAt = guideline.UpdatedAt
         };
 
-        return Ok(dto);
+        return Ok(ApiResponse<GuidelineDto>.SuccessResponse(dto));
     }
 }
