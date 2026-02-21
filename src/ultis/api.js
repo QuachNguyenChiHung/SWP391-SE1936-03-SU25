@@ -10,15 +10,6 @@ api.interceptors.request.use((config) => {
     try {
         const cookieUser = getInforFromCookie();
         let token = cookieUser?.token;
-        if (!token) {
-            const ls = localStorage.getItem('user');
-            try {
-                token = ls ? JSON.parse(ls)?.token : null;
-            } catch (e) {
-                token = null;
-            }
-        }
-
         if (token) {
             config.headers = config.headers || {};
             config.headers.Authorization = `Bearer ${token}`;

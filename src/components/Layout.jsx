@@ -206,7 +206,7 @@ export const Layout = ({ children, user, onLogout }) => {
               <input
                 type="text"
                 placeholder="Search..."
-                className="form-control form-control-sm rounded-pill bg-slate-100 border-0"
+                className="form-control form-control-sm rounded-pill bg-slate-100s border"
                 style={{ paddingLeft: '2.25rem', paddingRight: '1rem', width: '12rem' }}
               />
             </div>
