@@ -123,14 +123,11 @@ var app = builder.Build();
 // Exception handling middleware (first in pipeline)
 app.UseExceptionHandling();
 
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Data Labeling API v1");
-    });
-}
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Data Labeling API v1");
+});
 
 // Serve static files from uploads folder
 var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");
@@ -145,9 +142,9 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads"
 });
 
-app.UseHttpsRedirection();
-
 app.UseCors("AllowAll");
+
+app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();

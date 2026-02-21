@@ -1,0 +1,15 @@
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=YOUR_SQL_SERVER_INSTANCE;Database=DataLabelingSupportSystem;User Id=sa;Password=YOUR_SA_PASSWORD;TrustServerCertificate=True"
+  },
+  "EmailSettings": {
+    "SmtpHost": "smtp.gmail.com",
+    "SmtpPort": 587,
+    "SenderEmail": "your-email@gmail.com",
+    "SenderName": "Data Labeling System",
+    "SmtpUsername": "your-email@gmail.com",
+    "SmtpPassword": "your-gmail-app-password",
+    "UseSsl": true,
+    "BaseUrl": "http://localhost:3000"
+  }
+}
