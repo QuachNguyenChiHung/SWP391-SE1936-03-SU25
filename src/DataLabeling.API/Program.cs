@@ -89,6 +89,9 @@ builder.Services.AddSwaggerGen(options =>
         Description = "API for Data Labeling Support System"
     });
 
+    // Use full type name as schemaId to avoid conflicts between same-named DTOs in different namespaces
+    options.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
+
     // Add JWT Authentication to Swagger
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
