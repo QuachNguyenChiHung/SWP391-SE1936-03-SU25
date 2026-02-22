@@ -6,6 +6,12 @@ import {
     Upload, X, Image as ImageIcon, Save, PieChart as PieChartIcon,
     LayoutDashboard, Database, Layers
 } from 'lucide-react'; // Đã thêm LayoutDashboard, Database, Layers
+import ProjectHeader from '../../components/manager/components/ProjectHeader.jsx';
+import TabsNav from '../../components/manager/components/TabsNav.jsx';
+import OverviewPanel from '../../components/manager/components/OverviewPanel.jsx';
+import DatasetPanel from '../../components/manager/components/DatasetPanel.jsx';
+import LabelsPanel from '../../components/manager/components/LabelsPanel.jsx';
+import TasksPanel from '../../components/manager/components/TasksPanel.jsx';
 import { MOCK_PROJECTS, MOCK_TASKS, MOCK_USERS } from '../../services/mockData.js';
 import { ProjectStatus, DataItemStatus } from '../../types.js';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
@@ -14,6 +20,7 @@ import Button from 'react-bootstrap/Button';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 import Form from 'react-bootstrap/Form';
 import api from '../../ultis/api.js';
+import DataItemsPanel from '../../components/manager/components/DatasetPanel.jsx';
 
 export const ManagerProjectDetails = ({ user }) => {
     const { pid } = useParams();
@@ -46,6 +53,8 @@ export const ManagerProjectDetails = ({ user }) => {
     const [guidelinesText, setGuidelinesText] = useState('');
     const [isEditingGuidelines, setIsEditingGuidelines] = useState(false);
     const [dataSet, setDataSet] = useState([]);
+    const [dataPage, setDataPage] = useState(1);
+    const [dataLoading, setDataLoading] = useState(true);
     // Delete Modal State
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -66,19 +75,54 @@ export const ManagerProjectDetails = ({ user }) => {
         (async () => {
             try {
                 const response = await api.get(`/Projects/${pid}`);
-                const dataResponse = await api.get(`/projects/${pid}/data-items`);
                 const listLabelsResponse = await api.get(`/projects/${pid}/labels`);
-                setProject(response.data);
-                //do it later
-                setDataSet(dataResponse.data);
-                setListLabels(listLabelsResponse.data.data);
+                const projectData = response.data?.data ?? response.data;
+                setProject(projectData);
+                setListLabels(listLabelsResponse.data?.data ?? listLabelsResponse.data);
             } catch (error) {
                 console.warn('Failed to fetch project details', error);
             }
         })();
-    }, []);
+    }, [pid]);
+
+    // Fetch data-items with paging
+    useEffect(() => {
+        setDataLoading(true);
+        (async () => {
+            try {
+                const res = await api.get(`/projects/${pid}/data-items?pageNumber=${dataPage}&pageSize=10`);
+                const payload = res.data?.data ?? res.data;
+                setDataSet(payload);
+            } catch (err) {
+                console.warn('Failed to fetch data items', err);
+                setDataSet({ items: [], totalCount: 0, pageNumber: dataPage, pageSize: 10, totalPages: 0 });
+            } finally {
+                setDataLoading(false);
+            }
+        })();
+    }, [pid, dataPage]);
     const handleBackToProjects = () => navigate('/manager/projects');
     const toggleGroup = (userId) => setExpandedTaskGroups(prev => ({ ...prev, [userId]: !prev[userId] }));
+
+    // --- LOGIC: Delete data-item ---
+    const handleDeleteDataItem = async (id) => {
+        if (!id) return;
+        const ok = window.confirm('Delete this data item? This cannot be undone.');
+        if (!ok) return;
+        try {
+            await api.delete(`/data-items/${id}`);
+            setDataSet(prev => {
+                if (!prev) return prev;
+                const items = (prev.items || []).filter(i => i.id !== id);
+                const total = Math.max(0, (prev.totalCount || 0) - 1);
+                return { ...prev, items, totalCount: total };
+            });
+            alert('Item deleted');
+        } catch (err) {
+            console.error('Delete data item failed', err);
+            alert('Failed to delete item');
+        }
+    };
 
     // --- LOGIC: Import File ---
     const handleFileSelect = (e) => {
@@ -98,32 +142,47 @@ export const ManagerProjectDetails = ({ user }) => {
         }
         setShowDeleteModal(false);
     };
-    const handleImport = () => {
+    const handleImport = async () => {
         if (!project || selectedFiles.length === 0) return;
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += 20;
-            setUploadProgress(progress);
-            if (progress >= 100) {
-                clearInterval(interval);
-                const newTasks = selectedFiles.map((file, idx) => ({
-                    id: `new-task-${Date.now()}-${idx}`,
-                    projectId: project.id,
-                    itemName: file.name,
-                    imageUrl: URL.createObjectURL(file),
-                    status: DataItemStatus.NOT_ASSIGNED,
-                    annotations: []
-                }));
-                MOCK_TASKS.push(...newTasks);
-                project.totalItems += newTasks.length;
-                setTimeout(() => {
-                    setUploadProgress(0);
-                    setSelectedFiles([]);
-                    setIsImportModalOpen(false);
-                    setActiveTab('Dataset');
-                }, 500);
+        try {
+            setUploadProgress(1);
+            const form = new FormData();
+            // append files - backend expects an array of images
+            selectedFiles.forEach((f) => form.append('files', f));
+
+            const res = await api.post(`/projects/${pid}/dataset/upload`, form, {
+                // Let axios set Content-Type with boundary
+                onUploadProgress: (e) => {
+                    try {
+                        if (e.lengthComputable || e.total) {
+                            const percent = Math.round((e.loaded * 100) / (e.total || e.lengthComputable));
+                            setUploadProgress(Math.min(100, percent));
+                        }
+                    } catch (err) {
+                        // ignore progress errors
+                    }
+                }
+            });
+
+            // refresh dataset list after upload
+            try {
+                const listRes = await api.get(`/projects/${pid}/data-items?pageNumber=${dataPage}&pageSize=10`);
+                const payload = listRes.data?.data ?? listRes.data;
+                setDataSet(payload);
+            } catch (err) {
+                console.warn('Failed to refresh data items', err);
             }
-        }, 300);
+
+            setUploadProgress(0);
+            setSelectedFiles([]);
+            setIsImportModalOpen(false);
+            setActiveTab('Data Items');
+            alert('Upload finished');
+        } catch (err) {
+            console.error('Upload failed', err);
+            setUploadProgress(0);
+            alert('Upload failed');
+        }
     };
 
     // --- LOGIC: Guidelines ---
@@ -147,9 +206,11 @@ export const ManagerProjectDetails = ({ user }) => {
         setEditName(project.name || '');
         setEditDescription(project.description || '');
         setEditStatus(project.status || ProjectStatus.NOT_STARTED);
-        try {
-            setEditDeadline(project.deadline ? new Date(project.deadline).toISOString().slice(0, 16) : '');
-        } catch (e) { setEditDeadline(''); }
+        // Normalize backend deadline which may be null, DateOnly (yyyy-MM-dd) or ISO datetime
+        if (project.deadline) {
+            const d = String(project.deadline).slice(0, 10); // yyyy-MM-dd
+            setEditDeadline(d);
+        } else setEditDeadline('');
         setIsEditProjectOpen(true);
     };
 
@@ -159,14 +220,20 @@ export const ManagerProjectDetails = ({ user }) => {
             return;
         }
         try {
-            // Mock update logic
-            const updated = { ...project, name: editName, description: editDescription, status: editStatus, deadline: editDeadline ? new Date(editDeadline).toISOString() : null };
-            const idx = MOCK_PROJECTS.findIndex(p => p.id === project.id);
-            if (idx !== -1) MOCK_PROJECTS[idx] = { ...MOCK_PROJECTS[idx], ...updated };
-            setProject(updated);
-            alert('Project updated locally (mock)');
+            const payload = {
+                name: editName,
+                description: editDescription,
+                status: editStatus,
+                // send DateOnly yyyy-MM-dd or null
+                deadline: editDeadline ? String(editDeadline).slice(0, 10) : null
+            };
+            const res = await api.put(`/Projects/${pid}`, payload, { headers: { 'Content-Type': 'application/json' } });
+            const updatedProject = res.data?.data ?? res.data ?? { ...project, ...payload };
+            setProject(updatedProject);
+            alert('Project updated');
         } catch (error) {
             console.warn('Update failed', error);
+            alert('Failed to update project');
         }
         setIsEditProjectOpen(false);
     };
@@ -259,7 +326,7 @@ export const ManagerProjectDetails = ({ user }) => {
 
     const tabs = [
         { id: 'Overview', icon: LayoutDashboard },
-        { id: 'Dataset', icon: Database },
+        { id: 'Data Items', icon: Database },
         { id: 'Labels', icon: Tag },
         { id: 'Tasks', icon: Layers }
     ];
@@ -283,304 +350,30 @@ export const ManagerProjectDetails = ({ user }) => {
                     <h2 className="h4 fw-bold text-dark mb-1">{project.name}</h2>
                     <div className="d-flex align-items-center gap-2">
                         <span className="text-muted small border-end pe-2 me-1">{project.type}</span>
+                        {project.deadline && (
+                            <span className="text-muted small ms-2">Deadline: {`${project.deadline.slice(8, 2 + 8)}/${project.deadline.slice(5, 7)}/${project.deadline.slice(0, 4)}`}</span>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* --- NEW MODERN TABS UI --- */}
-            <div className="border-bottom">
-                <div className="d-flex gap-4">
-                    {tabs.map(tab => {
-                        const Icon = tab.icon;
-                        const isActive = activeTab === tab.id;
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`d-flex align-items-center gap-2 px-1 py-3 bg-transparent border-0 position-relative transition-all`}
-                                style={{
-                                    cursor: 'pointer',
-                                    color: isActive ? '#0d6efd' : '#6c757d',
-                                    fontWeight: isActive ? '600' : '500',
-                                    marginBottom: '-1px' // Để border active đè lên border bottom của container
-                                }}
-                            >
-                                <Icon size={18} />
-                                <span>{tab.id}</span>
-                                {isActive && (
-                                    <div
-                                        className="position-absolute bottom-0 start-0 w-100 bg-primary"
-                                        style={{ height: '3px', borderTopLeftRadius: '3px', borderTopRightRadius: '3px' }}
-                                    />
-                                )}
-                            </button>
-                        )
-                    })}
-                </div>
-            </div>
+            {/* Tabs navigation */}
+            <TabsNav tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
 
-            {/* Content Area */}
             <div className="bg-transparent animate-in fade-in" style={{ minHeight: '400px' }}>
                 {activeTab === 'Overview' && (
-                    <div className="row g-4">
-                        <div className="col-12 col-lg-8">
-                            <div className="card border-0 shadow-sm h-100">
-                                <div className="card-body">
-                                    <h5 className="fw-bold mb-4 d-flex align-items-center gap-2">
-                                        <PieChartIcon size={20} className="text-primary" /> Project Progress
-                                    </h5>
-                                    <div style={{ height: '280px' }}>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart>
-                                                <Pie
-                                                    data={[
-                                                        { name: 'Completed', value: project.completedItems },
-                                                        { name: 'Remaining', value: project.totalItems - project.completedItems }
-                                                    ]}
-                                                    innerRadius={80}
-                                                    outerRadius={100}
-                                                    paddingAngle={5}
-                                                    dataKey="value"
-                                                >
-                                                    <Cell fill="#4f46e5" />
-                                                    <Cell fill="#e2e8f0" />
-                                                </Pie>
-                                                <Tooltip />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                    <div className="d-flex justify-content-center gap-5 mt-3">
-                                        <div className="text-center">
-                                            <h3 className="fw-bold mb-0 text-primary">{project.completedItems}</h3>
-                                            <small className="text-muted text-uppercase fw-bold">Done</small>
-                                        </div>
-                                        <div className="text-center">
-                                            <h3 className="fw-bold mb-0 text-secondary">{project.totalItems}</h3>
-                                            <small className="text-muted text-uppercase fw-bold">Total</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="col-12 col-lg-4">
-                            <div className="card border-0 shadow-sm">
-                                <div className="card-body">
-                                    <h5 className="fw-bold mb-3">Quick Actions</h5>
-                                    <div className="d-grid gap-2">
-                                        <Button variant="light" className="text-start d-flex justify-content-between align-items-center p-3 border bg-white" onClick={() => setIsImportModalOpen(true)}>
-                                            <span className="d-flex align-items-center gap-2"><Upload size={18} className="text-primary" /> Import Dataset</span>
-                                            <ChevronRight size={16} className="text-muted" />
-                                        </Button>
-                                        <Button variant="light" className="text-start d-flex justify-content-between align-items-center p-3 border bg-white" onClick={openGuidelines}>
-                                            <span className="d-flex align-items-center gap-2"><FileText size={18} className="text-info" /> Guidelines</span>
-                                            <ChevronRight size={16} className="text-muted" />
-                                        </Button>
-                                        <Button variant="light" className="text-start d-flex justify-content-between align-items-center p-3 border bg-white" onClick={openEditProject}>
-                                            <span className="d-flex align-items-center gap-2"><Pencil size={18} className="text-warning" /> Edit Project</span>
-                                            <ChevronRight size={16} className="text-muted" />
-                                        </Button>
-                                        <hr className="my-2" />
-                                        <Button variant="outline-danger" onClick={() => setShowDeleteModal(true)}>
-                                            <Trash2 size={18} className="me-2" /> Delete Project
-                                        </Button>
-                                        <p>In case of unable to delete an item:</p>
-                                        <p>1. Item has associated tasks and dataset that must be deleted first.</p>
-                                        <div>2. There is a server issue. Please contact support.</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <OverviewPanel project={project} openImportModal={() => setIsImportModalOpen(true)} openGuidelines={openGuidelines} openEditProject={openEditProject} />
                 )}
-
-                {activeTab === 'Dataset' && (
-                    <div className="card border-0 shadow-sm">
-                        <div className="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
-                            <div className="d-flex gap-2">
-                                <Button variant="outline-secondary" size="sm" className="d-flex align-items-center gap-2"><Filter size={14} /> Filter</Button>
-                            </div>
-                            <small className="text-muted">Showing {projectTasks.length} items</small>
-                        </div>
-                        <div className="table-responsive">
-                            <table className="table table-hover align-middle mb-0">
-                                <thead className="bg-light">
-                                    <tr>
-                                        <th className="ps-4 border-bottom-0 text-muted small text-uppercase">Item</th>
-                                        <th className="border-bottom-0 text-muted small text-uppercase">Annotator</th>
-                                        <th className="border-bottom-0 text-muted small text-uppercase">Status</th>
-                                        <th className="text-end pe-4 border-bottom-0 text-muted small text-uppercase">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {projectTasks.length > 0 ? projectTasks.map(task => {
-                                        const assignee = MOCK_USERS.find(u => u.id === task.assignedTo);
-                                        return (
-                                            <tr key={task.id}>
-                                                <td className="ps-4">
-                                                    <div className="d-flex align-items-center gap-3">
-                                                        <img src={task.imageUrl} alt="" className="rounded border" style={{ width: '60px', height: '40px', objectFit: 'cover' }} />
-                                                        <div>
-                                                            <div className="fw-medium text-dark">{task.itemName}</div>
-                                                            <small className="text-muted">ID: {task.id}</small>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    {assignee ? (
-                                                        <div className="d-flex align-items-center gap-2">
-                                                            <img src={assignee.avatarUrl} alt="" className="rounded-circle" width="24" height="24" />
-                                                            <span className="small fw-medium">{assignee.name}</span>
-                                                        </div>
-                                                    ) : <span className="badge bg-light text-muted border fw-normal">Unassigned</span>}
-                                                </td>
-                                                <td><StatusBadge status={task.status} /></td>
-                                                <td className="text-end pe-4">
-                                                    <Button variant="link" size="sm" className="text-decoration-none">Manage</Button>
-                                                </td>
-                                            </tr>
-                                        )
-                                    }) : <tr><td colSpan={4} className="text-center py-5 text-muted">No tasks found</td></tr>}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                {activeTab === 'Data Items' && (
+                    <DataItemsPanel dataSet={dataSet} dataLoading={dataLoading} dataPage={dataPage} setDataPage={setDataPage} onDeleteItem={handleDeleteDataItem} />
                 )}
-
                 {activeTab === 'Labels' && (
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-4">
-                            <div><h5 className="fw-bold mb-0">Labels</h5><small className="text-muted">Manage object classes</small></div>
-                            <Button variant="primary" size="sm" onClick={openAddLabel} className="d-flex align-items-center gap-2"><Plus size={16} /> Add Label</Button>
-                        </div>
-                        <div className="row g-3">
-                            {listLabels && listLabels.length > 0 ? (
-                                listLabels.map(cls => (
-                                    <div key={cls.id} className="col-12 col-md-6 col-lg-3">
-                                        <div className="card h-100 border-0 shadow-sm">
-                                            <div className="card-body d-flex align-items-center justify-content-between">
-                                                <div className="d-flex align-items-center gap-3">
-                                                    <div className="rounded shadow-sm" style={{ width: 36, height: 36, backgroundColor: cls.color }}></div>
-                                                    <div>
-                                                        <div className="fw-bold text-dark">{cls.name}</div>
-                                                        {cls.hotkey && <small className="text-muted border px-1 rounded bg-light">Key: {cls.hotkey}</small>}
-                                                    </div>
-                                                </div>
-                                                <div className="d-flex gap-1">
-                                                    <Button variant="link" className="text-muted p-1" onClick={(e) => openEditLabelModal(cls, e)}><Pencil size={16} /></Button>
-                                                    <Button variant="link" className="text-danger p-1" onClick={(e) => openDeleteLabelModal(cls, e)}><Trash2 size={16} /></Button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="col-12">
-                                    <div className="card border-0 shadow-sm">
-                                        <div className="card-body text-center py-5 text-muted">No labels found</div>
-                                    </div>
-                                </div>
-                            )}
-                            {/* Nút thêm mới dạng card */}
-                            <div className="col-12 col-md-6 col-lg-3">
-                                <button onClick={openAddLabel} className="card border border-2 border-dashed bg-light h-100 w-100 p-0 text-muted hover-bg-light" style={{ minHeight: '80px' }}>
-                                    <div className="card-body d-flex flex-column align-items-center justify-content-center">
-                                        <Plus size={24} className="mb-1" />
-                                        <span className="small fw-medium">Create New Label</span>
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    <LabelsPanel listLabels={listLabels} openAddLabel={openAddLabel} openEditLabelModal={openEditLabelModal} openDeleteLabelModal={openDeleteLabelModal} />
                 )}
-
                 {activeTab === 'Tasks' && (
-                    <div className="d-flex flex-column gap-3">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <div>
-                                <h5 className="fw-bold mb-0">Task Assignments</h5>
-                                <small className="text-muted">Track assignments</small>
-                            </div>
-                            <div className="d-flex gap-2">
-                                <Button variant="outline-secondary" size="sm">Auto-Assign</Button>
-                                <Button variant="primary" size="sm" className="d-flex align-items-center gap-2"><Plus size={16} /> Assign</Button>
-                            </div>
-                        </div>
-                        {Object.entries(tasksByAssignee).map(([assigneeId, tasks]) => {
-                            const assignee = MOCK_USERS.find(u => u.id === assigneeId);
-                            const isExpanded = expandedTaskGroups[assigneeId] ?? true;
-                            const completedCount = tasks.filter(t => t.status === DataItemStatus.COMPLETED || t.status === DataItemStatus.ACCEPTED).length;
-                            const progress = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
-
-                            return (
-                                <div key={assigneeId} className="card border-0 shadow-sm overflow-hidden">
-                                    <div className="card-header bg-white py-3 d-flex align-items-center justify-content-between cursor-pointer border-bottom-0" onClick={() => toggleGroup(assigneeId)}>
-                                        <div className="d-flex align-items-center gap-3">
-                                            <Button variant="link" className="p-0 text-muted text-decoration-none" onClick={(e) => { e.stopPropagation(); toggleGroup(assigneeId); }}>
-                                                {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                                            </Button>
-                                            <div className="d-flex align-items-center gap-3">
-                                                {assignee ? (
-                                                    <img src={assignee.avatarUrl} alt="" className="rounded-circle border" width="36" height="36" />
-                                                ) : <div className="rounded-circle bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center text-secondary small fw-bold" style={{ width: 36, height: 36 }}>?</div>}
-                                                <div>
-                                                    <div className="fw-bold mb-0 lh-1 text-dark">{assignee ? assignee.name : "Unassigned"}</div>
-                                                    <small className="text-muted">{tasks.length} items</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="d-flex align-items-center gap-4">
-                                            <div className="d-none d-md-block" style={{ width: '180px' }}>
-                                                <div className="d-flex justify-content-between small text-muted mb-1">
-                                                    <span>Progress</span>
-                                                    <span className="fw-bold">{progress}%</span>
-                                                </div>
-                                                <ProgressBar now={progress} style={{ height: '6px' }} variant={progress === 100 ? 'success' : 'primary'} />
-                                            </div>
-                                            <span className="badge bg-light text-dark border px-3 py-2">{completedCount} / {tasks.length} Done</span>
-                                        </div>
-                                    </div>
-                                    {isExpanded && <div className="card-body bg-light bg-opacity-50 p-3 border-top">
-                                        <div className="d-flex flex-column gap-2">
-                                            {tasks.map(t => (
-                                                <div key={t.id} className="bg-white p-2 rounded shadow-sm d-flex justify-content-between align-items-center border-0">
-                                                    <div className="d-flex gap-3 align-items-center">
-                                                        <img src={t.imageUrl} width="48" height="36" className="rounded object-fit-cover border" />
-                                                        <div>
-                                                            <div className="small fw-bold text-dark">{t.itemName}</div>
-                                                            <div className="d-flex gap-2 align-items-center text-muted" style={{ fontSize: '11px' }}>
-                                                                <span>ID: {t.id}</span>
-                                                                <span>•</span>
-                                                                <span><Tag size={10} /> {t.annotations.length} Objects</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="d-flex align-items-center gap-3">
-                                                        <StatusBadge status={t.status} />
-                                                        <Button variant="link" className="text-muted p-0"><MoreHorizontal size={16} /></Button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>}
-                                </div>
-                            )
-                        })}
-                    </div>
+                    <TasksPanel tasksByAssignee={tasksByAssignee} expandedTaskGroups={expandedTaskGroups} toggleGroup={toggleGroup} MOCK_USERS={MOCK_USERS} StatusBadge={StatusBadge} />
                 )}
             </div>
-
-            {/* ================= MODALS SECTION (Giữ nguyên logic cũ) ================= */}
-
-            {/* 1. Delete Modal */}
-            <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
-                <Modal.Header closeButton><Modal.Title>Delete Project</Modal.Title></Modal.Header>
-                <Modal.Body>Are you sure you want to delete this project? This action cannot be undone.</Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>Close</Button>
-                    <Button variant="danger" onClick={handleDelete}>Delete</Button>
-                </Modal.Footer>
-            </Modal>
 
             {/* 2. Import Modal */}
             <Modal show={isImportModalOpen} onHide={() => !uploadProgress && setIsImportModalOpen(false)} centered size="lg">
@@ -696,7 +489,7 @@ export const ManagerProjectDetails = ({ user }) => {
                     </Form.Group>
                     <Form.Group>
                         <Form.Label className="fw-semibold">Deadline</Form.Label>
-                        <Form.Control type="datetime-local" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)} />
+                        <Form.Control type="date" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)} />
                     </Form.Group>
                 </Modal.Body>
                 <Modal.Footer>
@@ -772,5 +565,6 @@ export const ManagerProjectDetails = ({ user }) => {
                 </Modal.Footer>
             </Modal>
         </div>
+
     );
 };

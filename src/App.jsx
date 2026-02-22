@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout.jsx';
 import { Login } from './components/Login.jsx';
 import ForgotPassword from './pages/auth/ForgotPassword.jsx';
@@ -187,6 +187,24 @@ function App() {
     document.cookie = "user=; path=/; max-age=0";
   };
 
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const cookieUser = getInforFromCookie();
+
+      if (!cookieUser) {
+        if (currentUser) setCurrentUser(null);
+        if (location.pathname !== '/') navigate('/login');
+      } else {
+        if (!currentUser) setCurrentUser(cookieUser);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [currentUser, navigate, location]);
+
   if (isLoading) {
     return (
       <div className="d-flex align-items-center justify-content-center vh-100">
@@ -198,7 +216,7 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
+    <>
       {!currentUser ? (
         <Routes>
           <Route path="/" element={<HomePageWrapper />} />
@@ -210,7 +228,7 @@ function App() {
       ) : (
         <AppRoutes user={currentUser} onLogout={handleLogout} />
       )}
-    </BrowserRouter>
+    </>
   );
 }
 
