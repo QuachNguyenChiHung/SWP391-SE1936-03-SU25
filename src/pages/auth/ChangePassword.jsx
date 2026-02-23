@@ -38,7 +38,7 @@ export const ChangePassword = () => {
       
       setStatus({ type: 'success', message: 'Password changed successfully! Redirecting...' });
       sessionStorage.removeItem('reset_otp');
-      
+      alert('Your password has been changed successfully. Please log in with your new password.');
       setTimeout(() => navigate('/login'), 1500);
     } catch (err) {
       console.error(err);

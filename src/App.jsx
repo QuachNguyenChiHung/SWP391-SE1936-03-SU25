@@ -196,7 +196,7 @@ function App() {
 
       if (!cookieUser) {
         if (currentUser) setCurrentUser(null);
-        if (location.pathname !== '/') navigate('/login');
+        if (location.pathname !== '/' && location.pathname !== '/forgot-password' && location.pathname !== '/change-password') navigate('/login');
       } else {
         if (!currentUser) setCurrentUser(cookieUser);
       }
