@@ -206,7 +206,7 @@ export const ManagerDashboard = ({ user }) => {
                         <p className="mb-0 small text-white-50">Manage your projects or invite new labelers to the workspace.</p>
                     </div>
                     <div className="d-flex gap-2">
-                        <button onClick={() => navigate('/projects')} className="btn btn-outline-light btn-sm px-3 fw-bold" style={{ borderRadius: '8px' }}>
+                        <button onClick={() => navigate('/projects')} className="btn btn-light btn-sm px-3 fw-bold" style={{ borderRadius: '8px' }}>
                             View Projects
                         </button>
                         <button className="btn btn-light btn-sm px-3 fw-bold text-dark" style={{ borderRadius: '8px' }}>
