@@ -6,7 +6,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
         <div className="card border-0 shadow-sm">
             <div className="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
                 <div className="d-flex gap-2">
-                    <Button variant="outline-secondary" size="sm" className="d-flex align-items-center gap-2">Filter</Button>
+                    <Button variant="secondary" size="sm" className="d-flex align-items-center gap-2">Filter</Button>
                 </div>
                 <small className="text-muted">Showing {dataSet?.totalCount ?? 0} items</small>
             </div>
@@ -57,9 +57,9 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
             <div className="d-flex justify-content-between align-items-center p-3 border-top">
                 <div className="small text-muted">Total: {dataSet?.totalCount ?? 0}</div>
                 <div>
-                    <button className="btn btn-sm btn-outline-secondary me-2" disabled={!dataSet?.hasPreviousPage} onClick={() => setDataPage(prev => Math.max(1, prev - 1))}>Prev</button>
+                    <button className="btn btn-sm btn-secondary me-2" disabled={!dataSet?.hasPreviousPage} onClick={() => setDataPage(prev => Math.max(1, prev - 1))}>Prev</button>
                     <span className="small text-muted">Page {dataSet?.pageNumber ?? dataPage} / {dataSet?.totalPages ?? 1}</span>
-                    <button className="btn btn-sm btn-outline-secondary ms-2" disabled={!dataSet?.hasNextPage} onClick={() => setDataPage(prev => prev + 1)}>Next</button>
+                    <button className="btn btn-sm btn-secondary ms-2" disabled={!dataSet?.hasNextPage} onClick={() => setDataPage(prev => prev + 1)}>Next</button>
                 </div>
             </div>
         </div>

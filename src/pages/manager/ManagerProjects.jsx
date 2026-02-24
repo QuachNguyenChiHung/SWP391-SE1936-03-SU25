@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Plus, Calendar, Tag, Layers, Clock, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
+import { Plus, Calendar, Tag, Layers, Clock, CheckCircle2, AlertCircle, XCircle, Trash2 } from 'lucide-react';
 import { MOCK_PROJECTS } from '../../services/mockData.js';
 import { ProjectStatus } from '../../types.js';
 import axios from 'axios';
 import api from '../../ultis/api.js';
 import getInforFromCookie from '../../ultis/getInfoFromCookie.js';
+import StatusBadge from '../../components/StatusBadge.jsx';
 
 export const ManagerProjects = ({ user }) => {
     const navigate = useNavigate();
@@ -78,32 +79,22 @@ export const ManagerProjects = ({ user }) => {
         setIsCreateProjectModalOpen(false);
     };
 
-    // Component Badge hiển thị trạng thái đẹp hơn với icon
-    const StatusBadge = ({ status }) => {
-        const config = {
-            [ProjectStatus.PENDING]: { bg: '#fff7ed', text: '#c2410c', icon: Clock, label: 'Pending' },
-            [ProjectStatus.FINISHED]: { bg: '#ecfdf5', text: '#047857', icon: CheckCircle2, label: 'Finished' },
-            [ProjectStatus.NOT_STARTED]: { bg: '#f1f5f9', text: '#475569', icon: AlertCircle, label: 'Not Started' },
-            [ProjectStatus.CANCELLED]: { bg: '#fef2f2', text: '#b91c1c', icon: XCircle, label: 'Cancelled' },
-        };
-
-        const style = config[status] || config[ProjectStatus.NOT_STARTED];
-        const Icon = style.icon;
-
-        return (
-            <span className="d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill border"
-                style={{
-                    backgroundColor: style.bg,
-                    color: style.text,
-                    borderColor: 'transparent',
-                    fontSize: '0.75rem',
-                    fontWeight: 600
-                }}>
-                <Icon size={12} />
-                {status ? status : style.label}
-            </span>
-        );
+    const handleDeleteProject = async (projectId, e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        const ok = window.confirm('Delete this project? This cannot be undone.');
+        if (!ok) return;
+        try {
+            await api.delete(`/Projects/${projectId}`);
+            setProjects(prev => prev.filter(p => p.id !== projectId));
+            alert('Project deleted');
+        } catch (err) {
+            console.error('Delete project failed', err.response || err.message);
+            alert('Failed to delete project');
+        }
     };
+
+    // Component Badge hiển thị trạng thái đẹp hơn với icon
+
 
     const validateDeadline = (value) => {
         if (!value) return 'Deadline is required';
@@ -227,6 +218,12 @@ export const ManagerProjects = ({ user }) => {
                                             </div>
                                         </div>
 
+                                    </div>
+                                    <div className="d-flex justify-content-end mt-2">
+                                        <button onClick={(e) => handleDeleteProject(project.id, e)} className="btn btn-sm btn-danger d-flex align-items-center gap-2">
+                                            <Trash2 size={14} />
+                                            <span className="d-none d-sm-inline">Delete</span>
+                                        </button>
                                     </div>
                                 </div>
                             </div>

@@ -4,9 +4,8 @@ import {
     Plus, MoreHorizontal, Tag, FileText,
     ChevronRight, Filter, ArrowLeft, Pencil, Trash2, ChevronDown, ChevronUp,
     Upload, X, Image as ImageIcon, Save, PieChart as PieChartIcon,
-    LayoutDashboard, Database, Layers
+    LayoutDashboard, Database, Layers, Users
 } from 'lucide-react'; // Đã thêm LayoutDashboard, Database, Layers
-import ProjectHeader from '../../components/manager/components/ProjectHeader.jsx';
 import TabsNav from '../../components/manager/components/TabsNav.jsx';
 import OverviewPanel from '../../components/manager/components/OverviewPanel.jsx';
 import DatasetPanel from '../../components/manager/components/DatasetPanel.jsx';
@@ -55,6 +54,9 @@ export const ManagerProjectDetails = ({ user }) => {
     const [dataSet, setDataSet] = useState([]);
     const [dataPage, setDataPage] = useState(1);
     const [dataLoading, setDataLoading] = useState(true);
+    // Annotators
+    const [annotators, setAnnotators] = useState([]);
+    const [annotatorsLoading, setAnnotatorsLoading] = useState(false);
     // Delete Modal State
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -101,6 +103,23 @@ export const ManagerProjectDetails = ({ user }) => {
             }
         })();
     }, [pid, dataPage]);
+    // --- LOGIC: Load Annotators when user opens Annotators tab ---
+    useEffect(() => {
+        if (activeTab !== 'Annotators') return;
+        setAnnotatorsLoading(true);
+        (async () => {
+            try {
+                const res = await api.get(`/Tasks/annotators`);
+                const payload = res.data?.data ?? res.data;
+                setAnnotators(payload);
+            } catch (err) {
+                console.warn('Failed to fetch annotators', err);
+                setAnnotators([]);
+            } finally {
+                setAnnotatorsLoading(false);
+            }
+        })();
+    }, [activeTab]);
     const handleBackToProjects = () => navigate('/manager/projects');
     const toggleGroup = (userId) => setExpandedTaskGroups(prev => ({ ...prev, [userId]: !prev[userId] }));
 
@@ -207,6 +226,7 @@ export const ManagerProjectDetails = ({ user }) => {
         setEditDescription(project.description || '');
         setEditStatus(project.status || ProjectStatus.NOT_STARTED);
         // Normalize backend deadline which may be null, DateOnly (yyyy-MM-dd) or ISO datetime
+        console.log(project);
         if (project.deadline) {
             const d = String(project.deadline).slice(0, 10); // yyyy-MM-dd
             setEditDeadline(d);
@@ -223,13 +243,28 @@ export const ManagerProjectDetails = ({ user }) => {
             const payload = {
                 name: editName,
                 description: editDescription,
-                status: editStatus,
+
                 // send DateOnly yyyy-MM-dd or null
                 deadline: editDeadline ? String(editDeadline).slice(0, 10) : null
             };
             const res = await api.put(`/Projects/${pid}`, payload, { headers: { 'Content-Type': 'application/json' } });
+            const statuspayload = {
+                status: editStatus
+            };
+            const statusRes = await api.patch(`/Projects/${pid}/status`, statuspayload, { headers: { 'Content-Type': 'application/json' } });
             const updatedProject = res.data?.data ?? res.data ?? { ...project, ...payload };
             setProject(updatedProject);
+            (async () => {
+                try {
+                    const response = await api.get(`/Projects/${pid}`);
+                    const listLabelsResponse = await api.get(`/projects/${pid}/labels`);
+                    const projectData = response.data?.data ?? response.data;
+                    setProject(projectData);
+                    setListLabels(listLabelsResponse.data?.data ?? listLabelsResponse.data);
+                } catch (error) {
+                    console.warn('Failed to fetch project details', error);
+                }
+            })();
             alert('Project updated');
         } catch (error) {
             console.warn('Update failed', error);
@@ -328,7 +363,8 @@ export const ManagerProjectDetails = ({ user }) => {
         { id: 'Overview', icon: LayoutDashboard },
         { id: 'Data Items', icon: Database },
         { id: 'Labels', icon: Tag },
-        { id: 'Tasks', icon: Layers }
+        { id: 'Tasks', icon: Layers },
+        { id: 'Annotators', icon: Users }
     ];
 
     const projectTasks = MOCK_TASKS.filter(t => t.projectId === project.id);
@@ -371,7 +407,36 @@ export const ManagerProjectDetails = ({ user }) => {
                     <LabelsPanel listLabels={listLabels} openAddLabel={openAddLabel} openEditLabelModal={openEditLabelModal} openDeleteLabelModal={openDeleteLabelModal} />
                 )}
                 {activeTab === 'Tasks' && (
-                    <TasksPanel tasksByAssignee={tasksByAssignee} expandedTaskGroups={expandedTaskGroups} toggleGroup={toggleGroup} MOCK_USERS={MOCK_USERS} StatusBadge={StatusBadge} />
+                    <TasksPanel tasksByAssignee={tasksByAssignee} expandedTaskGroups={expandedTaskGroups} toggleGroup={toggleGroup} StatusBadge={StatusBadge} />
+                )}
+                {activeTab === 'Annotators' && (
+                    <div className="p-3">
+                        <h5 className="mb-3">Annotators</h5>
+                        {annotatorsLoading ? (
+                            <div className="text-center py-4"><div className="spinner-border text-primary" /></div>
+                        ) : (
+                            (annotators && annotators.length > 0) ? (
+                                <div className="row g-3">
+                                    {annotators.map((a) => (
+                                        <div key={a.id} className="col-12 col-md-6 col-lg-4">
+                                            <div className="border rounded p-3 d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <div className="fw-bold">{a.name}</div>
+                                                    <div className="small text-muted">{a.email}</div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className="small text-muted">Active</div>
+                                                    <div className="h5 mb-0">{a.activeTaskCount ?? 0}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-muted">No annotators found.</div>
+                            )
+                        )}
+                    </div>
                 )}
             </div>
 
@@ -459,7 +524,7 @@ export const ManagerProjectDetails = ({ user }) => {
                             <Button variant="primary" onClick={handleSaveGuidelines} className="d-flex align-items-center gap-2"><Save size={16} /> Save Changes</Button>
                         </>
                     ) : (
-                        <Button variant="outline-primary" onClick={() => setIsEditingGuidelines(true)} className="w-100 d-flex align-items-center justify-content-center gap-2"><Pencil size={16} /> Edit Guidelines</Button>
+                        <Button variant="primary" onClick={() => setIsEditingGuidelines(true)} className="w-100 d-flex align-items-center justify-content-center gap-2"><Pencil size={16} /> Edit Guidelines</Button>
                     )}
                 </Modal.Footer>
             </Modal>

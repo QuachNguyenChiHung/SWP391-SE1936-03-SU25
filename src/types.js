@@ -8,10 +8,10 @@ export const UserRole = {
 
 // Project status enum as constants
 export const ProjectStatus = {
-    NOT_STARTED: 'NOT_STARTED',
-    PENDING: 'PENDING',
-    FINISHED: 'FINISHED',
-    CANCELLED: 'CANCELLED'
+    Draft: 'Draft',
+    Active: 'Active',
+    Completed: 'Completed',
+    Archived: 'Archived'
 };
 
 // Data item status enum as constants
