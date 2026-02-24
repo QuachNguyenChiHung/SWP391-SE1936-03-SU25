@@ -57,6 +57,7 @@ export const ManagerProjectDetails = ({ user }) => {
     // Annotators
     const [annotators, setAnnotators] = useState([]);
     const [annotatorsLoading, setAnnotatorsLoading] = useState(false);
+    const [externalAssignTarget, setExternalAssignTarget] = useState(null);
     // Delete Modal State
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -364,7 +365,6 @@ export const ManagerProjectDetails = ({ user }) => {
         { id: 'Data Items', icon: Database },
         { id: 'Labels', icon: Tag },
         { id: 'Tasks', icon: Layers },
-        { id: 'Annotators', icon: Users }
     ];
 
     const projectTasks = MOCK_TASKS.filter(t => t.projectId === project.id);
@@ -407,9 +407,9 @@ export const ManagerProjectDetails = ({ user }) => {
                     <LabelsPanel listLabels={listLabels} openAddLabel={openAddLabel} openEditLabelModal={openEditLabelModal} openDeleteLabelModal={openDeleteLabelModal} />
                 )}
                 {activeTab === 'Tasks' && (
-                    <TasksPanel tasksByAssignee={tasksByAssignee} expandedTaskGroups={expandedTaskGroups} toggleGroup={toggleGroup} StatusBadge={StatusBadge} />
+                    <TasksPanel tasksByAssignee={tasksByAssignee} expandedTaskGroups={expandedTaskGroups} toggleGroup={toggleGroup} StatusBadge={StatusBadge} externalAssignTarget={externalAssignTarget} />
                 )}
-                {activeTab === 'Annotators' && (
+                {/* {activeTab === 'Annotators' && (
                     <div className="p-3">
                         <h5 className="mb-3">Annotators</h5>
                         {annotatorsLoading ? (
@@ -424,9 +424,15 @@ export const ManagerProjectDetails = ({ user }) => {
                                                     <div className="fw-bold">{a.name}</div>
                                                     <div className="small text-muted">{a.email}</div>
                                                 </div>
-                                                <div className="text-center">
+                                                <div className="text-center d-flex flex-column align-items-end gap-2">
                                                     <div className="small text-muted">Active</div>
                                                     <div className="h5 mb-0">{a.activeTaskCount ?? 0}</div>
+                                                    <Button size="sm" className="mt-2" onClick={() => {
+                                                        // ensure group expanded in Tasks tab and instruct TasksPanel to open assign modal
+                                                        setExpandedTaskGroups(prev => ({ ...prev, [a.id]: true }));
+                                                        setExternalAssignTarget({ ...a, __ts: Date.now() });
+                                                        setActiveTab('Tasks');
+                                                    }}>Assign</Button>
                                                 </div>
                                             </div>
                                         </div>
@@ -437,7 +443,7 @@ export const ManagerProjectDetails = ({ user }) => {
                             )
                         )}
                     </div>
-                )}
+                )} */}
             </div>
 
             {/* 2. Import Modal */}
