@@ -88,11 +88,6 @@ export const HomePage = ({ onNavigateToLogin }) => {
         <div className="homepage">
             {/* Navigation */}
             <nav className={`navbar ${isScrolled ? 'scrolled' : ''}`}>
-                <button className="btn btn-primary login-btn-fixed" onClick={onNavigateToLogin}>
-                    Join Now
-                    <ArrowRight size={18} />
-                </button>
-
                 <div className="container">
                     <div className="navbar-content">
                         <div className="navbar-brand">
@@ -149,6 +144,15 @@ export const HomePage = ({ onNavigateToLogin }) => {
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                         >
                             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                        </button>
+
+                        {/* Join Now Button - Always at the end */}
+                        <button 
+                            className="btn btn-primary login-btn-fixed" 
+                            onClick={onNavigateToLogin}
+                        >
+                            Join Now
+                            <ArrowRight size={18} />
                         </button>
                     </div>
 
