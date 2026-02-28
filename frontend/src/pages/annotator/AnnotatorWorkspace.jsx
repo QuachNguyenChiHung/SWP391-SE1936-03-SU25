@@ -3,21 +3,20 @@ import {
     MousePointer2,
     Square,
     Hexagon,
-    Tag,
     ZoomIn,
     ZoomOut,
     Check,
-    Bot,
     ChevronLeft,
     ChevronRight,
-    AlertCircle,
-    Save,
     Layers,
     Calendar,
     Trash2,
     X
 } from 'lucide-react';
 import api from '../../ultis/api.js';
+import { ToastNotification } from '../../components/annotator/ToastNotification';
+import { ConfirmDeleteModal } from '../../components/annotator/ConfirmDeleteModal';
+import { AnnotationSidebar } from '../../components/annotator/AnnotationSidebar';
 import './AnnotatorWorkspace.css';
 
 export const AnnotatorWorkspace = ({ user }) => {
@@ -37,9 +36,15 @@ export const AnnotatorWorkspace = ({ user }) => {
     const [showGuidelines, setShowGuidelines] = useState(true);
     const [projectLabels, setProjectLabels] = useState([]);
     
+    // Zoom and Pan State
+    const [zoomLevel, setZoomLevel] = useState(1);
+    const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const panStartRef = useRef(null);
+
     // Toast notification state
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-    
+
     // Confirm dialog state
     const [confirmDialog, setConfirmDialog] = useState({ show: false, annotationId: null });
 
@@ -59,10 +64,11 @@ export const AnnotatorWorkspace = ({ user }) => {
     const [isDrawing, setIsDrawing] = useState(false);
     const drawingStartRef = useRef(null);
     const [currentDragInfo, setCurrentDragInfo] = useState(null);
-    
+
     // Polygon drawing state
     const [polygonPoints, setPolygonPoints] = useState([]);
     const [isDrawingPolygon, setIsDrawingPolygon] = useState(false);
+    const lastClickTimeRef = useRef(0);
 
     // Moving State
     const [isDraggingBox, setIsDraggingBox] = useState(false);
@@ -91,20 +97,17 @@ export const AnnotatorWorkspace = ({ user }) => {
     useEffect(() => {
         const fetchProjectLabels = async () => {
             if (!selectedBatch?.projectId) return;
-            
+
             try {
-                // TODO: Replace with actual API endpoint when available
-                // const res = await api.get(`/projects/${selectedBatch.projectId}/labels`);
-                // setProjectLabels(res?.data || []);
-                
-                // For now, use empty array - labels will come from annotations
-                setProjectLabels([]);
+                const res = await api.get(`/projects/${selectedBatch.projectId}/labels`);
+                setProjectLabels(res?.data || []);
             } catch (e) {
                 console.error('Failed to fetch project labels:', e);
+                showToast('Failed to load project labels', 'error');
                 setProjectLabels([]);
             }
         };
-        
+
         fetchProjectLabels();
     }, [selectedBatch?.projectId]);
 
@@ -116,10 +119,10 @@ export const AnnotatorWorkspace = ({ user }) => {
             // Fetch full task details including items
             const res = await api.get(`/Tasks/${batch.id}`);
             const taskData = res?.data;
-            
+
             // Update batch with full details
             setSelectedBatch(taskData);
-            
+
             // Extract items from response
             const items = taskData?.items || [];
             setBatchItems(items);
@@ -138,12 +141,29 @@ export const AnnotatorWorkspace = ({ user }) => {
         setIsDraggingBox(false);
         dragRef.current = null;
         
+        // Reset zoom and pan
+        setZoomLevel(1);
+        setPanOffset({ x: 0, y: 0 });
+
+        // Mark task item as started if not already
+        if (item.id && item.status === 'Assigned') {
+            try {
+                await api.post(`/task-items/${item.id}/start`);
+                // Update local state
+                setBatchItems(prev => prev.map(i =>
+                    i.id === item.id ? { ...i, status: 'InProgress' } : i
+                ));
+            } catch (e) {
+                console.error('Failed to start task item:', e);
+            }
+        }
+
         // Fetch annotations for this item
         if (item.dataItemId) {
             try {
                 const res = await api.get(`/data-items/${item.dataItemId}/annotations`);
                 const annotationsData = res?.data || [];
-                
+
                 // Transform API data to internal format
                 const transformedAnnotations = annotationsData.map(ann => {
                     // Parse coordinates JSON string
@@ -167,15 +187,18 @@ export const AnnotatorWorkspace = ({ user }) => {
                         createdAt: ann.createdAt
                     };
                 });
-                
+
                 setAnnotations(transformedAnnotations);
-                
+
                 // Set active label to first available if exists
                 if (transformedAnnotations.length > 0) {
                     setActiveLabelId(transformedAnnotations[0].labelId);
+                } else if (projectLabels.length > 0) {
+                    setActiveLabelId(projectLabels[0].id);
                 }
             } catch (e) {
                 console.error('Failed to fetch annotations:', e);
+                showToast('Failed to load annotations', 'error');
                 setAnnotations([]);
             }
         } else {
@@ -186,7 +209,7 @@ export const AnnotatorWorkspace = ({ user }) => {
     // Create new annotation via API
     const handleCreateAnnotation = async (coordinates, labelId) => {
         console.log('Creating annotation with coordinates:', coordinates, 'labelId:', labelId);
-        
+
         if (!selectedItem?.dataItemId || !labelId) {
             showToast('Please select a label class first', 'warning');
             return;
@@ -195,7 +218,7 @@ export const AnnotatorWorkspace = ({ user }) => {
         try {
             // Format coordinates as JSON string based on type
             const coordinatesJson = JSON.stringify(coordinates);
-            
+
             const payload = {
                 labelId: labelId,
                 coordinates: coordinatesJson,
@@ -205,7 +228,7 @@ export const AnnotatorWorkspace = ({ user }) => {
             console.log('Sending POST request with payload:', payload);
             const res = await api.post(`/data-items/${selectedItem.dataItemId}/annotations`, payload);
             const newAnnotation = res?.data;
-            
+
             console.log('API response - new annotation:', newAnnotation);
 
             if (newAnnotation) {
@@ -220,7 +243,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                     createdBy: newAnnotation.createdByName,
                     createdAt: newAnnotation.createdAt
                 };
-                
+
                 console.log('Transformed annotation to add to state:', transformedAnnotation);
                 setAnnotations(prev => [...prev, transformedAnnotation]);
                 showToast('Annotation created successfully', 'success');
@@ -235,7 +258,7 @@ export const AnnotatorWorkspace = ({ user }) => {
     // Delete annotation via API
     const handleDeleteAnnotation = async (annotationId) => {
         console.log('Attempting to delete annotation with ID:', annotationId);
-        
+
         if (!annotationId) {
             console.error('No annotation ID provided');
             return;
@@ -255,9 +278,9 @@ export const AnnotatorWorkspace = ({ user }) => {
         try {
             console.log('Calling DELETE /annotations/' + annotationId);
             await api.delete(`/annotations/${annotationId}`);
-            
+
             console.log('Successfully deleted annotation:', annotationId);
-            
+
             // Remove from local state
             setAnnotations(prev => prev.filter(ann => ann.id !== annotationId));
             showToast('Annotation deleted successfully', 'success');
@@ -271,7 +294,7 @@ export const AnnotatorWorkspace = ({ user }) => {
     // Update annotation via API
     const handleUpdateAnnotation = async (annotationId, updatedData) => {
         console.log('Updating annotation:', annotationId, updatedData);
-        
+
         if (!annotationId) {
             console.error('No annotation ID provided');
             return;
@@ -286,7 +309,7 @@ export const AnnotatorWorkspace = ({ user }) => {
 
             console.log('Calling PUT /annotations/' + annotationId, payload);
             await api.put(`/annotations/${annotationId}`, payload);
-            
+
             console.log('Successfully updated annotation:', annotationId);
             showToast('Annotation position updated', 'success');
         } catch (e) {
@@ -299,20 +322,20 @@ export const AnnotatorWorkspace = ({ user }) => {
     // Navigate to next item (circular)
     const handleNextItem = () => {
         if (batchItems.length === 0) return;
-        
+
         const currentIndex = batchItems.findIndex(item => item.id === selectedItem?.id);
         const nextIndex = (currentIndex + 1) % batchItems.length; // Circular: wrap to 0 if at end
-        
+
         handleSelectItem(batchItems[nextIndex]);
     };
 
     // Navigate to previous item (circular)
     const handlePreviousItem = () => {
         if (batchItems.length === 0) return;
-        
+
         const currentIndex = batchItems.findIndex(item => item.id === selectedItem?.id);
         const prevIndex = currentIndex === 0 ? batchItems.length - 1 : currentIndex - 1; // Circular
-        
+
         handleSelectItem(batchItems[prevIndex]);
     };
 
@@ -321,87 +344,77 @@ export const AnnotatorWorkspace = ({ user }) => {
         if (!selectedItem) return;
 
         try {
-            // TODO: Call API to mark item as accepted/completed
-            // await api.post(`/Tasks/${selectedBatch.id}/items/${selectedItem.id}/accept`);
-            
+            // Mark task item as completed
+            await api.post(`/task-items/${selectedItem.id}/complete`);
+
             // Update local state
-            const updatedItems = batchItems.map(item => 
-                item.id === selectedItem.id 
+            const updatedItems = batchItems.map(item =>
+                item.id === selectedItem.id
                     ? { ...item, status: 'Completed' }
                     : item
             );
             setBatchItems(updatedItems);
-            
+
+            // Update batch progress
+            const completedCount = updatedItems.filter(i => i.status === 'Completed').length;
+            setSelectedBatch(prev => ({
+                ...prev,
+                completedItems: completedCount,
+                progressPercent: (completedCount / prev.totalItems) * 100
+            }));
+
+            showToast('Item completed successfully', 'success');
+
             // Move to next item
             handleNextItem();
         } catch (e) {
-            console.error('Failed to accept item:', e);
-            alert('Failed to accept item: ' + (e?.response?.data?.message || e?.message));
+            console.error('Failed to complete item:', e);
+            showToast('Failed to complete item: ' + (e?.response?.data?.message || e?.message), 'error');
         }
     };
 
-    // Reject current item (delete it) and move to next
+    // Reject current item (mark for re-annotation) and move to next
     const handleRejectItem = async () => {
         if (!selectedItem) return;
-        
-        if (!window.confirm('Are you sure you want to reject and delete this item?')) {
+
+        if (!window.confirm('Are you sure you want to skip this item? It will remain in your task for later.')) {
             return;
         }
 
         try {
-            // Delete the item using existing API
-            await api.delete(`/Tasks/${selectedBatch.id}/items`, {
-                data: { itemIds: [selectedItem.id] }
-            });
-            
-            // Remove from local state
-            const updatedItems = batchItems.filter(item => item.id !== selectedItem.id);
-            setBatchItems(updatedItems);
-            
-            // Update batch counts
-            setSelectedBatch(prev => ({
-                ...prev,
-                totalItems: prev.totalItems - 1,
-                progressPercent: prev.totalItems > 1 
-                    ? (prev.completedItems / (prev.totalItems - 1)) * 100 
-                    : 0
-            }));
-
-            // Move to next item or go back if no items left
-            if (updatedItems.length > 0) {
-                const currentIndex = batchItems.findIndex(item => item.id === selectedItem.id);
-                const nextIndex = currentIndex >= updatedItems.length ? 0 : currentIndex;
-                handleSelectItem(updatedItems[nextIndex]);
-            } else {
-                setSelectedItem(null);
-            }
+            // Just move to next item without changing status
+            // The item remains in the task for later annotation
+            showToast('Item skipped', 'info');
+            handleNextItem();
         } catch (e) {
-            console.error('Failed to reject item:', e);
-            alert('Failed to reject item: ' + (e?.response?.data?.message || e?.message));
+            console.error('Failed to skip item:', e);
+            showToast('Failed to skip item: ' + (e?.response?.data?.message || e?.message), 'error');
         }
     };
 
     // Delete a single item
     const handleDeleteItem = async (itemId) => {
-        if (!window.confirm('Are you sure you want to delete this item?')) {
+        if (!window.confirm('Are you sure you want to remove this item from your task?')) {
             return;
         }
 
         try {
             await api.delete(`/Tasks/${selectedBatch.id}/items`, {
-                data: { itemIds: [itemId] }
+                data: [itemId]
             });
-            
+
             // Remove item from local state
             const updatedItems = batchItems.filter(item => item.id !== itemId);
             setBatchItems(updatedItems);
-            
+
             // Update batch counts
+            const completedCount = updatedItems.filter(i => i.status === 'Completed').length;
             setSelectedBatch(prev => ({
                 ...prev,
                 totalItems: prev.totalItems - 1,
-                progressPercent: prev.totalItems > 1 
-                    ? (prev.completedItems / (prev.totalItems - 1)) * 100 
+                completedItems: completedCount,
+                progressPercent: prev.totalItems > 1
+                    ? (completedCount / (prev.totalItems - 1)) * 100
                     : 0
             }));
 
@@ -410,50 +423,98 @@ export const AnnotatorWorkspace = ({ user }) => {
                 setSelectedItem(null);
             }
 
-            alert('Item deleted successfully');
+            showToast('Item removed from task', 'success');
         } catch (e) {
             console.error('Failed to delete item:', e);
-            alert('Failed to delete item: ' + (e?.response?.data?.message || e?.message));
+            showToast('Failed to delete item: ' + (e?.response?.data?.message || e?.message), 'error');
         }
     };
 
     // Delete multiple items
     const handleDeleteMultipleItems = async (itemIds) => {
-        if (!window.confirm(`Are you sure you want to delete ${itemIds.length} items?`)) {
+        if (!window.confirm(`Are you sure you want to remove ${itemIds.length} items from your task?`)) {
             return;
         }
 
         try {
             await api.delete(`/Tasks/${selectedBatch.id}/items`, {
-                data: { itemIds }
+                data: itemIds
             });
-            
+
             // Remove items from local state
             const updatedItems = batchItems.filter(item => !itemIds.includes(item.id));
             setBatchItems(updatedItems);
-            
+
             // Update batch counts
+            const completedCount = updatedItems.filter(i => i.status === 'Completed').length;
             setSelectedBatch(prev => ({
                 ...prev,
                 totalItems: prev.totalItems - itemIds.length,
+                completedItems: completedCount,
                 progressPercent: prev.totalItems > itemIds.length
-                    ? (prev.completedItems / (prev.totalItems - itemIds.length)) * 100
+                    ? (completedCount / (prev.totalItems - itemIds.length)) * 100
                     : 0
             }));
 
-            alert(`${itemIds.length} items deleted successfully`);
+            // Clear selection
+            setSelectedItemIds([]);
+
+            showToast(`${itemIds.length} items removed from task`, 'success');
         } catch (e) {
             console.error('Failed to delete items:', e);
-            alert('Failed to delete items: ' + (e?.response?.data?.message || e?.message));
+            showToast('Failed to delete items: ' + (e?.response?.data?.message || e?.message), 'error');
+        }
+    };
+
+    // Submit task for review
+    const handleSubmitTask = async (taskId) => {
+        const task = taskBatches.find(t => t.id === taskId);
+
+        if (!task) return;
+
+        // Check if all items are completed
+        const allCompleted = batchItems.every(item => item.status === 'Completed');
+        if (!allCompleted) {
+            showToast('Please complete all items before submitting', 'warning');
+            return;
+        }
+
+        if (!window.confirm('Are you sure you want to submit this task for review? You will not be able to edit it after submission.')) {
+            return;
+        }
+
+        try {
+            await api.post(`/tasks/${taskId}/submit`);
+
+            // Update task status in local state
+            setTaskBatches(prev => prev.map(t =>
+                t.id === taskId
+                    ? { ...t, status: 'Submitted', submittedAt: new Date().toISOString() }
+                    : t
+            ));
+
+            // If currently viewing this task, update it
+            if (selectedBatch?.id === taskId) {
+                setSelectedBatch(prev => ({
+                    ...prev,
+                    status: 'Submitted',
+                    submittedAt: new Date().toISOString()
+                }));
+            }
+
+            showToast('Task submitted for review successfully', 'success');
+        } catch (e) {
+            console.error('Failed to submit task:', e);
+            showToast('Failed to submit task: ' + (e?.response?.data?.message || e?.message), 'error');
         }
     };
 
     // Delete entire task (only if all items are deleted)
     const handleDeleteTask = async (taskId) => {
         const task = taskBatches.find(t => t.id === taskId);
-        
+
         if (task && task.totalItems > 0) {
-            alert('Cannot delete task. Please delete all items first.');
+            showToast('Cannot delete task. Please remove all items first.', 'warning');
             return;
         }
 
@@ -463,10 +524,10 @@ export const AnnotatorWorkspace = ({ user }) => {
 
         try {
             await api.delete(`/Tasks/${taskId}`);
-            
+
             // Remove task from local state
             setTaskBatches(prev => prev.filter(t => t.id !== taskId));
-            
+
             // If currently viewing this task, go back
             if (selectedBatch?.id === taskId) {
                 setSelectedBatch(null);
@@ -474,10 +535,10 @@ export const AnnotatorWorkspace = ({ user }) => {
                 setSelectedItem(null);
             }
 
-            alert('Task deleted successfully');
+            showToast('Task deleted successfully', 'success');
         } catch (e) {
             console.error('Failed to delete task:', e);
-            alert('Failed to delete task: ' + (e?.response?.data?.message || e?.message));
+            showToast('Failed to delete task: ' + (e?.response?.data?.message || e?.message), 'error');
         }
     };
 
@@ -490,6 +551,58 @@ export const AnnotatorWorkspace = ({ user }) => {
 
     const handleBackToItemList = () => {
         setSelectedItem(null);
+        // Reset zoom and pan
+        setZoomLevel(1);
+        setPanOffset({ x: 0, y: 0 });
+    };
+
+    // Zoom functions
+    const handleZoomIn = () => {
+        setZoomLevel(prev => Math.min(prev + 0.25, 3)); // Max 3x zoom
+    };
+
+    const handleZoomOut = () => {
+        setZoomLevel(prev => Math.max(prev - 0.25, 0.5)); // Min 0.5x zoom
+    };
+
+    const handleResetZoom = () => {
+        setZoomLevel(1);
+        setPanOffset({ x: 0, y: 0 });
+    };
+
+    // Pan functions
+    const handlePanStart = (e) => {
+        if (selectedTool === 'PAN' || e.button === 1 || (e.button === 0 && e.shiftKey)) {
+            e.preventDefault();
+            setIsPanning(true);
+            panStartRef.current = {
+                x: e.clientX - panOffset.x,
+                y: e.clientY - panOffset.y
+            };
+        }
+    };
+
+    const handlePanMove = (e) => {
+        if (isPanning && panStartRef.current) {
+            setPanOffset({
+                x: e.clientX - panStartRef.current.x,
+                y: e.clientY - panStartRef.current.y
+            });
+        }
+    };
+
+    const handlePanEnd = () => {
+        setIsPanning(false);
+        panStartRef.current = null;
+    };
+
+    // Mouse wheel zoom
+    const handleWheel = (e) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            setZoomLevel(prev => Math.max(0.5, Math.min(3, prev + delta)));
+        }
     };
 
     const handleAiAssist = () => {
@@ -586,13 +699,13 @@ export const AnnotatorWorkspace = ({ user }) => {
             // End Moving - Save updated position to API
             if (dragRef.current && isDraggingBox) {
                 const draggedAnnotationId = dragRef.current.id;
-                
+
                 // Find the annotation with updated coordinates
                 const updatedAnnotation = annotations.find(ann => ann.id === draggedAnnotationId);
-                
+
                 if (updatedAnnotation) {
                     console.log('Drag ended, updating annotation position:', updatedAnnotation);
-                    
+
                     // Call API to update coordinates
                     handleUpdateAnnotation(updatedAnnotation.id, {
                         labelId: updatedAnnotation.labelId,
@@ -600,7 +713,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                         attributes: {}
                     });
                 }
-                
+
                 dragRef.current = null;
                 setIsDraggingBox(false);
             }
@@ -619,7 +732,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                         width: Math.round(w),
                         height: Math.round(h)
                     };
-                    
+
                     // Save to API
                     handleCreateAnnotation(coordinates, activeLabelId);
                 }
@@ -653,7 +766,7 @@ export const AnnotatorWorkspace = ({ user }) => {
         if (e.target.classList.contains('annotation-delete-btn')) {
             return;
         }
-        
+
         // Smart Tool: Always allow moving an existing box, even if in BOX/DRAW mode.
         e.preventDefault();
         e.stopPropagation(); // Important: Stop event from bubbling to container (which would start drawing)
@@ -669,22 +782,36 @@ export const AnnotatorWorkspace = ({ user }) => {
     };
 
     const handleContainerMouseDown = (e) => {
+        // Handle Pan mode
+        if (selectedTool === 'PAN' || e.button === 1 || (e.button === 0 && e.shiftKey)) {
+            handlePanStart(e);
+            return;
+        }
+        
         // Handle Polygon mode
         if (selectedTool === 'POLYGON') {
             e.preventDefault();
+
+            // Prevent adding point if double-click just happened (within 300ms)
+            const now = Date.now();
+            if (now - lastClickTimeRef.current < 300) {
+                return;
+            }
+            lastClickTimeRef.current = now;
+
             const coords = getRelativeCoordinates(e.clientX, e.clientY);
             const bounds = getImageConstraints();
-            
+
             // Clamp to image bounds
             const constrainedX = Math.max(bounds.minX, Math.min(coords.x, bounds.maxX));
             const constrainedY = Math.max(bounds.minY, Math.min(coords.y, bounds.maxY));
-            
+
             // Add point to polygon
             setPolygonPoints(prev => [...prev, { x: constrainedX, y: constrainedY }]);
             setIsDrawingPolygon(true);
             return;
         }
-        
+
         // Handle Box mode
         if (selectedTool !== 'BOX') return;
 
@@ -705,16 +832,16 @@ export const AnnotatorWorkspace = ({ user }) => {
     const handleContainerDoubleClick = (e) => {
         if (selectedTool === 'POLYGON' && polygonPoints.length >= 3) {
             e.preventDefault();
-            
+
             // Create polygon coordinates
             const coordinates = {
                 type: 'polygon',
                 points: polygonPoints.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) }))
             };
-            
+
             // Save to API
             handleCreateAnnotation(coordinates, activeLabelId);
-            
+
             // Reset polygon state
             setPolygonPoints([]);
             setIsDrawingPolygon(false);
@@ -729,7 +856,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                 setIsDrawingPolygon(false);
             }
         };
-        
+
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isDrawingPolygon]);
@@ -756,18 +883,34 @@ export const AnnotatorWorkspace = ({ user }) => {
                             </p>
                         </div>
                     </div>
-                    
-                    {/* Delete selected items button */}
-                    {selectedItemIds.length > 0 && (
-                        <button
-                            onClick={() => handleDeleteMultipleItems(selectedItemIds)}
-                            className="btn btn-danger d-flex align-items-center gap-2"
-                            style={{ fontSize: '0.875rem' }}
-                        >
-                            <Trash2 size={16} />
-                            Delete {selectedItemIds.length} item{selectedItemIds.length > 1 ? 's' : ''}
-                        </button>
-                    )}
+
+                    <div className="d-flex align-items-center gap-2">
+                        {/* Submit task button */}
+                        {selectedBatch.status !== 'Submitted' && selectedBatch.status !== 'Completed' && (
+                            <button
+                                onClick={() => handleSubmitTask(selectedBatch.id)}
+                                className="btn btn-primary d-flex align-items-center gap-2"
+                                style={{ fontSize: '0.875rem' }}
+                                disabled={selectedBatch.completedItems !== selectedBatch.totalItems}
+                                title={selectedBatch.completedItems !== selectedBatch.totalItems ? 'Complete all items first' : 'Submit task for review'}
+                            >
+                                <Check size={16} />
+                                Submit for Review
+                            </button>
+                        )}
+
+                        {/* Delete selected items button */}
+                        {selectedItemIds.length > 0 && (
+                            <button
+                                onClick={() => handleDeleteMultipleItems(selectedItemIds)}
+                                className="btn btn-danger d-flex align-items-center gap-2"
+                                style={{ fontSize: '0.875rem' }}
+                            >
+                                <Trash2 size={16} />
+                                Delete {selectedItemIds.length} item{selectedItemIds.length > 1 ? 's' : ''}
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {isLoadingItems ? (
@@ -1051,11 +1194,11 @@ export const AnnotatorWorkspace = ({ user }) => {
                         <ChevronLeft size={14} />
                         Previous
                     </button>
-                    
+
                     <span className="text-muted" style={{ fontSize: '0.75rem' }}>
                         {batchItems.findIndex(item => item.id === selectedItem?.id) + 1} / {batchItems.length}
                     </span>
-                    
+
                     <button
                         onClick={handleNextItem}
                         className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
@@ -1099,11 +1242,30 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 </button>
                             ))}
                             <div className="toolbar-divider-vertical"></div>
-                            <button className="btn-tool">
+                            <button 
+                                className="btn-tool" 
+                                onClick={handleZoomIn}
+                                title="Zoom In (Ctrl + Scroll)"
+                            >
                                 <ZoomIn size={18} />
                             </button>
-                            <button className="btn-tool">
+                            <span className="text-muted" style={{ fontSize: '0.75rem', minWidth: '3rem', textAlign: 'center' }}>
+                                {Math.round(zoomLevel * 100)}%
+                            </span>
+                            <button 
+                                className="btn-tool" 
+                                onClick={handleZoomOut}
+                                title="Zoom Out (Ctrl + Scroll)"
+                            >
                                 <ZoomOut size={18} />
+                            </button>
+                            <button 
+                                className="btn-tool" 
+                                onClick={handleResetZoom}
+                                title="Reset Zoom (1:1)"
+                                style={{ fontSize: '0.75rem', padding: '0.375rem 0.5rem' }}
+                            >
+                                1:1
                             </button>
                         </div>
                     </div>
@@ -1112,23 +1274,43 @@ export const AnnotatorWorkspace = ({ user }) => {
                     <div
                         ref={containerRef}
                         className="canvas-area"
-                        style={{ 
-                            cursor: selectedTool === 'BOX' ? 'crosshair' : selectedTool === 'POLYGON' ? 'crosshair' : 'default', 
-                            flex: 1 
+                        style={{
+                            cursor: isPanning ? 'grabbing' : selectedTool === 'PAN' ? 'grab' : selectedTool === 'BOX' ? 'crosshair' : selectedTool === 'POLYGON' ? 'crosshair' : 'default',
+                            flex: 1,
+                            overflow: 'hidden'
                         }}
                         onMouseDown={handleContainerMouseDown}
+                        onMouseMove={handlePanMove}
+                        onMouseUp={handlePanEnd}
+                        onMouseLeave={handlePanEnd}
                         onDoubleClick={handleContainerDoubleClick}
+                        onWheel={handleWheel}
                     >
-                        <img
-                            ref={imageRef}
-                            src={selectedItem?.filePath || selectedItem?.thumbnailPath || 'https://via.placeholder.com/800x600?text=No+Image'}
-                            alt={selectedItem?.fileName || 'Work'}
-                            className="canvas-image pe-none"
-                            draggable={false}
-                        />
+                        <div
+                            style={{
+                                transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                                transformOrigin: 'center center',
+                                transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+                                position: 'relative',
+                                display: 'inline-block'
+                            }}
+                        >
+                            <div style={{ position: 'relative', display: 'inline-block' }}>
+                                <img
+                                    ref={imageRef}
+                                    src={selectedItem?.filePath || selectedItem?.thumbnailPath || 'https://via.placeholder.com/800x600?text=No+Image'}
+                                    alt={selectedItem?.fileName || 'Work'}
+                                    className="canvas-image pe-none"
+                                    draggable={false}
+                                    style={{
+                                        maxWidth: '90vw',
+                                        maxHeight: '70vh',
+                                        display: 'block'
+                                    }}
+                                />
 
-                        {/* Annotations Layer */}
-                        {annotations.map((ann) => {
+                                {/* Annotations Layer */}
+                                {annotations.map((ann) => {
                             console.log('Rendering annotation:', ann.id, ann);
                             const isBeingDragged = dragRef.current?.id === ann.id;
                             const boxColor = ann.labelColor || '#6366f1';
@@ -1166,7 +1348,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                             if (ann.coordinates.type === 'polygon' && ann.coordinates.points) {
                                 const points = ann.coordinates.points;
                                 const pointsString = points.map(p => `${p.x},${p.y}`).join(' ');
-                                
+
                                 // Use first point for label position
                                 const firstPoint = points[0];
 
@@ -1190,7 +1372,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                                             strokeWidth="2"
                                             className={isBeingDragged ? 'dragging' : ''}
                                         />
-                                        
+
                                         {/* Label background */}
                                         <rect
                                             x={firstPoint.x - 2}
@@ -1200,7 +1382,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                                             fill={boxColor}
                                             rx="3"
                                         />
-                                        
+
                                         {/* Label text */}
                                         <text
                                             x={firstPoint.x + 2}
@@ -1216,7 +1398,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                                                 </tspan>
                                             )}
                                         </text>
-                                        
+
                                         {/* Draw points */}
                                         {points.map((point, idx) => (
                                             <circle
@@ -1233,11 +1415,11 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 );
                             }
 
-                            return null;
-                        })}
+                                return null;
+                            })}
 
-                        {/* Drawing Layer (Temporary Box) */}
-                        {isDrawing && currentDragInfo && (
+                            {/* Drawing Layer (Temporary Box) */}
+                            {isDrawing && currentDragInfo && (
                             <div
                                 className="drawing-box"
                                 style={{
@@ -1249,12 +1431,12 @@ export const AnnotatorWorkspace = ({ user }) => {
                             >
                                 <div className="drawing-label">
                                     New Annotation
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        {/* Polygon Drawing Layer */}
-                        {isDrawingPolygon && polygonPoints.length > 0 && (
+                            {/* Polygon Drawing Layer */}
+                            {isDrawingPolygon && polygonPoints.length > 0 && (
                             <svg
                                 style={{
                                     position: 'absolute',
@@ -1295,13 +1477,15 @@ export const AnnotatorWorkspace = ({ user }) => {
                                         fontSize="12"
                                         fontWeight="bold"
                                     >
-                                        {polygonPoints.length < 3 
-                                            ? `Click to add points (${polygonPoints.length}/3 min)` 
+                                        {polygonPoints.length < 3
+                                            ? `Click to add points (${polygonPoints.length}/3 min)`
                                             : 'Double-click to finish or ESC to cancel'}
                                     </text>
                                 )}
                             </svg>
                         )}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Action Bar (Below Canvas) */}
@@ -1315,7 +1499,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 <X size={18} />
                                 Reject
                             </button>
-                            
+
                             <button
                                 onClick={handleAcceptAndNext}
                                 className="btn btn-success h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm"
@@ -1329,189 +1513,29 @@ export const AnnotatorWorkspace = ({ user }) => {
                 </div>
 
                 {/* Right Sidebar */}
-                <div className={`sidebar ${showGuidelines ? '' : 'hidden'}`} style={{ position: window.innerWidth < 768 ? 'absolute' : 'relative', right: 0, top: 0, bottom: 0 }}>
-                    {/* Mobile Toggle Handle */}
-                    <button
-                        onClick={() => setShowGuidelines(!showGuidelines)}
-                        className="sidebar-toggle d-md-none"
-                    >
-                        {showGuidelines ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-                    </button>
-
-                    <div className="flex-grow-1 overflow-auto custom-scrollbar p-3">
-                        {/* Class Selector */}
-                        <div className="mb-4">
-                            <h4 className="text-uppercase fw-bold text-muted mb-3" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Label Classes</h4>
-                            {projectClasses.length === 0 ? (
-                                <div>
-                                    <p className="text-muted fst-italic mb-2" style={{ fontSize: '0.75rem' }}>
-                                        {annotations.length > 0 
-                                            ? 'Available labels from annotations:' 
-                                            : 'No label classes available. Draw annotations to see labels.'}
-                                    </p>
-                                    {annotations.length > 0 && (
-                                        <div>
-                                            {/* Show unique labels from existing annotations */}
-                                            {Array.from(new Map(annotations.map(ann => [ann.labelId, ann])).values()).map((ann, idx) => (
-                                                <button
-                                                    key={ann.labelId}
-                                                    onClick={() => setActiveLabelId(ann.labelId)}
-                                                    className={`label-class-btn mb-1 ${activeLabelId === ann.labelId ? 'active' : ''}`}
-                                                    style={{ fontSize: '0.875rem' }}
-                                                >
-                                                    <div className="d-flex align-items-center gap-2">
-                                                        <span className="rounded-circle" style={{ backgroundColor: ann.labelColor, width: '0.625rem', height: '0.625rem' }}></span>
-                                                        <span className={activeLabelId === ann.labelId ? 'text-slate-900 fw-medium' : 'text-slate-600'}>{ann.labelName}</span>
-                                                    </div>
-                                                    <span className="shortcut-badge">{idx + 1}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div>
-                                    {projectClasses.map((cls, idx) => (
-                                        <button
-                                            key={cls.id}
-                                            onClick={() => setActiveLabelId(cls.id)}
-                                            className={`label-class-btn mb-1 ${activeLabelId === cls.id ? 'active' : ''}`}
-                                            style={{ fontSize: '0.875rem' }}
-                                        >
-                                            <div className="d-flex align-items-center gap-2">
-                                                <span className="rounded-circle" style={{ backgroundColor: cls.color, width: '0.625rem', height: '0.625rem' }}></span>
-                                                <span className={activeLabelId === cls.id ? 'text-slate-900 fw-medium' : 'text-slate-600'}>{cls.name}</span>
-                                            </div>
-                                            <span className="shortcut-badge">{idx + 1}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Annotation List */}
-                        <div className="mb-4">
-                            <h4 className="text-uppercase fw-bold text-muted mb-3" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Annotations ({annotations.length})</h4>
-                            <div className="overflow-auto" style={{ maxHeight: '12rem' }}>
-                                {annotations.length === 0 ? (
-                                    <p className="text-muted fst-italic" style={{ fontSize: '0.75rem' }}>No annotations yet.</p>
-                                ) : (
-                                    annotations.map((ann, i) => (
-                                        <div key={ann.id} className="d-flex align-items-start gap-2 px-3 py-2 rounded mb-2 bg-light border border-slate-200" style={{ fontSize: '0.75rem' }}>
-                                            <div 
-                                                className="rounded-circle flex-shrink-0 mt-1" 
-                                                style={{ 
-                                                    backgroundColor: ann.labelColor || '#6366f1', 
-                                                    width: '0.75rem', 
-                                                    height: '0.75rem' 
-                                                }}
-                                            ></div>
-                                            <div className="flex-grow-1">
-                                                <div className="d-flex align-items-center justify-content-between mb-1">
-                                                    <span className="fw-semibold text-slate-900">{ann.labelName || 'Object'}</span>
-                                                    <span className="text-muted" style={{ fontSize: '0.625rem' }}>#{i + 1}</span>
-                                                </div>
-                                                <div className="text-muted" style={{ fontSize: '0.625rem' }}>
-                                                    Confidence: {ann.confidence ? `${(ann.confidence * 100).toFixed(0)}%` : '100%'}
-                                                </div>
-                                                {/* Action buttons */}
-                                                <div className="d-flex gap-1 mt-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            console.log('Delete annotation:', ann.id);
-                                                            handleDeleteAnnotation(ann.id);
-                                                        }}
-                                                        className="btn btn-sm btn-danger d-flex align-items-center gap-1"
-                                                        style={{ fontSize: '0.625rem', padding: '0.125rem 0.375rem' }}
-                                                        title="Delete annotation"
-                                                    >
-                                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                            <polyline points="3 6 5 6 21 6"></polyline>
-                                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                                        </svg>
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Guidelines */}
-                        <div className="guidelines-box">
-                            <div className="guidelines-title">
-                                <AlertCircle size={14} />
-                                <span>Labeling Guidelines</span>
-                            </div>
-                            <ul className="guidelines-list">
-                                <li>Draw tight boxes around visible vehicles.</li>
-                                <li>Include side mirrors, exclude antennas.</li>
-                                <li>Ignore occluded vehicles less than 20% visible.</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
+                <AnnotationSidebar
+                    showGuidelines={showGuidelines}
+                    setShowGuidelines={setShowGuidelines}
+                    projectClasses={projectClasses}
+                    activeLabelId={activeLabelId}
+                    setActiveLabelId={setActiveLabelId}
+                    annotations={annotations}
+                    handleDeleteAnnotation={handleDeleteAnnotation}
+                />
             </div>
 
             {/* Confirm Delete Modal */}
-            {confirmDialog.show && (
-                <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                    <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content">
-                            <div className="modal-header border-0 pb-0">
-                                <h5 className="modal-title fw-bold">Confirm Delete</h5>
-                                <button 
-                                    type="button" 
-                                    className="btn-close" 
-                                    onClick={() => setConfirmDialog({ show: false, annotationId: null })}
-                                ></button>
-                            </div>
-                            <div className="modal-body">
-                                <p className="mb-0">Are you sure you want to delete this annotation?</p>
-                                <p className="text-muted mb-0" style={{ fontSize: '0.875rem' }}>This action cannot be undone.</p>
-                            </div>
-                            <div className="modal-footer border-0">
-                                <button 
-                                    type="button" 
-                                    className="btn btn-secondary"
-                                    onClick={() => setConfirmDialog({ show: false, annotationId: null })}
-                                >
-                                    Cancel
-                                </button>
-                                <button 
-                                    type="button" 
-                                    className="btn btn-danger"
-                                    onClick={confirmDeleteAnnotation}
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ConfirmDeleteModal
+                show={confirmDialog.show}
+                onConfirm={confirmDeleteAnnotation}
+                onCancel={() => setConfirmDialog({ show: false, annotationId: null })}
+            />
 
             {/* Toast Notification */}
-            <div className="position-fixed top-0 end-0 p-3" style={{ zIndex: 9999 }}>
-                <div className={`toast ${toast.show ? 'show' : ''}`} role="alert" aria-live="assertive" aria-atomic="true">
-                    <div className={`toast-header ${toast.type === 'success' ? 'bg-success' : toast.type === 'error' ? 'bg-danger' : 'bg-warning'} text-white`}>
-                        <strong className="me-auto">
-                            {toast.type === 'success' ? '✓ Success' : toast.type === 'error' ? '✗ Error' : '⚠ Warning'}
-                        </strong>
-                        <button 
-                            type="button" 
-                            className="btn-close btn-close-white" 
-                            onClick={() => setToast({ ...toast, show: false })}
-                            aria-label="Close"
-                        ></button>
-                    </div>
-                    <div className="toast-body">
-                        {toast.message}
-                    </div>
-                </div>
-            </div>
+            <ToastNotification
+                toast={toast}
+                onClose={() => setToast({ ...toast, show: false })}
+            />
         </div>
     );
 };

@@ -124,7 +124,7 @@ export const AnnotatorDashboard = ({ user }) => {
                                     <div className="p-3 rounded-3" style={{ backgroundColor: stat.bg, color: stat.color }}>
                                         <stat.icon size={24} />
                                     </div>
-                                    <span className="badge bg-light text-success border rounded-pill">+12%</span>
+                                 
                                 </div>
                                 <h6 className="text-muted small fw-bold text-uppercase mb-1">{stat.label}</h6>
                                 <h2 className="fw-bold mb-0 text-dark">{stat.value}</h2>
