@@ -108,6 +108,8 @@ body.homepage-active {
   align-items: center;
   justify-content: space-between;
   gap: 2rem;
+  position: relative;
+  width: 100%;
 }
 
 /* Brand ở trái, menu ở giữa, login ở phải */
@@ -117,6 +119,7 @@ body.homepage-active {
     grid-template-columns: auto 1fr auto;
     align-items: center;
     gap: 2rem;
+    padding-right: 0.5rem;
   }
   
   .nav-menu.desktop-menu {
@@ -221,17 +224,18 @@ body.homepage-active {
 }
 
 .login-btn-fixed {
-  position: absolute;
-  top: 50%;
-  right: 1.5rem;
-  transform: translateY(-50%);
-  z-index: 10;
   display: none;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  z-index: 100;
 }
 
 .login-btn-fixed:hover {
-  transform: translateY(-55%) !important;
-  box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 28px rgba(102, 126, 234, 0.35) !important;
 }
 
 @media (min-width: 992px) {

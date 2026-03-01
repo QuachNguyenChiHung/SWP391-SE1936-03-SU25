@@ -168,28 +168,30 @@ export const Login = ({ onLogin }) => {
               <label htmlFor="password-input" className="form-label">
                 Password
               </label>
-              <div className="input-wrapper">
-                <Lock
-                  size={18}
-                  className="input-icon"
-                  aria-hidden="true"
-                />
-                <input
-                  id="password-input"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`form-input ${error ? 'input-error' : ''}`}
-                  placeholder="••••••••"
-                  required
-                  aria-label="Password"
-                  aria-describedby="password-strength"
-                  aria-invalid={error ? 'true' : 'false'}
-                />
+              <div className="password-field-group">
+                <div className="input-wrapper">
+                  <Lock
+                    size={18}
+                    className="input-icon"
+                    aria-hidden="true"
+                  />
+                  <input
+                    id="password-input"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`form-input ${error ? 'input-error' : ''}`}
+                    placeholder="••••••••"
+                    required
+                    aria-label="Password"
+                    aria-describedby="password-strength"
+                    aria-invalid={error ? 'true' : 'false'}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="input-icon-right password-toggle"
+                  className="password-toggle-btn"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   tabIndex={0}
                 >
