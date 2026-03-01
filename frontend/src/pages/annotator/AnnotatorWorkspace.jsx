@@ -40,11 +40,11 @@ export const AnnotatorWorkspace = ({ user }) => {
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [showGuidelines, setShowGuidelines] = useState(true);
     const [projectLabels, setProjectLabels] = useState([]);
-    
+
     // New Features State
     const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
     const [copiedAnnotation, setCopiedAnnotation] = useState(null);
-    
+
     // Zoom and Pan State
     const [zoomLevel, setZoomLevel] = useState(1);
     const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -93,7 +93,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                 if (!mounted) return;
                 const tasks = res?.data?.items || [];
                 setTaskBatches(tasks);
-                
+
                 // Auto-select task from URL parameter
                 const taskIdFromUrl = searchParams.get('taskId');
                 if (taskIdFromUrl && tasks.length > 0) {
@@ -172,7 +172,7 @@ export const AnnotatorWorkspace = ({ user }) => {
         setIsDrawing(false);
         setIsDraggingBox(false);
         dragRef.current = null;
-        
+
         // Reset zoom and pan
         setZoomLevel(1);
         setPanOffset({ x: 0, y: 0 });
@@ -782,7 +782,7 @@ export const AnnotatorWorkspace = ({ user }) => {
             handlePanStart(e);
             return;
         }
-        
+
         // Handle Polygon mode
         if (selectedTool === 'POLYGON') {
             e.preventDefault();
@@ -919,14 +919,14 @@ export const AnnotatorWorkspace = ({ user }) => {
                                         {/* Checkbox overlay */}
                                         <div
                                             onClick={() => handleSelectItem(item)}
-                                            className="task-card bg-white rounded-3 border border-slate-200 overflow-hidden d-flex flex-column h-100"
+                                            className="task-card bg-white rounded-3 border border-slate-200 d-flex flex-column h-100"
                                             style={{ cursor: 'pointer' }}
                                         >
-                                            <div className="position-relative overflow-hidden bg-slate-100" style={{ height: '8rem' }}>
+                                            <div className="position-relative bg-slate-100" style={{ height: '8rem' }}>
                                                 <img
-                                                    src={item.thumbnailPath || item.filePath || 'https://via.placeholder.com/300x200?text=No+Image'}
+                                                    src={import.meta.env.VITE_URL_UPLOADS + "/" + item.thumbnailPath || import.meta.env.VITE_URL_UPLOADS + "/" + item.filePath || 'https://via.placeholder.com/300x200?text=No+Image'}
                                                     alt={item.fileName || `Item ${item.id}`}
-                                                    className="w-100 h-100 object-fit-cover task-card-image"
+                                                    className="w-100 h-100 task-card-image"
                                                 />
                                                 {item.dataItemStatus && (
                                                     <div className="position-absolute" style={{ top: '0.5rem', right: '0.5rem' }}>
@@ -1103,7 +1103,7 @@ export const AnnotatorWorkspace = ({ user }) => {
     const projectClasses = projectLabels;
 
     return (
-        <div className="d-flex flex-column animate-fade-in-zoom bg-white rounded-4 shadow-sm border border-slate-200 overflow-hidden" style={{ height: 'calc(100vh - 8rem)' }}>
+        <div className="d-flex flex-column animate-fade-in-zoom bg-white rounded-4 shadow-sm border border-slate-200 overflow-hidden" style={{}}>
 
             {/* Workspace Toolbar Header */}
             <div className="border-bottom border-slate-200 d-flex align-items-center justify-content-between px-3 bg-white flex-shrink-0" style={{ height: '3.5rem', zIndex: 10 }}>
@@ -1138,9 +1138,9 @@ export const AnnotatorWorkspace = ({ user }) => {
                             compact={true}
                         />
                     )}
-                    
+
                     <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
-                    
+
                     {/* Keyboard Shortcuts Button */}
                     <button
                         onClick={() => setShowShortcutsHelp(true)}
@@ -1150,9 +1150,9 @@ export const AnnotatorWorkspace = ({ user }) => {
                     >
                         <Keyboard size={14} />
                     </button>
-                    
+
                     <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
-                    
+
                     {/* Navigation buttons */}
                     <button
                         onClick={handlePreviousItem}
@@ -1211,8 +1211,8 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 </button>
                             ))}
                             <div className="toolbar-divider-vertical"></div>
-                            <button 
-                                className="btn-tool" 
+                            <button
+                                className="btn-tool"
                                 onClick={handleZoomIn}
                                 title="Zoom In (Ctrl + Scroll)"
                             >
@@ -1221,15 +1221,15 @@ export const AnnotatorWorkspace = ({ user }) => {
                             <span className="text-muted" style={{ fontSize: '0.75rem', minWidth: '3rem', textAlign: 'center' }}>
                                 {Math.round(zoomLevel * 100)}%
                             </span>
-                            <button 
-                                className="btn-tool" 
+                            <button
+                                className="btn-tool"
                                 onClick={handleZoomOut}
                                 title="Zoom Out (Ctrl + Scroll)"
                             >
                                 <ZoomOut size={18} />
                             </button>
-                            <button 
-                                className="btn-tool" 
+                            <button
+                                className="btn-tool"
                                 onClick={handleResetZoom}
                                 title="Reset Zoom (1:1)"
                                 style={{ fontSize: '0.75rem', padding: '0.375rem 0.5rem' }}
@@ -1267,63 +1267,143 @@ export const AnnotatorWorkspace = ({ user }) => {
                             <div style={{ position: 'relative', display: 'inline-block' }}>
                                 <img
                                     ref={imageRef}
-                                    src={selectedItem?.filePath || selectedItem?.thumbnailPath || 'https://via.placeholder.com/800x600?text=No+Image'}
+                                    src={import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem?.filePath || import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem?.thumbnailPath || 'https://via.placeholder.com/800x600?text=No+Image'}
                                     alt={selectedItem?.fileName || 'Work'}
-                                    className="canvas-image pe-none"
                                     draggable={false}
                                     style={{
-                                        maxWidth: '90vw',
-                                        maxHeight: '70vh',
                                         display: 'block'
                                     }}
                                 />
 
                                 {/* Annotations Layer */}
                                 {showGuidelines && annotations.map((ann) => {
-                            console.log('Rendering annotation:', ann.id, ann);
-                            const isBeingDragged = dragRef.current?.id === ann.id;
-                            const boxColor = ann.labelColor || '#6366f1';
+                                    console.log('Rendering annotation:', ann.id, ann);
+                                    const isBeingDragged = dragRef.current?.id === ann.id;
+                                    const boxColor = ann.labelColor || '#6366f1';
 
-                            // Render bbox type
-                            if (ann.coordinates.type === 'bbox') {
-                                return (
+                                    // Render bbox type
+                                    if (ann.coordinates.type === 'bbox') {
+                                        return (
+                                            <div
+                                                key={ann.id}
+                                                className={`annotation-box group-box ${isBeingDragged ? 'dragging' : ''}`}
+                                                onMouseDown={(e) => handleAnnotationMouseDown(e, ann)}
+                                                style={{
+                                                    borderColor: boxColor,
+                                                    left: ann.coordinates.x,
+                                                    top: ann.coordinates.y,
+                                                    width: ann.coordinates.width,
+                                                    height: ann.coordinates.height,
+                                                    backgroundColor: `${boxColor}15`
+                                                }}
+                                            >
+                                                <div
+                                                    className="annotation-label"
+                                                    style={{ backgroundColor: boxColor }}
+                                                >
+                                                    {ann.labelName || 'Object'}
+                                                    {ann.confidence && (
+                                                        <span style={{ opacity: 0.8, fontWeight: 'normal', marginLeft: '0.25rem' }}>{(ann.confidence * 100).toFixed(0)}%</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    // Render polygon type
+                                    if (ann.coordinates.type === 'polygon' && ann.coordinates.points) {
+                                        const points = ann.coordinates.points;
+                                        const pointsString = points.map(p => `${p.x},${p.y}`).join(' ');
+
+                                        // Use first point for label position
+                                        const firstPoint = points[0];
+
+                                        return (
+                                            <svg
+                                                key={ann.id}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    left: 0,
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    pointerEvents: 'none',
+                                                    zIndex: 30
+                                                }}
+                                            >
+                                                <polygon
+                                                    points={pointsString}
+                                                    fill={`${boxColor}15`}
+                                                    stroke={boxColor}
+                                                    strokeWidth="2"
+                                                    className={isBeingDragged ? 'dragging' : ''}
+                                                />
+
+                                                {/* Label background */}
+                                                <rect
+                                                    x={firstPoint.x - 2}
+                                                    y={firstPoint.y - 20}
+                                                    width={ann.labelName ? (ann.labelName.length * 6 + 8) : 50}
+                                                    height="16"
+                                                    fill={boxColor}
+                                                    rx="3"
+                                                />
+
+                                                {/* Label text */}
+                                                <text
+                                                    x={firstPoint.x + 2}
+                                                    y={firstPoint.y - 9}
+                                                    fill="white"
+                                                    fontSize="10"
+                                                    fontWeight="bold"
+                                                >
+                                                    {ann.labelName || 'Object'}
+                                                    {ann.confidence && (
+                                                        <tspan opacity="0.8" fontWeight="normal">
+                                                            {' '}{(ann.confidence * 100).toFixed(0)}%
+                                                        </tspan>
+                                                    )}
+                                                </text>
+
+                                                {/* Draw points */}
+                                                {points.map((point, idx) => (
+                                                    <circle
+                                                        key={idx}
+                                                        cx={point.x}
+                                                        cy={point.y}
+                                                        r="4"
+                                                        fill={boxColor}
+                                                        stroke="white"
+                                                        strokeWidth="2"
+                                                    />
+                                                ))}
+                                            </svg>
+                                        );
+                                    }
+
+                                    return null;
+                                })}
+
+                                {/* Drawing Layer (Temporary Box) */}
+                                {isDrawing && currentDragInfo && (
                                     <div
-                                        key={ann.id}
-                                        className={`annotation-box group-box ${isBeingDragged ? 'dragging' : ''}`}
-                                        onMouseDown={(e) => handleAnnotationMouseDown(e, ann)}
+                                        className="drawing-box"
                                         style={{
-                                            borderColor: boxColor,
-                                            left: ann.coordinates.x,
-                                            top: ann.coordinates.y,
-                                            width: ann.coordinates.width,
-                                            height: ann.coordinates.height,
-                                            backgroundColor: `${boxColor}15`
+                                            left: currentDragInfo.x,
+                                            top: currentDragInfo.y,
+                                            width: currentDragInfo.w,
+                                            height: currentDragInfo.h,
                                         }}
                                     >
-                                        <div
-                                            className="annotation-label"
-                                            style={{ backgroundColor: boxColor }}
-                                        >
-                                            {ann.labelName || 'Object'}
-                                            {ann.confidence && (
-                                                <span style={{ opacity: 0.8, fontWeight: 'normal', marginLeft: '0.25rem' }}>{(ann.confidence * 100).toFixed(0)}%</span>
-                                            )}
+                                        <div className="drawing-label">
+                                            New Annotation
                                         </div>
                                     </div>
-                                );
-                            }
+                                )}
 
-                            // Render polygon type
-                            if (ann.coordinates.type === 'polygon' && ann.coordinates.points) {
-                                const points = ann.coordinates.points;
-                                const pointsString = points.map(p => `${p.x},${p.y}`).join(' ');
-
-                                // Use first point for label position
-                                const firstPoint = points[0];
-
-                                return (
+                                {/* Polygon Drawing Layer */}
+                                {isDrawingPolygon && polygonPoints.length > 0 && (
                                     <svg
-                                        key={ann.id}
                                         style={{
                                             position: 'absolute',
                                             top: 0,
@@ -1331,128 +1411,45 @@ export const AnnotatorWorkspace = ({ user }) => {
                                             width: '100%',
                                             height: '100%',
                                             pointerEvents: 'none',
-                                            zIndex: 30
+                                            zIndex: 50
                                         }}
                                     >
-                                        <polygon
-                                            points={pointsString}
-                                            fill={`${boxColor}15`}
-                                            stroke={boxColor}
+                                        {/* Draw lines between points */}
+                                        <polyline
+                                            points={polygonPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                                            fill="rgba(59, 130, 246, 0.1)"
+                                            stroke="#3b82f6"
                                             strokeWidth="2"
-                                            className={isBeingDragged ? 'dragging' : ''}
+                                            strokeDasharray="5,5"
                                         />
-
-                                        {/* Label background */}
-                                        <rect
-                                            x={firstPoint.x - 2}
-                                            y={firstPoint.y - 20}
-                                            width={ann.labelName ? (ann.labelName.length * 6 + 8) : 50}
-                                            height="16"
-                                            fill={boxColor}
-                                            rx="3"
-                                        />
-
-                                        {/* Label text */}
-                                        <text
-                                            x={firstPoint.x + 2}
-                                            y={firstPoint.y - 9}
-                                            fill="white"
-                                            fontSize="10"
-                                            fontWeight="bold"
-                                        >
-                                            {ann.labelName || 'Object'}
-                                            {ann.confidence && (
-                                                <tspan opacity="0.8" fontWeight="normal">
-                                                    {' '}{(ann.confidence * 100).toFixed(0)}%
-                                                </tspan>
-                                            )}
-                                        </text>
-
                                         {/* Draw points */}
-                                        {points.map((point, idx) => (
+                                        {polygonPoints.map((point, idx) => (
                                             <circle
                                                 key={idx}
                                                 cx={point.x}
                                                 cy={point.y}
                                                 r="4"
-                                                fill={boxColor}
+                                                fill="#3b82f6"
                                                 stroke="white"
                                                 strokeWidth="2"
                                             />
                                         ))}
+                                        {/* Instruction text */}
+                                        {polygonPoints.length > 0 && (
+                                            <text
+                                                x={polygonPoints[0].x}
+                                                y={polygonPoints[0].y - 10}
+                                                fill="#3b82f6"
+                                                fontSize="12"
+                                                fontWeight="bold"
+                                            >
+                                                {polygonPoints.length < 3
+                                                    ? `Click to add points (${polygonPoints.length}/3 min)`
+                                                    : 'Double-click to finish or ESC to cancel'}
+                                            </text>
+                                        )}
                                     </svg>
-                                );
-                            }
-
-                                return null;
-                            })}
-
-                            {/* Drawing Layer (Temporary Box) */}
-                            {isDrawing && currentDragInfo && (
-                            <div
-                                className="drawing-box"
-                                style={{
-                                    left: currentDragInfo.x,
-                                    top: currentDragInfo.y,
-                                    width: currentDragInfo.w,
-                                    height: currentDragInfo.h,
-                                }}
-                            >
-                                <div className="drawing-label">
-                                    New Annotation
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Polygon Drawing Layer */}
-                            {isDrawingPolygon && polygonPoints.length > 0 && (
-                            <svg
-                                style={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    width: '100%',
-                                    height: '100%',
-                                    pointerEvents: 'none',
-                                    zIndex: 50
-                                }}
-                            >
-                                {/* Draw lines between points */}
-                                <polyline
-                                    points={polygonPoints.map(p => `${p.x},${p.y}`).join(' ')}
-                                    fill="rgba(59, 130, 246, 0.1)"
-                                    stroke="#3b82f6"
-                                    strokeWidth="2"
-                                    strokeDasharray="5,5"
-                                />
-                                {/* Draw points */}
-                                {polygonPoints.map((point, idx) => (
-                                    <circle
-                                        key={idx}
-                                        cx={point.x}
-                                        cy={point.y}
-                                        r="4"
-                                        fill="#3b82f6"
-                                        stroke="white"
-                                        strokeWidth="2"
-                                    />
-                                ))}
-                                {/* Instruction text */}
-                                {polygonPoints.length > 0 && (
-                                    <text
-                                        x={polygonPoints[0].x}
-                                        y={polygonPoints[0].y - 10}
-                                        fill="#3b82f6"
-                                        fontSize="12"
-                                        fontWeight="bold"
-                                    >
-                                        {polygonPoints.length < 3
-                                            ? `Click to add points (${polygonPoints.length}/3 min)`
-                                            : 'Double-click to finish or ESC to cancel'}
-                                    </text>
                                 )}
-                            </svg>
-                        )}
                             </div>
                         </div>
                     </div>
