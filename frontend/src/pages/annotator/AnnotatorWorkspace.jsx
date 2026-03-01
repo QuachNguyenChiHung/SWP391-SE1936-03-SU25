@@ -4,6 +4,7 @@ import {
     MousePointer2,
     Square,
     Hexagon,
+    Move,
     ZoomIn,
     ZoomOut,
     Check,
@@ -119,7 +120,7 @@ export const AnnotatorWorkspace = ({ user }) => {
 
             try {
                 const res = await api.get(`/projects/${selectedBatch.projectId}/labels`);
-                setProjectLabels(res?.data || []);
+                setProjectLabels(res?.data?.data || []);
             } catch (e) {
                 console.error('Failed to fetch project labels:', e);
                 showToast('Failed to load project labels', 'error');
@@ -619,26 +620,23 @@ export const AnnotatorWorkspace = ({ user }) => {
 
     // --- Coordinates Helper ---
     const getRelativeCoordinates = (clientX, clientY) => {
-        if (!containerRef.current) return { x: 0, y: 0 };
-        const rect = containerRef.current.getBoundingClientRect();
+        if (!imageRef.current) return { x: 0, y: 0 };
+        const rect = imageRef.current.getBoundingClientRect();
         return {
-            x: clientX - rect.left,
-            y: clientY - rect.top
+            x: (clientX - rect.left) / zoomLevel,
+            y: (clientY - rect.top) / zoomLevel
         };
     };
 
-    // Helper to get image bounds relative to container
+    // Helper to get image bounds in image coordinate system
     const getImageConstraints = () => {
-        if (!containerRef.current || !imageRef.current) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const imageRect = imageRef.current.getBoundingClientRect();
+        if (!imageRef.current) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
 
         return {
-            minX: imageRect.left - containerRect.left,
-            minY: imageRect.top - containerRect.top,
-            maxX: (imageRect.left - containerRect.left) + imageRect.width,
-            maxY: (imageRect.top - containerRect.top) + imageRect.height
+            minX: 0,
+            minY: 0,
+            maxX: imageRef.current.naturalWidth,
+            maxY: imageRef.current.naturalHeight
         };
     };
 
@@ -648,26 +646,49 @@ export const AnnotatorWorkspace = ({ user }) => {
             const bounds = getImageConstraints();
 
             // 1. Handle Box Moving
-            if (dragRef.current && containerRef.current) {
-                const { id, offsetX, offsetY } = dragRef.current;
-                const rect = containerRef.current.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
+            if (dragRef.current && imageRef.current) {
+                const rect = imageRef.current.getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left) / zoomLevel;
+                const mouseY = (e.clientY - rect.top) / zoomLevel;
 
                 setAnnotations(prev => prev.map(ann => {
-                    if (ann.id !== id) return ann;
+                    if (ann.id !== dragRef.current.id) return ann;
 
-                    let newX = mouseX - offsetX;
-                    let newY = mouseY - offsetY;
+                    // Handle BBOX movement
+                    if (dragRef.current.type === 'bbox' && ann.coordinates.type === 'bbox') {
+                        const { offsetX, offsetY } = dragRef.current;
+                        let newX = mouseX - offsetX;
+                        let newY = mouseY - offsetY;
 
-                    // Clamp to Image Boundaries
-                    newX = Math.max(bounds.minX, Math.min(newX, bounds.maxX - ann.coordinates.width));
-                    newY = Math.max(bounds.minY, Math.min(newY, bounds.maxY - ann.coordinates.height));
+                        // Clamp to Image Boundaries
+                        newX = Math.max(bounds.minX, Math.min(newX, bounds.maxX - ann.coordinates.width));
+                        newY = Math.max(bounds.minY, Math.min(newY, bounds.maxY - ann.coordinates.height));
 
-                    return {
-                        ...ann,
-                        coordinates: { ...ann.coordinates, x: newX, y: newY }
-                    };
+                        return {
+                            ...ann,
+                            coordinates: { ...ann.coordinates, x: newX, y: newY }
+                        };
+                    }
+
+                    // Handle POLYGON movement
+                    if (dragRef.current.type === 'polygon' && ann.coordinates.type === 'polygon') {
+                        const { originalPoints, initialMouseX, initialMouseY } = dragRef.current;
+                        const deltaX = mouseX - initialMouseX;
+                        const deltaY = mouseY - initialMouseY;
+
+                        // Move all points by the same delta
+                        const newPoints = originalPoints.map(p => ({
+                            x: Math.round(p.x + deltaX),
+                            y: Math.round(p.y + deltaY)
+                        }));
+
+                        return {
+                            ...ann,
+                            coordinates: { ...ann.coordinates, points: newPoints }
+                        };
+                    }
+
+                    return ann;
                 }));
                 return;
             }
@@ -768,11 +789,25 @@ export const AnnotatorWorkspace = ({ user }) => {
 
         const coords = getRelativeCoordinates(e.clientX, e.clientY);
 
-        dragRef.current = {
-            id: ann.id,
-            offsetX: coords.x - ann.coordinates.x,
-            offsetY: coords.y - ann.coordinates.y
-        };
+        // Handle different annotation types
+        if (ann.coordinates.type === 'bbox') {
+            dragRef.current = {
+                id: ann.id,
+                type: 'bbox',
+                offsetX: coords.x - ann.coordinates.x,
+                offsetY: coords.y - ann.coordinates.y
+            };
+        } else if (ann.coordinates.type === 'polygon' && ann.coordinates.points && ann.coordinates.points.length > 0) {
+            // For polygon, store original points and initial mouse position
+            dragRef.current = {
+                id: ann.id,
+                type: 'polygon',
+                originalPoints: ann.coordinates.points,
+                initialMouseX: coords.x,
+                initialMouseY: coords.y
+            };
+        }
+
         setIsDraggingBox(true);
     };
 
@@ -827,6 +862,7 @@ export const AnnotatorWorkspace = ({ user }) => {
     const handleContainerDoubleClick = (e) => {
         if (selectedTool === 'POLYGON' && polygonPoints.length >= 3) {
             e.preventDefault();
+            e.stopPropagation();
 
             // Create polygon coordinates
             const coordinates = {
@@ -840,6 +876,7 @@ export const AnnotatorWorkspace = ({ user }) => {
             // Reset polygon state
             setPolygonPoints([]);
             setIsDrawingPolygon(false);
+            lastClickTimeRef.current = Date.now(); // Reset timer to prevent accidental point addition
         }
     };
 
@@ -1199,13 +1236,19 @@ export const AnnotatorWorkspace = ({ user }) => {
                             {[
                                 { id: 'SELECT', icon: MousePointer2, label: 'Select' },
                                 { id: 'BOX', icon: Square, label: 'Box' },
-                                { id: 'POLYGON', icon: Hexagon, label: 'Polygon' }
+                                { id: 'POLYGON', icon: Hexagon, label: 'Polygon' },
+                                { id: 'PAN', icon: Move, label: 'Pan' }
                             ].map((tool) => (
                                 <button
                                     key={tool.id}
                                     onClick={() => setSelectedTool(tool.id)}
                                     className={`btn-tool ${selectedTool === tool.id ? 'active' : ''}`}
-                                    title={tool.id === 'SELECT' ? 'Move Tool' : `${tool.id} Tool`}
+                                    title={{
+                                        'SELECT': 'Select/Move Annotations',
+                                        'BOX': 'Draw Bounding Box',
+                                        'POLYGON': 'Draw Polygon',
+                                        'PAN': 'Pan Canvas (or Shift+Drag)'
+                                    }[tool.id]}
                                 >
                                     <tool.icon size={18} />
                                 </button>
@@ -1337,6 +1380,11 @@ export const AnnotatorWorkspace = ({ user }) => {
                                                     stroke={boxColor}
                                                     strokeWidth="2"
                                                     className={isBeingDragged ? 'dragging' : ''}
+                                                    style={{ pointerEvents: 'auto', cursor: 'move' }}
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation();
+                                                        handleAnnotationMouseDown(e, ann);
+                                                    }}
                                                 />
 
                                                 {/* Label background */}
@@ -1347,6 +1395,11 @@ export const AnnotatorWorkspace = ({ user }) => {
                                                     height="16"
                                                     fill={boxColor}
                                                     rx="3"
+                                                    style={{ pointerEvents: 'auto', cursor: 'move' }}
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation();
+                                                        handleAnnotationMouseDown(e, ann);
+                                                    }}
                                                 />
 
                                                 {/* Label text */}
@@ -1375,6 +1428,11 @@ export const AnnotatorWorkspace = ({ user }) => {
                                                         fill={boxColor}
                                                         stroke="white"
                                                         strokeWidth="2"
+                                                        style={{ pointerEvents: 'auto', cursor: 'move' }}
+                                                        onMouseDown={(e) => {
+                                                            e.stopPropagation();
+                                                            handleAnnotationMouseDown(e, ann);
+                                                        }}
                                                     />
                                                 ))}
                                             </svg>
