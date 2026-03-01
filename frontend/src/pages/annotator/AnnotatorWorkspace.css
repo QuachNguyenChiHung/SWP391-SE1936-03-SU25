@@ -73,6 +73,30 @@
     }
 }
 
+@keyframes glowingBorder {
+    0% {
+        box-shadow: 0 0 10px 2px currentColor;
+    }
+    50% {
+        box-shadow: 0 0 25px 6px currentColor;
+    }
+    100% {
+        box-shadow: 0 0 10px 2px currentColor;
+    }
+}
+
+@keyframes glowingBorderPolygon {
+    0% {
+        filter: drop-shadow(0 0 10px currentColor);
+    }
+    50% {
+        filter: drop-shadow(0 0 25px currentColor);
+    }
+    100% {
+        filter: drop-shadow(0 0 10px currentColor);
+    }
+}
+
 .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
 }
@@ -441,16 +465,25 @@
     cursor: move;
     z-index: 30;
     transition: box-shadow 0.15s ease-in-out;
+    outline: none;
 }
 
 .annotation-box:hover {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
+.annotation-box:focus {
+    outline: none;
+}
+
+.annotation-box:focus-visible {
+    outline: none;
+}
+
 .annotation-box.dragging {
     opacity: 0.8;
     z-index: 50;
-    box-shadow: 0 0 0 2px var(--color-indigo-400), 0 0 0 4px white;
+    box-shadow: 0 0 0 2px var(--color-indigo-400);
 }
 
 .annotation-label {

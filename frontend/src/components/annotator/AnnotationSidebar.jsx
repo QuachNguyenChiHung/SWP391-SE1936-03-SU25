@@ -1,19 +1,21 @@
 import React from 'react';
 import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
-export const AnnotationSidebar = ({ 
-    showGuidelines, 
+export const AnnotationSidebar = ({
+    showGuidelines,
     setShowGuidelines,
     projectClasses = [],
     activeLabelId,
     setActiveLabelId,
     annotations = [],
+    selectedAnnotationId,
+    setSelectedAnnotationId,
     handleDeleteAnnotation
 }) => {
     // Ensure projectClasses is always an array
     const classes = Array.isArray(projectClasses) ? projectClasses : [];
     const annotationsList = Array.isArray(annotations) ? annotations : [];
-    
+
     return (
         <div className={`sidebar ${showGuidelines ? '' : 'hidden'}`} style={{ position: window.innerWidth < 768 ? 'absolute' : 'relative', right: 0, top: 0, bottom: 0 }}>
             {/* Mobile Toggle Handle */}
@@ -31,8 +33,8 @@ export const AnnotationSidebar = ({
                     {classes.length === 0 ? (
                         <div>
                             <p className="text-muted fst-italic mb-2" style={{ fontSize: '0.75rem' }}>
-                                {annotationsList.length > 0 
-                                    ? 'Available labels from annotations:' 
+                                {annotationsList.length > 0
+                                    ? 'Available labels from annotations:'
                                     : 'No label classes available. Draw annotations to see labels.'}
                             </p>
                             {annotationsList.length > 0 && (
@@ -83,13 +85,25 @@ export const AnnotationSidebar = ({
                             <p className="text-muted fst-italic" style={{ fontSize: '0.75rem' }}>No annotations yet.</p>
                         ) : (
                             annotationsList.map((ann, i) => (
-                                <div key={ann.id} className="d-flex align-items-start gap-2 px-3 py-2 rounded mb-2 bg-light border border-slate-200" style={{ fontSize: '0.75rem' }}>
-                                    <div 
-                                        className="rounded-circle flex-shrink-0 mt-1" 
-                                        style={{ 
-                                            backgroundColor: ann.labelColor || '#6366f1', 
-                                            width: '0.75rem', 
-                                            height: '0.75rem' 
+                                <div
+                                    key={ann.id}
+                                    onClick={() => setSelectedAnnotationId(ann.id)}
+                                    className="d-flex align-items-start gap-2 px-3 py-2 rounded mb-2 border"
+                                    style={{
+                                        fontSize: '0.75rem',
+                                        backgroundColor: selectedAnnotationId === ann.id ? '#dbeafe' : '#f1f5f9',
+                                        borderColor: selectedAnnotationId === ann.id ? '#0284c7' : '#cbd5e1',
+                                        borderWidth: '2px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <div
+                                        className="rounded-circle flex-shrink-0 mt-1"
+                                        style={{
+                                            backgroundColor: ann.labelColor || '#6366f1',
+                                            width: '0.75rem',
+                                            height: '0.75rem'
                                         }}
                                     ></div>
                                     <div className="flex-grow-1">

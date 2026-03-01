@@ -38,6 +38,7 @@ export const AnnotatorWorkspace = ({ user }) => {
     const [selectedTool, setSelectedTool] = useState('SELECT');
     const [activeLabelId, setActiveLabelId] = useState('');
     const [annotations, setAnnotations] = useState([]);
+    const [selectedAnnotationId, setSelectedAnnotationId] = useState(null);
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [showGuidelines, setShowGuidelines] = useState(true);
     const [projectLabels, setProjectLabels] = useState([]);
@@ -57,6 +58,9 @@ export const AnnotatorWorkspace = ({ user }) => {
 
     // Confirm dialog state
     const [confirmDialog, setConfirmDialog] = useState({ show: false, annotationId: null });
+
+    // Context menu state for annotations
+    const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, annotationId: null });
 
     // Show toast notification
     const showToast = (message, type = 'success') => {
@@ -83,6 +87,52 @@ export const AnnotatorWorkspace = ({ user }) => {
     // Moving State
     const [isDraggingBox, setIsDraggingBox] = useState(false);
     const dragRef = useRef(null);
+    const dragToastShownRef = useRef(false);
+
+    // Auto-save debounce ref
+    const autoSaveTimerRef = useRef(null);
+
+    // Function to save all annotations at once
+    const saveAllAnnotations = async () => {
+        if (!selectedItem || annotations.length === 0) {
+            return;
+        }
+
+        try {
+            const payload = {
+                annotations: annotations.map(ann => ({
+                    id: ann.id,
+                    labelId: ann.labelId,
+                    coordinates: JSON.stringify(ann.coordinates),
+                    attributes: JSON.stringify(ann.attributes || {})
+                }))
+            };
+
+            console.log('Auto-saving all annotations:', payload);
+            await api.put(`/data-items/${selectedItem.dataItemId}/annotations/batch`, payload);
+            console.log('All annotations saved successfully');
+        } catch (e) {
+            console.error('Failed to auto-save annotations:', e);
+            console.error('Error response:', e?.response?.data);
+        }
+    };
+
+    // Debounced auto-save effect
+    useEffect(() => {
+        if (autoSaveTimerRef.current) {
+            clearTimeout(autoSaveTimerRef.current);
+        }
+
+        autoSaveTimerRef.current = setTimeout(() => {
+            saveAllAnnotations();
+        }, 2000); // Save after 2 seconds of inactivity
+
+        return () => {
+            if (autoSaveTimerRef.current) {
+                clearTimeout(autoSaveTimerRef.current);
+            }
+        };
+    }, [annotations, selectedItem]);
 
     // Fetch task batches assigned to current user
     useEffect(() => {
@@ -243,6 +293,12 @@ export const AnnotatorWorkspace = ({ user }) => {
     const handleCreateAnnotation = async (coordinates, labelId) => {
         console.log('Creating annotation with coordinates:', coordinates, 'labelId:', labelId);
 
+        // Check if task is already submitted
+        if (selectedBatch?.status === 'Submitted') {
+            showToast('Cannot edit - task has been submitted', 'warning');
+            return;
+        }
+
         if (!selectedItem?.dataItemId || !labelId) {
             showToast('Please select a label class first', 'warning');
             return;
@@ -288,9 +344,27 @@ export const AnnotatorWorkspace = ({ user }) => {
         }
     };
 
+    // Handle right-click on annotation to show context menu
+    const handleAnnotationContextMenu = (e, annotationId) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({
+            show: true,
+            x: e.clientX,
+            y: e.clientY,
+            annotationId: annotationId
+        });
+    };
+
     // Delete annotation via API
     const handleDeleteAnnotation = async (annotationId) => {
         console.log('Attempting to delete annotation with ID:', annotationId);
+
+        // Check if task is already submitted
+        if (selectedBatch?.status === 'Submitted') {
+            showToast('Cannot delete - task has been submitted', 'warning');
+            return;
+        }
 
         if (!annotationId) {
             console.error('No annotation ID provided');
@@ -324,32 +398,29 @@ export const AnnotatorWorkspace = ({ user }) => {
         }
     };
 
-    // Update annotation via API
+    // Update annotation (coordinates will be auto-saved via debounced effect)
     const handleUpdateAnnotation = async (annotationId, updatedData) => {
-        console.log('Updating annotation:', annotationId, updatedData);
+        console.log('Updating annotation state:', annotationId, updatedData);
+
+        // Check if task is already submitted
+        if (selectedBatch?.status === 'Submitted') {
+            showToast('Cannot edit - task has been submitted', 'warning');
+            return;
+        }
 
         if (!annotationId) {
             console.error('No annotation ID provided');
             return;
         }
 
-        try {
-            const payload = {
-                labelId: updatedData.labelId,
-                coordinates: JSON.stringify(updatedData.coordinates),
-                attributes: JSON.stringify(updatedData.attributes || {})
-            };
+        // Update state locally - auto-save will handle API call
+        setAnnotations(prev => prev.map(ann =>
+            ann.id === annotationId
+                ? { ...ann, coordinates: updatedData.coordinates }
+                : ann
+        ));
 
-            console.log('Calling PUT /annotations/' + annotationId, payload);
-            await api.put(`/annotations/${annotationId}`, payload);
-
-            console.log('Successfully updated annotation:', annotationId);
-            showToast('Annotation position updated', 'success');
-        } catch (e) {
-            console.error('Failed to update annotation:', e);
-            console.error('Error response:', e?.response?.data);
-            showToast('Failed to update annotation: ' + (e?.response?.data?.message || e?.message), 'error');
-        }
+        console.log('Annotation updated in state, will be auto-saved');
     };
 
     // Navigate to next item (circular)
@@ -645,18 +716,26 @@ export const AnnotatorWorkspace = ({ user }) => {
         const handleWindowMouseMove = (e) => {
             const bounds = getImageConstraints();
 
-            // 1. Handle Box Moving
-            if (dragRef.current && imageRef.current) {
+            // 1. Handle annotation dragging with visual feedback
+            if (dragRef.current && dragRef.current.type && imageRef.current) {
+                // Show warning toast only once per drag session
+                if (!dragToastShownRef.current) {
+                    showToast('Annotations cannot be moved. Please delete and recreate.', 'warning');
+                    dragToastShownRef.current = true;
+                }
+
                 const rect = imageRef.current.getBoundingClientRect();
                 const mouseX = (e.clientX - rect.left) / zoomLevel;
                 const mouseY = (e.clientY - rect.top) / zoomLevel;
 
+                const dragInfo = dragRef.current; // Capture current drag info
+
                 setAnnotations(prev => prev.map(ann => {
-                    if (ann.id !== dragRef.current.id) return ann;
+                    if (ann.id !== dragInfo.id) return ann;
 
                     // Handle BBOX movement
-                    if (dragRef.current.type === 'bbox' && ann.coordinates.type === 'bbox') {
-                        const { offsetX, offsetY } = dragRef.current;
+                    if (dragInfo.type === 'bbox' && ann.coordinates.type === 'bbox') {
+                        const { offsetX, offsetY } = dragInfo;
                         let newX = mouseX - offsetX;
                         let newY = mouseY - offsetY;
 
@@ -671,8 +750,8 @@ export const AnnotatorWorkspace = ({ user }) => {
                     }
 
                     // Handle POLYGON movement
-                    if (dragRef.current.type === 'polygon' && ann.coordinates.type === 'polygon') {
-                        const { originalPoints, initialMouseX, initialMouseY } = dragRef.current;
+                    if (dragInfo.type === 'polygon' && ann.coordinates.type === 'polygon') {
+                        const { originalPoints, initialMouseX, initialMouseY } = dragInfo;
                         const deltaX = mouseX - initialMouseX;
                         const deltaY = mouseY - initialMouseY;
 
@@ -712,25 +791,29 @@ export const AnnotatorWorkspace = ({ user }) => {
         };
 
         const handleWindowMouseUp = () => {
-            // End Moving - Save updated position to API
-            if (dragRef.current && isDraggingBox) {
+            // End Moving - Snap annotation back to original position
+            if (dragRef.current && isDraggingBox && dragRef.current.originalCoordinates) {
+                console.log('Mouse up, snapping annotation back to original position:', dragRef.current);
                 const draggedAnnotationId = dragRef.current.id;
+                const originalCoordinatesStr = dragRef.current.originalCoordinates;
 
-                // Find the annotation with updated coordinates
-                const updatedAnnotation = annotations.find(ann => ann.id === draggedAnnotationId);
-
-                if (updatedAnnotation) {
-                    console.log('Drag ended, updating annotation position:', updatedAnnotation);
-
-                    // Call API to update coordinates
-                    handleUpdateAnnotation(updatedAnnotation.id, {
-                        labelId: updatedAnnotation.labelId,
-                        coordinates: updatedAnnotation.coordinates,
-                        attributes: {}
-                    });
-                }
+                // Reset annotation to original coordinates
+                setAnnotations(prev => prev.map(ann => {
+                    if (ann.id === draggedAnnotationId) {
+                        try {
+                            const originalCoords = JSON.parse(originalCoordinatesStr);
+                            console.log('Snapping back annotation', ann.id, 'to:', originalCoords);
+                            return { ...ann, coordinates: originalCoords };
+                        } catch (e) {
+                            console.error('Error parsing original coordinates:', e);
+                            return ann;
+                        }
+                    }
+                    return ann;
+                }));
 
                 dragRef.current = null;
+                dragToastShownRef.current = false;
                 setIsDraggingBox(false);
             }
 
@@ -778,14 +861,25 @@ export const AnnotatorWorkspace = ({ user }) => {
     // --- Event Starters ---
 
     const handleAnnotationMouseDown = (e, ann) => {
+        // Ignore right-click
+        if (e.button === 2) {
+            return;
+        }
+
         // Don't start dragging if clicking on delete button
         if (e.target.classList.contains('annotation-delete-btn')) {
             return;
         }
 
-        // Smart Tool: Always allow moving an existing box, even if in BOX/DRAW mode.
+        // Prevent event propagation to avoid triggering drawing
         e.preventDefault();
-        e.stopPropagation(); // Important: Stop event from bubbling to container (which would start drawing)
+        e.stopPropagation();
+
+        // Reset toast flag for new drag session
+        dragToastShownRef.current = false;
+
+        // Allow dragging for visual feedback but will snap back on release
+        console.log('Dragging annotation - will snap back to original position:', ann.id);
 
         const coords = getRelativeCoordinates(e.clientX, e.clientY);
 
@@ -795,26 +889,32 @@ export const AnnotatorWorkspace = ({ user }) => {
                 id: ann.id,
                 type: 'bbox',
                 offsetX: coords.x - ann.coordinates.x,
-                offsetY: coords.y - ann.coordinates.y
+                offsetY: coords.y - ann.coordinates.y,
+                originalCoordinates: JSON.stringify(ann.coordinates)
             };
+            setIsDraggingBox(true);
         } else if (ann.coordinates.type === 'polygon' && ann.coordinates.points && ann.coordinates.points.length > 0) {
-            // For polygon, store original points and initial mouse position
             dragRef.current = {
                 id: ann.id,
                 type: 'polygon',
                 originalPoints: ann.coordinates.points,
                 initialMouseX: coords.x,
-                initialMouseY: coords.y
+                initialMouseY: coords.y,
+                originalCoordinates: JSON.stringify(ann.coordinates)
             };
+            setIsDraggingBox(true);
         }
-
-        setIsDraggingBox(true);
     };
 
     const handleContainerMouseDown = (e) => {
         // Handle Pan mode
         if (selectedTool === 'PAN' || e.button === 1 || (e.button === 0 && e.shiftKey)) {
             handlePanStart(e);
+            return;
+        }
+
+        // Prevent drawing if task is submitted
+        if (selectedBatch?.status === 'Submitted' && (selectedTool === 'BOX' || selectedTool === 'POLYGON')) {
             return;
         }
 
@@ -860,7 +960,7 @@ export const AnnotatorWorkspace = ({ user }) => {
 
     // Handle double click to finish polygon
     const handleContainerDoubleClick = (e) => {
-        if (selectedTool === 'POLYGON' && polygonPoints.length >= 3) {
+        if (selectedTool === 'POLYGON' && polygonPoints.length >= 3 && selectedBatch?.status !== 'Submitted') {
             e.preventDefault();
             e.stopPropagation();
 
@@ -892,6 +992,18 @@ export const AnnotatorWorkspace = ({ user }) => {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isDrawingPolygon]);
+
+    // Close context menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (contextMenu.show) {
+                setContextMenu({ show: false, x: 0, y: 0, annotationId: null });
+            }
+        };
+
+        window.addEventListener('click', handleClickOutside);
+        return () => window.removeEventListener('click', handleClickOutside);
+    }, [contextMenu.show]);
 
 
     // --- VIEW: Batch Items List (when batch is selected but no item) ---
@@ -1242,13 +1354,15 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 <button
                                     key={tool.id}
                                     onClick={() => setSelectedTool(tool.id)}
+                                    disabled={selectedBatch?.status === 'Submitted'}
                                     className={`btn-tool ${selectedTool === tool.id ? 'active' : ''}`}
                                     title={{
                                         'SELECT': 'Select/Move Annotations',
                                         'BOX': 'Draw Bounding Box',
                                         'POLYGON': 'Draw Polygon',
                                         'PAN': 'Pan Canvas (or Shift+Drag)'
-                                    }[tool.id]}
+                                    }[tool.id] + (selectedBatch?.status === 'Submitted' ? ' (Submitted - Read Only)' : '')}
+                                    style={{ opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
                                 >
                                     <tool.icon size={18} />
                                 </button>
@@ -1282,6 +1396,13 @@ export const AnnotatorWorkspace = ({ user }) => {
                         </div>
                     </div>
 
+                    {/* Submitted Read-Only Banner */}
+                    {selectedBatch?.status === 'Submitted' && (
+                        <div className="alert alert-info mb-0 d-flex align-items-center gap-2 rounded-0" style={{ padding: '0.75rem 1rem', fontSize: '0.875rem' }}>
+                            <span>⏸️ Task Submitted - Read Only Mode</span>
+                        </div>
+                    )}
+
                     {/* Canvas Area */}
                     <div
                         ref={containerRef}
@@ -1292,6 +1413,12 @@ export const AnnotatorWorkspace = ({ user }) => {
                             overflow: 'hidden'
                         }}
                         onMouseDown={handleContainerMouseDown}
+                        onClick={(e) => {
+                            // Clear selection if clicking on empty space (not on an annotation)
+                            if (e.target === containerRef.current || e.target.tagName === 'IMG') {
+                                setSelectedAnnotationId(null);
+                            }
+                        }}
                         onMouseMove={handlePanMove}
                         onMouseUp={handlePanEnd}
                         onMouseLeave={handlePanEnd}
@@ -1307,14 +1434,17 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 display: 'inline-block'
                             }}
                         >
-                            <div style={{ position: 'relative', display: 'inline-block' }}>
+                            <div style={{ position: 'relative', display: 'inline-block', maxWidth: '800px', maxHeight: '600px' }}>
                                 <img
                                     ref={imageRef}
                                     src={import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem?.filePath || import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem?.thumbnailPath || 'https://via.placeholder.com/800x600?text=No+Image'}
                                     alt={selectedItem?.fileName || 'Work'}
                                     draggable={false}
                                     style={{
-                                        display: 'block'
+                                        display: 'block',
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: 'contain'
                                     }}
                                 />
 
@@ -1322,6 +1452,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 {showGuidelines && annotations.map((ann) => {
                                     console.log('Rendering annotation:', ann.id, ann);
                                     const isBeingDragged = dragRef.current?.id === ann.id;
+                                    const isSelected = selectedAnnotationId === ann.id;
                                     const boxColor = ann.labelColor || '#6366f1';
 
                                     // Render bbox type
@@ -1331,14 +1462,21 @@ export const AnnotatorWorkspace = ({ user }) => {
                                                 key={ann.id}
                                                 className={`annotation-box group-box ${isBeingDragged ? 'dragging' : ''}`}
                                                 onMouseDown={(e) => handleAnnotationMouseDown(e, ann)}
+                                                onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
+                                                onClick={() => setSelectedAnnotationId(ann.id)}
                                                 style={{
                                                     borderColor: boxColor,
+                                                    borderWidth: isSelected ? '2px' : '2px',
                                                     left: ann.coordinates.x,
                                                     top: ann.coordinates.y,
                                                     width: ann.coordinates.width,
                                                     height: ann.coordinates.height,
-                                                    backgroundColor: `${boxColor}15`
+                                                    backgroundColor: `${boxColor}15`,
+                                                    cursor: 'grab',
+                                                    animation: isSelected ? 'glowingBorder 2s ease-in-out infinite' : 'none',
+                                                    transition: 'all 0.2s'
                                                 }}
+                                                title="Click to select • Drag to simulate move • Right-click to delete"
                                             >
                                                 <div
                                                     className="annotation-label"
@@ -1373,18 +1511,26 @@ export const AnnotatorWorkspace = ({ user }) => {
                                                     pointerEvents: 'none',
                                                     zIndex: 30
                                                 }}
+                                                onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
                                             >
                                                 <polygon
                                                     points={pointsString}
                                                     fill={`${boxColor}15`}
                                                     stroke={boxColor}
-                                                    strokeWidth="2"
+                                                    strokeWidth={isSelected ? '4' : '2'}
                                                     className={isBeingDragged ? 'dragging' : ''}
-                                                    style={{ pointerEvents: 'auto', cursor: 'move' }}
+                                                    style={{
+                                                        pointerEvents: 'auto',
+                                                        cursor: 'move',
+                                                        animation: isSelected ? 'glowingBorderPolygon 2s ease-in-out infinite' : 'none',
+                                                        transition: 'all 0.2s'
+                                                    }}
                                                     onMouseDown={(e) => {
                                                         e.stopPropagation();
                                                         handleAnnotationMouseDown(e, ann);
                                                     }}
+                                                    onClick={() => setSelectedAnnotationId(ann.id)}
+                                                    onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
                                                 />
 
                                                 {/* Label background */}
@@ -1400,6 +1546,8 @@ export const AnnotatorWorkspace = ({ user }) => {
                                                         e.stopPropagation();
                                                         handleAnnotationMouseDown(e, ann);
                                                     }}
+                                                    onClick={() => setSelectedAnnotationId(ann.id)}
+                                                    onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
                                                 />
 
                                                 {/* Label text */}
@@ -1433,6 +1581,8 @@ export const AnnotatorWorkspace = ({ user }) => {
                                                             e.stopPropagation();
                                                             handleAnnotationMouseDown(e, ann);
                                                         }}
+                                                        onClick={() => setSelectedAnnotationId(ann.id)}
+                                                        onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
                                                     />
                                                 ))}
                                             </svg>
@@ -1517,8 +1667,10 @@ export const AnnotatorWorkspace = ({ user }) => {
                         <div className="d-flex align-items-center gap-3" style={{ height: '3rem' }}>
                             <button
                                 onClick={handleRejectItem}
+                                disabled={selectedBatch?.status === 'Submitted'}
                                 className="btn btn-danger flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
-                                style={{ fontSize: '0.875rem' }}
+                                style={{ fontSize: '0.875rem', opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
+                                title={selectedBatch?.status === 'Submitted' ? 'Task submitted - read only' : ''}
                             >
                                 <X size={18} />
                                 Reject
@@ -1526,8 +1678,10 @@ export const AnnotatorWorkspace = ({ user }) => {
 
                             <button
                                 onClick={handleAcceptAndNext}
+                                disabled={selectedBatch?.status === 'Submitted'}
                                 className="btn btn-success h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm"
-                                style={{ flex: '2', fontSize: '0.875rem' }}
+                                style={{ flex: '2', fontSize: '0.875rem', opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
+                                title={selectedBatch?.status === 'Submitted' ? 'Task submitted - read only' : ''}
                             >
                                 <Check size={18} />
                                 Accept & Next
@@ -1546,6 +1700,8 @@ export const AnnotatorWorkspace = ({ user }) => {
                         activeLabelId={activeLabelId}
                         setActiveLabelId={setActiveLabelId}
                         annotations={annotations}
+                        selectedAnnotationId={selectedAnnotationId}
+                        setSelectedAnnotationId={setSelectedAnnotationId}
                         handleDeleteAnnotation={handleDeleteAnnotation}
                     />
                 </div>
@@ -1563,6 +1719,49 @@ export const AnnotatorWorkspace = ({ user }) => {
                 onConfirm={confirmDeleteAnnotation}
                 onCancel={() => setConfirmDialog({ show: false, annotationId: null })}
             />
+
+            {/* Context Menu for Annotations */}
+            {contextMenu.show && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        left: contextMenu.x,
+                        top: contextMenu.y,
+                        backgroundColor: 'white',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '0.375rem',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                        zIndex: 9999,
+                        minWidth: '120px'
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        onClick={() => {
+                            handleDeleteAnnotation(contextMenu.annotationId);
+                            setContextMenu({ show: false, x: 0, y: 0, annotationId: null });
+                        }}
+                        style={{
+                            width: '100%',
+                            padding: '0.5rem 1rem',
+                            textAlign: 'left',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            cursor: 'pointer',
+                            fontSize: '0.875rem',
+                            color: '#dc2626'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = '#fee2e2';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'transparent';
+                        }}
+                    >
+                        🗑️ Delete
+                    </button>
+                </div>
+            )}
 
             {/* Toast Notification */}
             <ToastNotification
