@@ -76,7 +76,7 @@ export const ManagerProjects = ({ user }) => {
 
         setProjectName('');
         setProjectDescription('');
-        setProjectType('');
+        setProjectType('Classification');
         setProjectDeadline('');
         setDeadlineError('');
         setIsCreateProjectModalOpen(false);
