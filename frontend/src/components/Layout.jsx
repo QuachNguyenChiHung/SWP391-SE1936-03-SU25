@@ -20,10 +20,12 @@ import {
   CreditCard,
   UserIcon
 } from 'lucide-react';
+import { AnnotatorNavigation } from './annotator/AnnotatorNavigation.jsx';
+import { SearchBar } from './common/SearchBar.jsx';
+import { NotificationDropdown } from './common/NotificationDropdown.jsx';
 
 export const Layout = ({ children, user, onLogout }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -38,6 +40,9 @@ export const Layout = ({ children, user, onLogout }) => {
     if (path.includes('/workspace')) return 'Workspace';
     if (path.includes('/reviews')) return 'Review Queue';
     if (path.includes('/users')) return 'User Management';
+    if (path.includes('/notifications')) return 'Notifications';
+    if (path.includes('/settings')) return 'Settings';
+    if (path.includes('/profile')) return 'Profile';
     return 'Dashboard';
   };
 
@@ -120,8 +125,14 @@ export const Layout = ({ children, user, onLogout }) => {
         </div>
 
         <div className="flex-fill py-4 px-3 overflow-y-auto custom-scrollbar">
-          <p className="px-3 small fw-bold text-slate-500 text-uppercase tracking-wider mb-2">Workspace</p>
-          <div className="d-flex flex-column gap-1">{renderSidebarLinks()}</div>
+          {user.user.roleName === UserRole.ANNOTATOR ? (
+            <AnnotatorNavigation />
+          ) : (
+            <>
+              <p className="px-3 small fw-bold text-slate-500 text-uppercase tracking-wider mb-2">Workspace</p>
+              <div className="d-flex flex-column gap-1">{renderSidebarLinks()}</div>
+            </>
+          )}
         </div>
 
         {/* User Profile Snippet */}
@@ -183,7 +194,11 @@ export const Layout = ({ children, user, onLogout }) => {
             <div className="d-flex flex-column gap-2">
               {/* Mobile simplified logic - just close menu on click */}
               <div onClick={() => setMobileMenuOpen(false)}>
-                {renderSidebarLinks()}
+                {user.user.roleName === UserRole.ANNOTATOR ? (
+                  <AnnotatorNavigation />
+                ) : (
+                  renderSidebarLinks()
+                )}
               </div>
 
               <div className="border-top border-slate-800 my-3" style={{ height: '1px' }}></div>
@@ -216,41 +231,13 @@ export const Layout = ({ children, user, onLogout }) => {
           </div>
 
           <div className="d-flex align-items-center gap-2 gap-sm-3">
-            <div className="d-none d-sm-flex position-relative align-items-center">
-              <Search size={16} className="position-absolute text-slate-400" style={{ left: '0.75rem' }} />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="form-control form-control-sm rounded-pill bg-slate-100s border"
-                style={{ paddingLeft: '2.25rem', paddingRight: '1rem', width: '12rem' }}
-              />
+            {/* Search Bar */}
+            <div className="d-none d-sm-block">
+              <SearchBar />
             </div>
 
-            <div className="position-relative">
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="btn btn-link position-relative p-2 text-slate-500 rounded-circle"
-              >
-                <Bell size={20} />
-                <span className="position-absolute bg-danger rounded-circle border border-white" style={{ top: '0.375rem', right: '0.375rem', width: '0.5rem', height: '0.5rem' }}></span>
-              </button>
-
-              {notificationsOpen && (
-                <div className="position-absolute end-0 mt-2 bg-white rounded-3 shadow-lg border border-slate-200 py-2 animate-in fade-in slide-in-from-top-2" style={{ width: '20rem', zIndex: 1050 }}>
-                  <div className="px-4 py-2 border-bottom border-slate-100 fw-semibold small text-slate-800">Notifications</div>
-                  <div className="max-h-64 overflow-y-auto">
-                    <div className="px-4 py-3 border-bottom border-slate-50 cursor-pointer">
-                      <p className="small fw-medium text-slate-800 mb-1">New Batch Assigned</p>
-                      <p className="small text-slate-500">You have been assigned 50 items in "Urban Traffic".</p>
-                    </div>
-                    <div className="px-4 py-3 cursor-pointer">
-                      <p className="small fw-medium text-slate-800 mb-1">Review Rejected</p>
-                      <p className="small text-slate-500">Task #2938 returned for revision.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Notification Dropdown */}
+            <NotificationDropdown />
 
             <div className="d-none d-md-block bg-slate-200" style={{ height: '2rem', width: '1px' }}></div>
 

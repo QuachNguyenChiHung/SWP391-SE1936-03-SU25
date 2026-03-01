@@ -10,6 +10,8 @@ import { ManagerProjects } from './pages/manager/ManagerProjects.jsx';
 import { ManagerProjectDetails } from './pages/manager/ManagerProjectDetails.jsx';
 import { AnnotatorDashboard } from './pages/annotator/AnnotatorDashboard.jsx';
 import { AnnotatorWorkspace } from './pages/annotator/AnnotatorWorkspace.jsx';
+import { NotificationsPage } from './pages/annotator/NotificationsPage.jsx';
+import { Settings } from './pages/annotator/Settings.jsx';
 import { ReviewerDashboard } from './pages/reviewer/ReviewerDashboard.jsx';
 import { ReviewerInterface } from './pages/reviewer/ReviewerInterface.jsx';
 import { AdminDashboard } from './pages/admin/AdminDashboard.jsx';
@@ -130,6 +132,16 @@ const AppRoutes = ({ user, onLogout }) => {
         <Route path="/annotator/workspace" element={
           <ProtectedRoute user={user} allowedRoles={[UserRole.ANNOTATOR]}>
             <AnnotatorWorkspace user={user} />
+          </ProtectedRoute>
+        } />
+        <Route path="/annotator/notifications" element={
+          <ProtectedRoute user={user} allowedRoles={[UserRole.ANNOTATOR]}>
+            <NotificationsPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/annotator/settings" element={
+          <ProtectedRoute user={user} allowedRoles={[UserRole.ANNOTATOR]}>
+            <Settings />
           </ProtectedRoute>
         } />
 

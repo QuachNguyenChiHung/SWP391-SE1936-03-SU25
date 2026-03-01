@@ -133,14 +133,10 @@ export const Profile = () => {
 
     return (
         <div className='profile'>
-            <div className="container-lg mx-auto py-4 animate-fade-in">
+            <div className="container-fluid py-4 animate-fade-in">
                 {/* Header Area */}
                 <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
-                    <div className="d-flex align-items-center gap-3">
-                        <button onClick={() => navigate(-1)} className="btn btn-link text-muted p-0"><ArrowLeft size={18} /></button>
-                        <div className="divider-v"></div>
-                        <h1 className="fs-3 fw-bold text-slate-900 mb-0">Settings</h1>
-                    </div>
+                    <h2 className="fw-bold mb-0">Profile</h2>
                     <button
                         className="btn btn-white border shadow-sm d-flex align-items-center gap-2"
                         onClick={() => setShowPasswordModal(true)}

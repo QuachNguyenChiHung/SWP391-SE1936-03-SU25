@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
     MousePointer2,
     Square,
@@ -11,22 +12,26 @@ import {
     Layers,
     Calendar,
     Trash2,
-    X
+    X,
+    Keyboard,
+    Save
 } from 'lucide-react';
 import api from '../../ultis/api.js';
 import { ToastNotification } from '../../components/annotator/ToastNotification';
 import { ConfirmDeleteModal } from '../../components/annotator/ConfirmDeleteModal';
 import { AnnotationSidebar } from '../../components/annotator/AnnotationSidebar';
+import { KeyboardShortcutsHelp } from '../../components/annotator/KeyboardShortcutsHelp';
+import { ProgressIndicator } from '../../components/annotator/ProgressIndicator';
 import './AnnotatorWorkspace.css';
 
 export const AnnotatorWorkspace = ({ user }) => {
+    const [searchParams] = useSearchParams();
     const [selectedBatch, setSelectedBatch] = useState(null);
     const [taskBatches, setTaskBatches] = useState([]);
     const [batchItems, setBatchItems] = useState([]);
     const [selectedItem, setSelectedItem] = useState(null);
     const [isLoadingBatches, setIsLoadingBatches] = useState(true);
     const [isLoadingItems, setIsLoadingItems] = useState(false);
-    const [selectedItemIds, setSelectedItemIds] = useState([]);
 
     // Workspace State
     const [selectedTool, setSelectedTool] = useState('SELECT');
@@ -35,6 +40,10 @@ export const AnnotatorWorkspace = ({ user }) => {
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [showGuidelines, setShowGuidelines] = useState(true);
     const [projectLabels, setProjectLabels] = useState([]);
+    
+    // New Features State
+    const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+    const [copiedAnnotation, setCopiedAnnotation] = useState(null);
     
     // Zoom and Pan State
     const [zoomLevel, setZoomLevel] = useState(1);
@@ -82,7 +91,17 @@ export const AnnotatorWorkspace = ({ user }) => {
             try {
                 const res = await api.get('/Tasks');
                 if (!mounted) return;
-                setTaskBatches(res?.data?.items || []);
+                const tasks = res?.data?.items || [];
+                setTaskBatches(tasks);
+                
+                // Auto-select task from URL parameter
+                const taskIdFromUrl = searchParams.get('taskId');
+                if (taskIdFromUrl && tasks.length > 0) {
+                    const taskToSelect = tasks.find(t => t.id === parseInt(taskIdFromUrl));
+                    if (taskToSelect) {
+                        setSelectedBatch(taskToSelect);
+                    }
+                }
             } catch (e) {
                 console.error('Failed to fetch task batches:', e?.message || e);
             } finally {
@@ -91,7 +110,7 @@ export const AnnotatorWorkspace = ({ user }) => {
         };
         fetchTaskBatches();
         return () => { mounted = false; };
-    }, [user]);
+    }, [searchParams]);
 
     // Fetch project labels when batch is selected
     useEffect(() => {
@@ -111,27 +130,40 @@ export const AnnotatorWorkspace = ({ user }) => {
         fetchProjectLabels();
     }, [selectedBatch?.projectId]);
 
+    // Auto-fetch items when batch is selected (from URL or manual selection)
+    useEffect(() => {
+        const fetchBatchItems = async () => {
+            if (!selectedBatch?.id) {
+                setBatchItems([]);
+                return;
+            }
+
+            setIsLoadingItems(true);
+            try {
+                // Fetch full task details including items
+                const res = await api.get(`/Tasks/${selectedBatch.id}`);
+                const taskData = res?.data;
+
+                // Extract items from response
+                const items = taskData?.items || [];
+                setBatchItems(items);
+            } catch (e) {
+                console.error('Failed to fetch batch items:', e?.message || e);
+                showToast('Failed to load task items', 'error');
+                setBatchItems([]);
+            } finally {
+                setIsLoadingItems(false);
+            }
+        };
+
+        fetchBatchItems();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedBatch?.id]);
+
     // Fetch items for a specific batch
     const handleSelectBatch = async (batch) => {
+        // Just set the selected batch, the useEffect will handle fetching items
         setSelectedBatch(batch);
-        setIsLoadingItems(true);
-        try {
-            // Fetch full task details including items
-            const res = await api.get(`/Tasks/${batch.id}`);
-            const taskData = res?.data;
-
-            // Update batch with full details
-            setSelectedBatch(taskData);
-
-            // Extract items from response
-            const items = taskData?.items || [];
-            setBatchItems(items);
-        } catch (e) {
-            console.error('Failed to fetch batch items:', e?.message || e);
-            setBatchItems([]);
-        } finally {
-            setIsLoadingItems(false);
-        }
     };
 
     // Initialize workspace when item is selected
@@ -430,42 +462,6 @@ export const AnnotatorWorkspace = ({ user }) => {
         }
     };
 
-    // Delete multiple items
-    const handleDeleteMultipleItems = async (itemIds) => {
-        if (!window.confirm(`Are you sure you want to remove ${itemIds.length} items from your task?`)) {
-            return;
-        }
-
-        try {
-            await api.delete(`/Tasks/${selectedBatch.id}/items`, {
-                data: itemIds
-            });
-
-            // Remove items from local state
-            const updatedItems = batchItems.filter(item => !itemIds.includes(item.id));
-            setBatchItems(updatedItems);
-
-            // Update batch counts
-            const completedCount = updatedItems.filter(i => i.status === 'Completed').length;
-            setSelectedBatch(prev => ({
-                ...prev,
-                totalItems: prev.totalItems - itemIds.length,
-                completedItems: completedCount,
-                progressPercent: prev.totalItems > itemIds.length
-                    ? (completedCount / (prev.totalItems - itemIds.length)) * 100
-                    : 0
-            }));
-
-            // Clear selection
-            setSelectedItemIds([]);
-
-            showToast(`${itemIds.length} items removed from task`, 'success');
-        } catch (e) {
-            console.error('Failed to delete items:', e);
-            showToast('Failed to delete items: ' + (e?.response?.data?.message || e?.message), 'error');
-        }
-    };
-
     // Submit task for review
     const handleSubmitTask = async (taskId) => {
         const task = taskBatches.find(t => t.id === taskId);
@@ -546,7 +542,6 @@ export const AnnotatorWorkspace = ({ user }) => {
         setSelectedBatch(null);
         setSelectedItem(null);
         setBatchItems([]);
-        setSelectedItemIds([]);
     };
 
     const handleBackToItemList = () => {
@@ -898,18 +893,6 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 Submit for Review
                             </button>
                         )}
-
-                        {/* Delete selected items button */}
-                        {selectedItemIds.length > 0 && (
-                            <button
-                                onClick={() => handleDeleteMultipleItems(selectedItemIds)}
-                                className="btn btn-danger d-flex align-items-center gap-2"
-                                style={{ fontSize: '0.875rem' }}
-                            >
-                                <Trash2 size={16} />
-                                Delete {selectedItemIds.length} item{selectedItemIds.length > 1 ? 's' : ''}
-                            </button>
-                        )}
                     </div>
                 </div>
 
@@ -929,49 +912,11 @@ export const AnnotatorWorkspace = ({ user }) => {
                     </div>
                 ) : (
                     <div className="bg-white rounded-4 border border-slate-200 shadow-sm p-4">
-                        {/* Select all checkbox */}
-                        <div className="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
-                            <input
-                                type="checkbox"
-                                className="form-check-input"
-                                checked={selectedItemIds.length === batchItems.length && batchItems.length > 0}
-                                onChange={(e) => {
-                                    if (e.target.checked) {
-                                        setSelectedItemIds(batchItems.map(item => item.id));
-                                    } else {
-                                        setSelectedItemIds([]);
-                                    }
-                                }}
-                                style={{ cursor: 'pointer' }}
-                            />
-                            <label className="text-muted mb-0" style={{ fontSize: '0.875rem', cursor: 'pointer' }}>
-                                Select all items
-                            </label>
-                        </div>
-
                         <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
                             {batchItems.map((item) => (
                                 <div key={item.id} className="col">
                                     <div className="position-relative">
                                         {/* Checkbox overlay */}
-                                        <div className="position-absolute" style={{ top: '0.5rem', left: '0.5rem', zIndex: 10 }}>
-                                            <input
-                                                type="checkbox"
-                                                className="form-check-input"
-                                                checked={selectedItemIds.includes(item.id)}
-                                                onChange={(e) => {
-                                                    e.stopPropagation();
-                                                    if (e.target.checked) {
-                                                        setSelectedItemIds(prev => [...prev, item.id]);
-                                                    } else {
-                                                        setSelectedItemIds(prev => prev.filter(id => id !== item.id));
-                                                    }
-                                                }}
-                                                onClick={(e) => e.stopPropagation()}
-                                                style={{ cursor: 'pointer', width: '1.25rem', height: '1.25rem' }}
-                                            />
-                                        </div>
-
                                         <div
                                             onClick={() => handleSelectItem(item)}
                                             className="task-card bg-white rounded-3 border border-slate-200 overflow-hidden d-flex flex-column h-100"
@@ -1184,6 +1129,30 @@ export const AnnotatorWorkspace = ({ user }) => {
                 </div>
 
                 <div className="d-flex align-items-center gap-2">
+                    {/* Progress Indicator */}
+                    {selectedBatch && (
+                        <ProgressIndicator
+                            completed={selectedBatch.completedItems || 0}
+                            total={selectedBatch.totalItems || 0}
+                            startTime={selectedBatch.startedAt}
+                            compact={true}
+                        />
+                    )}
+                    
+                    <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+                    
+                    {/* Keyboard Shortcuts Button */}
+                    <button
+                        onClick={() => setShowShortcutsHelp(true)}
+                        className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                        title="Keyboard Shortcuts (?)"
+                        style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+                    >
+                        <Keyboard size={14} />
+                    </button>
+                    
+                    <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+                    
                     {/* Navigation buttons */}
                     <button
                         onClick={handlePreviousItem}
@@ -1310,7 +1279,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 />
 
                                 {/* Annotations Layer */}
-                                {annotations.map((ann) => {
+                                {showGuidelines && annotations.map((ann) => {
                             console.log('Rendering annotation:', ann.id, ann);
                             const isBeingDragged = dragRef.current?.id === ann.id;
                             const boxColor = ann.labelColor || '#6366f1';
@@ -1513,16 +1482,25 @@ export const AnnotatorWorkspace = ({ user }) => {
                 </div>
 
                 {/* Right Sidebar */}
-                <AnnotationSidebar
-                    showGuidelines={showGuidelines}
-                    setShowGuidelines={setShowGuidelines}
-                    projectClasses={projectClasses}
-                    activeLabelId={activeLabelId}
-                    setActiveLabelId={setActiveLabelId}
-                    annotations={annotations}
-                    handleDeleteAnnotation={handleDeleteAnnotation}
-                />
+                <div className="d-flex flex-column gap-3 p-3 bg-light border-start" style={{ width: '320px', overflowY: 'auto' }}>
+                    {/* Annotation Sidebar */}
+                    <AnnotationSidebar
+                        showGuidelines={showGuidelines}
+                        setShowGuidelines={setShowGuidelines}
+                        projectClasses={projectLabels}
+                        activeLabelId={activeLabelId}
+                        setActiveLabelId={setActiveLabelId}
+                        annotations={annotations}
+                        handleDeleteAnnotation={handleDeleteAnnotation}
+                    />
+                </div>
             </div>
+
+            {/* Keyboard Shortcuts Help Modal */}
+            <KeyboardShortcutsHelp
+                show={showShortcutsHelp}
+                onClose={() => setShowShortcutsHelp(false)}
+            />
 
             {/* Confirm Delete Modal */}
             <ConfirmDeleteModal
