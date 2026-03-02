@@ -81,6 +81,45 @@ public class ProjectRepository : Repository<Project>, IProjectRepository
         return (items, totalCount);
     }
 
+    public async Task<(IEnumerable<Project> Items, int TotalCount)> GetPagedByAnnotatorAsync(
+        int annotatorId,
+        int pageNumber,
+        int pageSize,
+        ProjectStatus? status = null,
+        string? searchTerm = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Get distinct project IDs where the annotator has tasks assigned
+        var projectIdsQuery = _context.AnnotationTasks
+            .Where(t => t.AnnotatorId == annotatorId)
+            .Select(t => t.ProjectId)
+            .Distinct();
+
+        var query = _dbSet.Where(p => projectIdsQuery.Contains(p.Id));
+
+        if (status.HasValue)
+            query = query.Where(p => p.Status == status.Value);
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(term));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Include(p => p.CreatedBy)
+            .Include(p => p.Dataset)
+                .ThenInclude(d => d!.DataItems)
+            .OrderByDescending(p => p.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
     public async Task<IEnumerable<Project>> GetWithUpcomingDeadlineAsync(int daysAhead, CancellationToken cancellationToken = default)
     {
         var targetDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(daysAhead));

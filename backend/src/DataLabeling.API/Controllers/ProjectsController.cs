@@ -67,7 +67,38 @@ public class ProjectsController : ControllerBase
         var userId = GetUserId();
         var role = GetUserRole();
 
-        // Admin can see all projects, others only their own
+        // Annotator sees only projects where they have assigned tasks
+        if (role == UserRole.Annotator)
+        {
+            var (annotatorItems, annotatorTotalCount) = await _uow.Projects.GetPagedByAnnotatorAsync(
+                userId, pageNumber, pageSize, status, searchTerm, cancellationToken);
+
+            var annotatorResult = annotatorItems.Select(p => new ProjectDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Type = p.Type,
+                Status = p.Status,
+                Deadline = p.Deadline,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt,
+                TotalItems = p.Dataset?.DataItems?.Count ?? 0,
+                FinishedItems = p.Dataset?.DataItems?.Count(d => d.Status == DataItemStatus.Approved) ?? 0
+            }).ToList();
+
+            var annotatorPagedResult = new PagedResult<ProjectDto>
+            {
+                Items = annotatorResult,
+                TotalCount = annotatorTotalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+
+            return Ok(ApiResponse<PagedResult<ProjectDto>>.SuccessResponse(annotatorPagedResult));
+        }
+
+        // Admin can see all projects, Manager sees only their own
         int? creatorFilter = role == UserRole.Admin ? null : userId;
 
         var (items, totalCount) = await _uow.Projects.GetPagedAsync(

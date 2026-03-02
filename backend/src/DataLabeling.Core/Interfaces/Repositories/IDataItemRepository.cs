@@ -44,6 +44,17 @@ public interface IDataItemRepository : IRepository<DataItem>
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets data items assigned to an annotator for a specific project with pagination.
+    /// </summary>
+    Task<(IEnumerable<DataItem> Items, int TotalCount)> GetPagedByAnnotatorAndProjectAsync(
+        int annotatorId,
+        int projectId,
+        int pageNumber,
+        int pageSize,
+        DataItemStatus? status = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Bulk update status for multiple data items.
     /// </summary>
     Task BulkUpdateStatusAsync(IEnumerable<int> ids, DataItemStatus status, CancellationToken cancellationToken = default);

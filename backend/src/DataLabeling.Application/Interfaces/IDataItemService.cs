@@ -47,6 +47,17 @@ public interface IDataItemService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets paginated data items assigned to an annotator for a project.
+    /// </summary>
+    Task<PagedResult<DataItemDto>> GetDataItemsForAnnotatorAsync(
+        int annotatorId,
+        int projectId,
+        int pageNumber,
+        int pageSize,
+        DataItemStatus? status = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets detailed information for a specific data item.
     /// </summary>
     Task<DataItemDetailDto?> GetDataItemDetailAsync(int dataItemId, CancellationToken cancellationToken = default);

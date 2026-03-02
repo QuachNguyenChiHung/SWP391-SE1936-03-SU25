@@ -138,6 +138,17 @@ public class DataItemsController : ControllerBase
         if (project == null)
             return NotFound(new { success = false, message = "Project not found" });
 
+        var userId = GetUserId();
+        var role = GetUserRole();
+
+        // Annotator only sees data items assigned to them
+        if (role == UserRole.Annotator)
+        {
+            var annotatorResult = await _dataItemService.GetDataItemsForAnnotatorAsync(
+                userId, projectId, pageNumber, pageSize, status, cancellationToken);
+            return Ok(annotatorResult);
+        }
+
         var result = await _dataItemService.GetDataItemsAsync(
             projectId, pageNumber, pageSize, status, cancellationToken);
 

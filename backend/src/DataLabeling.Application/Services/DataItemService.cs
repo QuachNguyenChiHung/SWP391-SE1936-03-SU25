@@ -221,6 +221,26 @@ public class DataItemService : IDataItemService
         };
     }
 
+    public async Task<PagedResult<DataItemDto>> GetDataItemsForAnnotatorAsync(
+        int annotatorId,
+        int projectId,
+        int pageNumber,
+        int pageSize,
+        DataItemStatus? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (items, totalCount) = await _unitOfWork.DataItems.GetPagedByAnnotatorAndProjectAsync(
+            annotatorId, projectId, pageNumber, pageSize, status, cancellationToken);
+
+        return new PagedResult<DataItemDto>
+        {
+            Items = _mapper.Map<IEnumerable<DataItemDto>>(items),
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+    }
+
     public async Task<DataItemDetailDto?> GetDataItemDetailAsync(int dataItemId, CancellationToken cancellationToken = default)
     {
         var dataItem = await _unitOfWork.DataItems.GetWithDetailsAsync(dataItemId, cancellationToken);
