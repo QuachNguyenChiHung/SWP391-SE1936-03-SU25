@@ -118,7 +118,7 @@ export const AdminPanel = ({ user }) => {
     const handleCreate = async (e) => {
         e.preventDefault();
         setUsersError(null);
-        
+
         // Convert role name to role ID
         const roleMap = {
             'Admin': 1,
@@ -126,7 +126,7 @@ export const AdminPanel = ({ user }) => {
             'Annotator': 3,
             'Reviewer': 4
         };
-        
+
         const payload = {
             email: newUser.email,
             password: newUser.password,
@@ -149,9 +149,9 @@ export const AdminPanel = ({ user }) => {
         } catch (err) {
             console.error('Failed to create user', err);
             console.error('Error response:', err?.response?.data);
-            
+
             let errorMessage = 'Unknown error';
-            
+
             if (err?.response?.data) {
                 const data = err.response.data;
                 // Handle different error formats
@@ -174,7 +174,7 @@ export const AdminPanel = ({ user }) => {
             } else if (err.message) {
                 errorMessage = err.message;
             }
-            
+
             setUsersError('Failed to create user: ' + errorMessage);
             alert('Failed to create user: ' + errorMessage);
         }
@@ -218,10 +218,10 @@ export const AdminPanel = ({ user }) => {
     };
 
     const StatusBadge = ({ active }) => (
-        <span className={`d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill text-xs fw-medium border ${active ? 'bg-success-subtle text-success-emphasis border-success-subtle' : 'bg-light text-muted border-light-subtle'
+        <span className={`d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill text-xs fw-medium border ${active == "Active" ? 'bg-success-subtle text-success-emphasis border-success-subtle' : 'bg-light text-muted border-light-subtle'
             }`} style={{ fontSize: '0.75rem' }}>
-            <span className={`rounded-circle ${active ? 'bg-success' : 'bg-secondary'}`} style={{ width: '6px', height: '6px' }}></span>
-            {active ? 'Active' : 'Inactive'}
+            <span className={`rounded-circle ${active == "Active" ? 'bg-success' : 'bg-secondary'}`} style={{ width: '6px', height: '6px' }}></span>
+            {active}
         </span>
     );
 
@@ -308,7 +308,7 @@ export const AdminPanel = ({ user }) => {
                                                     </div>
                                                 </td>
                                                 <td><RoleBadge role={user.role} /></td>
-                                                <td><StatusBadge active={user.active} /></td>
+                                                <td><StatusBadge active={user.status} /></td>
                                                 <td className="text-muted small">
                                                     <div className="d-flex align-items-center gap-2">
                                                         <Calendar size={14} />
@@ -547,7 +547,7 @@ export const AdminPanel = ({ user }) => {
                                             className={`flex-fill border rounded p-2 d-flex align-items-center gap-2 cursor-pointer transition-all ${editingUser.active ? 'border-success bg-success-subtle' : 'border-light bg-light'}`}
                                             onClick={() => setEditingUser({ ...editingUser, active: true })}
                                         >
-                                            <div className={`rounded-circle p-1 ${editingUser.active ? 'bg-success text-white' : 'bg-secondary text-white'}`}>
+                                            <div className={`rounded-circle p-1 ${editingUser.status ? 'bg-success text-white' : 'bg-secondary text-white'}`}>
                                                 <CheckCircle2 size={12} />
                                             </div>
                                             <span className={`small fw-medium ${editingUser.active ? 'text-success-emphasis' : 'text-muted'}`}>Active</span>
