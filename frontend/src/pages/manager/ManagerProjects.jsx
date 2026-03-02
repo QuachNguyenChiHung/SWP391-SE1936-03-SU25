@@ -13,7 +13,7 @@ export const ManagerProjects = ({ user }) => {
     const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
     const [projectName, setProjectName] = useState('');
     const [projectDescription, setProjectDescription] = useState('');
-    const [projectType, setProjectType] = useState('');
+    const [projectType, setProjectType] = useState('Classification');
     const [projectDeadline, setProjectDeadline] = useState('');
     const [deadlineError, setDeadlineError] = useState('');
     const [projects, setProjects] = useState([]);
@@ -67,13 +67,16 @@ export const ManagerProjects = ({ user }) => {
             const p = await api.get(`/Projects/?pageNumber=${page}&pageSize=${pageLength}`);
             setProjects(p.data.data.items);
         } catch (error) {
-            alert("Failed to create project");
-            console.error("Error creating project:", error.response || error.message);
+            if (error.response) {
+                alert(error.response.data.errors || 'Failed to create project');
+            }
+
+            console.error(error.response.data.errors || error.message);
         }
 
         setProjectName('');
         setProjectDescription('');
-        setProjectType('');
+        setProjectType('Classification');
         setProjectDeadline('');
         setDeadlineError('');
         setIsCreateProjectModalOpen(false);

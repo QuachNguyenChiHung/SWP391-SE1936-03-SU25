@@ -279,11 +279,8 @@
 
 .input-wrapper {
   position: relative;
-  transition: all 0.3s ease;
-}
-
-.input-wrapper:focus-within {
-  transform: translateY(-2px);
+  display: flex;
+  align-items: center;
 }
 
 .input-icon {
@@ -294,6 +291,10 @@
   color: #94a3b8;
   transition: color 0.3s ease;
   pointer-events: none;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .input-wrapper:focus-within .input-icon {
@@ -302,12 +303,14 @@
 
 .form-input {
   width: 100%;
-  padding: 0.625rem 0.75rem 0.625rem 2.75rem;
+  padding: 0.625rem 2.75rem 0.625rem 2.75rem;
   font-size: 0.875rem;
   background-color: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
 }
 
 .form-input:focus {
@@ -328,9 +331,16 @@
 
 .input-icon-right {
   position: absolute;
-  right: 0.75rem;
+  right: 0.5rem;
   top: 50%;
   transform: translateY(-50%);
+  z-index: 20;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 0.375rem;
 }
 
 .password-toggle {
@@ -338,20 +348,67 @@
   border: none;
   color: #94a3b8;
   cursor: pointer;
-  padding: 0.25rem;
+  padding: 0.5rem;
   display: flex;
   align-items: center;
+  justify-content: center;
   transition: all 0.2s ease;
+  border-radius: 0.375rem;
+  line-height: 1;
 }
 
 .password-toggle:hover {
   color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.1);
 }
 
 .password-toggle:focus {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
-  border-radius: 0.25rem;
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* ===== PASSWORD FIELD GROUP ===== */
+.password-field-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.password-field-group .input-wrapper {
+  flex: 1;
+}
+
+.password-toggle-btn {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.625rem 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border-radius: 0.75rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.password-toggle-btn:hover {
+  color: #3b82f6;
+  background-color: white;
+  border-color: #94a3b8;
+}
+
+.password-toggle-btn:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  background-color: white;
+  border-color: #3b82f6;
+}
+
+.password-field-group .input-wrapper input.form-input {
+  padding: 0.625rem 0.75rem 0.625rem 2.75rem;
 }
 
 .email-valid-icon {

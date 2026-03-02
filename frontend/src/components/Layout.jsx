@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { UserRole } from '../types.js';
 import {
   LayoutDashboard,
@@ -20,12 +20,14 @@ import {
   CreditCard,
   UserIcon
 } from 'lucide-react';
+import { AnnotatorNavigation } from './annotator/AnnotatorNavigation.jsx';
+import { SearchBar } from './common/SearchBar.jsx';
+import { NotificationDropdown } from './common/NotificationDropdown.jsx';
 
 export const Layout = ({ children, user, onLogout }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Helper function to check if a path is active
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
@@ -38,14 +40,17 @@ export const Layout = ({ children, user, onLogout }) => {
     if (path.includes('/workspace')) return 'Workspace';
     if (path.includes('/reviews')) return 'Review Queue';
     if (path.includes('/users')) return 'User Management';
+    if (path.includes('/notifications')) return 'Notifications';
+    if (path.includes('/settings')) return 'Settings';
+    if (path.includes('/profile')) return 'Profile';
     return 'Dashboard';
   };
 
   // Render Sidebar Links based on Role
   const renderSidebarLinks = () => {
     const linkClass = (path) =>
-      `w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 small fw-medium text-decoration-none ${isActive(path)
-        ? 'bg-indigo-600 text-white shadow'
+      `w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 small fw-medium text-decoration-none sidebar-link ${isActive(path)
+        ? 'bg-indigo-600 text-white sidebar-link-active'
         : 'text-slate-400'
       }`;
 
@@ -120,8 +125,14 @@ export const Layout = ({ children, user, onLogout }) => {
         </div>
 
         <div className="flex-fill py-4 px-3 overflow-y-auto custom-scrollbar">
-          <p className="px-3 small fw-bold text-slate-500 text-uppercase tracking-wider mb-2">Workspace</p>
-          <div className="d-flex flex-column gap-1">{renderSidebarLinks()}</div>
+          {user.user.roleName === UserRole.ANNOTATOR ? (
+            <AnnotatorNavigation />
+          ) : (
+            <>
+              <p className="px-3 small fw-bold text-slate-500 text-uppercase tracking-wider mb-2">Workspace</p>
+              <div className="d-flex flex-column gap-1">{renderSidebarLinks()}</div>
+            </>
+          )}
         </div>
 
         {/* User Profile Snippet */}
@@ -129,23 +140,38 @@ export const Layout = ({ children, user, onLogout }) => {
           <div className="d-flex align-items-center gap-2">
             {/* Clickable Area for Profile */}
             <div
-              className="d-flex align-items-center gap-3 flex-fill min-w-0 cursor-pointer rounded-3 p-2 transition-all"
-              onClick={() => setProfileModalOpen(true)}
-              style={{ marginLeft: '-0.5rem' }}
+              className="sidebar-link rounded-3 px-3 py-2 flex-fill"
+              onClick={() => navigate('/profile')}
+              style={{ cursor: 'pointer', margin: '-0.75rem -0.5rem -0.75rem -0.75rem', padding: '0.75rem' }}
+              title="View Profile"
             >
-              <img
-                src={user.avatarUrl}
-                alt="User"
-                className="w-9 h-9 rounded-circle ring-2 ring-slate-700 bg-slate-800"
-              />
-              <div className="flex-fill text-start">
-                <p className="small fw-medium text-white">{user.user.name}</p>
-                <p className="text-[10px] text-uppercase fw-bold text-slate-500 tracking-wider">{user.user.roleName}</p>
+              <div className="d-flex align-items-center gap-3">
+                <img
+                  src={user.avatarUrl}
+                  alt="User"
+                  style={{ width: '36px', height: '36px', flexShrink: 0 }}
+                  className="rounded-circle border border-2 border-slate-700 bg-slate-800"
+                />
+                <div className="flex-fill text-start" style={{ minWidth: 0 }}>
+                  <p className="small fw-medium text-white mb-0 text-truncate">{user.user.name}</p>
+                  <p className="text-uppercase fw-bold text-slate-500 mb-0" style={{ fontSize: '10px', letterSpacing: '0.05em' }}>{user.user.roleName}</p>
+                </div>
               </div>
             </div>
 
             {/* Separate Logout Button */}
-            <button onClick={onLogout} className="btn btn-link text-slate-500 p-2 rounded" title="Logout">
+            <button 
+              onClick={onLogout} 
+              className="btn btn-link text-slate-500 rounded d-flex align-items-center justify-content-center" 
+              title="Logout"
+              style={{ 
+                flexShrink: 0, 
+                width: '36px', 
+                height: '36px',
+                padding: 0,
+                minWidth: 'auto'
+              }}
+            >
               <LogOut size={16} />
             </button>
           </div>
@@ -168,13 +194,17 @@ export const Layout = ({ children, user, onLogout }) => {
             <div className="d-flex flex-column gap-2">
               {/* Mobile simplified logic - just close menu on click */}
               <div onClick={() => setMobileMenuOpen(false)}>
-                {renderSidebarLinks()}
+                {user.user.roleName === UserRole.ANNOTATOR ? (
+                  <AnnotatorNavigation />
+                ) : (
+                  renderSidebarLinks()
+                )}
               </div>
 
               <div className="border-top border-slate-800 my-3" style={{ height: '1px' }}></div>
 
               <button
-                onClick={() => { setMobileMenuOpen(false); setProfileModalOpen(true); }}
+                onClick={() => { setMobileMenuOpen(false); navigate('/profile'); }}
                 className="w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 text-slate-400 fw-medium btn btn-link text-decoration-none text-start"
               >
                 <UserIcon size={18} />
@@ -201,41 +231,13 @@ export const Layout = ({ children, user, onLogout }) => {
           </div>
 
           <div className="d-flex align-items-center gap-2 gap-sm-3">
-            <div className="d-none d-sm-flex position-relative align-items-center">
-              <Search size={16} className="position-absolute text-slate-400" style={{ left: '0.75rem' }} />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="form-control form-control-sm rounded-pill bg-slate-100s border"
-                style={{ paddingLeft: '2.25rem', paddingRight: '1rem', width: '12rem' }}
-              />
+            {/* Search Bar */}
+            <div className="d-none d-sm-block">
+              <SearchBar />
             </div>
 
-            <div className="position-relative">
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="btn btn-link position-relative p-2 text-slate-500 rounded-circle"
-              >
-                <Bell size={20} />
-                <span className="position-absolute bg-danger rounded-circle border border-white" style={{ top: '0.375rem', right: '0.375rem', width: '0.5rem', height: '0.5rem' }}></span>
-              </button>
-
-              {notificationsOpen && (
-                <div className="position-absolute end-0 mt-2 bg-white rounded-3 shadow-lg border border-slate-200 py-2 animate-in fade-in slide-in-from-top-2" style={{ width: '20rem', zIndex: 1050 }}>
-                  <div className="px-4 py-2 border-bottom border-slate-100 fw-semibold small text-slate-800">Notifications</div>
-                  <div className="max-h-64 overflow-y-auto">
-                    <div className="px-4 py-3 border-bottom border-slate-50 cursor-pointer">
-                      <p className="small fw-medium text-slate-800 mb-1">New Batch Assigned</p>
-                      <p className="small text-slate-500">You have been assigned 50 items in "Urban Traffic".</p>
-                    </div>
-                    <div className="px-4 py-3 cursor-pointer">
-                      <p className="small fw-medium text-slate-800 mb-1">Review Rejected</p>
-                      <p className="small text-slate-500">Task #2938 returned for revision.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Notification Dropdown */}
+            <NotificationDropdown />
 
             <div className="d-none d-md-block bg-slate-200" style={{ height: '2rem', width: '1px' }}></div>
 
@@ -252,69 +254,6 @@ export const Layout = ({ children, user, onLogout }) => {
           {children}
         </main>
       </div>
-
-      {/* User Profile Modal */}
-      {profileModalOpen && (
-        <div className="position-fixed top-0 start-0 bottom-0 end-0 d-flex align-items-center justify-content-center p-4 backdrop-blur-sm animate-in fade-in duration-200" style={{ zIndex: 1100, backgroundColor: 'rgba(15, 23, 42, 0.5)' }}>
-          <div className="bg-white w-100 rounded-3 shadow-lg overflow-hidden animate-in zoom-in-95 duration-200" style={{ maxWidth: '28rem' }} onClick={e => e.stopPropagation()}>
-
-            {/* Header */}
-            <div className="px-4 py-3 border-bottom border-slate-100 d-flex justify-content-between align-items-center bg-slate-50">
-              <h3 className="fw-bold text-slate-800 d-flex align-items-center gap-2 mb-0">
-                <UserIcon size={18} className="text-slate-500" />
-                User Profile
-              </h3>
-              <button onClick={() => setProfileModalOpen(false)} className="btn btn-link text-slate-400 p-1 rounded">
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-4 p-md-5 d-flex flex-column align-items-center">
-              <div className="position-relative mb-4">
-                <img src={user.avatarUrl} alt={user.user.name} className="w-24 h-24 rounded-circle border border-4 border-slate-50 shadow-lg" />
-                <div className="position-absolute bottom-0 end-0 w-6 h-6 bg-success border border-4 border-white rounded-circle"></div>
-              </div>
-
-              <h2 className="fs-4 fw-bold text-slate-900 mb-2">{user.user.roleName}</h2>
-              <p className="text-slate-500 small mb-4 d-flex align-items-center gap-1">
-                <Mail size={14} />
-                {user.email}
-              </p>
-
-              <div className="d-flex gap-2 mb-4">
-                <span className="badge bg-indigo-50 text-indigo-700 border border-indigo-100 text-uppercase fw-bold d-flex align-items-center gap-1" style={{ fontSize: '0.75rem', letterSpacing: '0.05em', padding: '0.5rem 0.75rem' }}>
-                  <Shield size={12} />
-                  {user.role}
-                </span>
-                <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 text-uppercase fw-bold d-flex align-items-center gap-1" style={{ fontSize: '0.75rem', letterSpacing: '0.05em', padding: '0.5rem 0.75rem' }}>
-                  <CheckCircle size={12} />
-                  Active Status
-                </span>
-              </div>
-
-              <div className="w-100 d-flex flex-column gap-3">
-                <div className="d-flex justify-content-between align-items-center p-3 bg-slate-50 rounded-3 small border border-slate-100">
-                  <span className="text-slate-500">User ID</span>
-                  <span className="font-monospace text-slate-700 bg-white px-2 py-1 rounded border border-slate-200">{user.id}</span>
-                </div>
-                <div className="d-flex justify-content-between align-items-center p-3 bg-slate-50 rounded-3 small border border-slate-100">
-                  <span className="text-slate-500">Subscription</span>
-                  <span className="text-slate-700 fw-medium d-flex align-items-center gap-2">
-                    <CreditCard size={14} className="text-slate-400" />
-                    Enterprise Plan
-                  </span>
-                </div>
-              </div>
-
-              <button className="btn btn-dark w-100 mt-4 fw-bold py-3 rounded-3 shadow d-flex align-items-center justify-content-center gap-2">
-                <Settings size={18} />
-                Edit Profile
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -10,10 +10,13 @@ import { ManagerProjects } from './pages/manager/ManagerProjects.jsx';
 import { ManagerProjectDetails } from './pages/manager/ManagerProjectDetails.jsx';
 import { AnnotatorDashboard } from './pages/annotator/AnnotatorDashboard.jsx';
 import { AnnotatorWorkspace } from './pages/annotator/AnnotatorWorkspace.jsx';
+import { NotificationsPage } from './pages/annotator/NotificationsPage.jsx';
+import { Settings } from './pages/annotator/Settings.jsx';
 import { ReviewerDashboard } from './pages/reviewer/ReviewerDashboard.jsx';
 import { ReviewerInterface } from './pages/reviewer/ReviewerInterface.jsx';
 import { AdminDashboard } from './pages/admin/AdminDashboard.jsx';
 import { AdminPanel } from './pages/admin/AdminPanel.jsx';
+import { Profile } from './pages/Profile.jsx';
 import { UserRole } from './types.js';
 import getInforFromCookie from './ultis/getInfoFromCookie.js';
 
@@ -62,7 +65,11 @@ const NotFound = () => (
 // Component wrapper for HomePage with navigation
 const HomePageWrapper = () => {
   const navigate = useNavigate();
-  return <HomePage onNavigateToLogin={() => navigate('/login')} />;
+  const handleNavigateToLogin = () => {
+    console.log('Navigating to login...');
+    navigate('/login');
+  };
+  return <HomePage onNavigateToLogin={handleNavigateToLogin} />;
 };
 
 // Component wrapper for Login with navigation
@@ -89,6 +96,13 @@ const AppRoutes = ({ user, onLogout }) => {
         {/* Default route - redirect to role-specific dashboard */}
         <Route path="/" element={<Navigate to={getDefaultPath(user.user.roleName)} replace />} />
         <Route path="/login" element={<Navigate to={getDefaultPath(user.user.roleName)} replace />} />
+
+        {/* Profile Route - Available for all authenticated users */}
+        <Route path="/profile" element={
+          <ProtectedRoute user={user}>
+            <Profile />
+          </ProtectedRoute>
+        } />
 
         {/* Admin Routes */}
         <Route path="/admin/dashboard" element={
@@ -118,6 +132,16 @@ const AppRoutes = ({ user, onLogout }) => {
         <Route path="/annotator/workspace" element={
           <ProtectedRoute user={user} allowedRoles={[UserRole.ANNOTATOR]}>
             <AnnotatorWorkspace user={user} />
+          </ProtectedRoute>
+        } />
+        <Route path="/annotator/notifications" element={
+          <ProtectedRoute user={user} allowedRoles={[UserRole.ANNOTATOR]}>
+            <NotificationsPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/annotator/settings" element={
+          <ProtectedRoute user={user} allowedRoles={[UserRole.ANNOTATOR]}>
+            <Settings />
           </ProtectedRoute>
         } />
 

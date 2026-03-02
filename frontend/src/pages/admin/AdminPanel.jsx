@@ -58,21 +58,10 @@ export const AdminPanel = ({ user }) => {
         fetchUsers();
     }, []);
 
-
-    const roleNameToId = (roleName) => {
-        switch ((roleName || '').toLowerCase()) {
-            case 'admin': return 1;
-            case 'manager': return 2;
-            case 'annotator': return 3;
-            case 'reviewer': return 4;
-            default: return 3;
-        }
-    };
-
     const handleEditClick = async (user) => {
         try {
             const token = JSON.parse(localStorage.getItem('user'))?.token;
-            const res = await axios.get((import.meta.env.VITE_URL || '') + `/Users/${user.id}`, {
+            const res = await api.get(`/Users/${user.id}`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
             const it = res?.data?.data;
@@ -98,15 +87,23 @@ export const AdminPanel = ({ user }) => {
         e.preventDefault();
         if (!editingUser) return;
 
+        // Convert role name to role ID
+        const roleMap = {
+            'Admin': 1,
+            'Manager': 2,
+            'Annotator': 3,
+            'Reviewer': 4
+        };
+
         const payload = {
             name: editingUser.name,
-            role: roleNameToId(editingUser.role),
-            status: editingUser.active ? 1 : 0
+            role: roleMap[editingUser.role] || 3, // Convert to number
+            status: editingUser.active ? 1 : 2 // 1=Active, 2=Inactive
         };
 
         try {
             const token = JSON.parse(localStorage.getItem('user'))?.token;
-            await axios.put((import.meta.env.VITE_URL || '') + `/Users/${editingUser.id}`, payload, {
+            await api.put(`/Users/${editingUser.id}`, payload, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
 
@@ -121,25 +118,65 @@ export const AdminPanel = ({ user }) => {
     const handleCreate = async (e) => {
         e.preventDefault();
         setUsersError(null);
+        
+        // Convert role name to role ID
+        const roleMap = {
+            'Admin': 1,
+            'Manager': 2,
+            'Annotator': 3,
+            'Reviewer': 4
+        };
+        
         const payload = {
             email: newUser.email,
             password: newUser.password,
             name: newUser.username,
-            role: roleNameToId(newUser.role)
+            role: roleMap[newUser.role] || 3 // Default to Annotator if not found
         };
+
+        console.log('Creating user with payload:', payload);
 
         try {
             const token = JSON.parse(localStorage.getItem('user'))?.token;
-            await axios.post((import.meta.env.VITE_URL || '') + '/Users', payload, {
+            const response = await api.post('/Users', payload, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
 
+            console.log('User created successfully:', response.data);
             await fetchUsers();
             setCreatingUser(false);
             setNewUser({ username: '', password: '', email: '', role: UserRole.ANNOTATOR });
         } catch (err) {
             console.error('Failed to create user', err);
-            alert('Failed to create user: ' + (err?.response?.data?.message || err.message));
+            console.error('Error response:', err?.response?.data);
+            
+            let errorMessage = 'Unknown error';
+            
+            if (err?.response?.data) {
+                const data = err.response.data;
+                // Handle different error formats
+                if (data.message) {
+                    errorMessage = data.message;
+                } else if (data.errors) {
+                    // errors could be array or object
+                    if (Array.isArray(data.errors)) {
+                        errorMessage = data.errors.join(', ');
+                    } else if (typeof data.errors === 'object') {
+                        errorMessage = Object.values(data.errors).flat().join(', ');
+                    } else {
+                        errorMessage = String(data.errors);
+                    }
+                } else if (typeof data === 'string') {
+                    errorMessage = data;
+                } else {
+                    errorMessage = JSON.stringify(data);
+                }
+            } else if (err.message) {
+                errorMessage = err.message;
+            }
+            
+            setUsersError('Failed to create user: ' + errorMessage);
+            alert('Failed to create user: ' + errorMessage);
         }
     };
 
@@ -147,7 +184,7 @@ export const AdminPanel = ({ user }) => {
         if (!deletingUser) return;
         try {
             const token = JSON.parse(localStorage.getItem('user'))?.token;
-            await axios.delete((import.meta.env.VITE_URL || '') + `/Users/${deletingUser.id}`, {
+            await api.delete(`/Users/${deletingUser.id}`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
             await fetchUsers();
