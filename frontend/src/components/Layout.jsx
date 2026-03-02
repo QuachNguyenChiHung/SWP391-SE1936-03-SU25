@@ -17,8 +17,7 @@ import {
   User,
   Mail,
   Shield,
-  CreditCard,
-  UserIcon
+  CreditCard
 } from 'lucide-react';
 import { AnnotatorNavigation } from './annotator/AnnotatorNavigation.jsx';
 import { SearchBar } from './common/SearchBar.jsx';
@@ -116,63 +115,70 @@ export const Layout = ({ children, user, onLogout }) => {
     <div className="layout-container d-flex vh-100 bg-slate-50 overflow-hidden">
 
       {/* Desktop Sidebar */}
-      <aside className="d-none d-md-flex flex-column bg-slate-900 text-slate-300 shadow-lg border-end border-slate-800" style={{ width: '16rem', zIndex: 50 }}>
-        <div className="d-flex align-items-center gap-3 p-4 border-bottom border-slate-800">
-          <div className="w-8 h-8 bg-indigo-600 rounded-3 d-flex align-items-center justify-content-center text-white fw-bold shadow-lg">
-            L
+      <aside className="d-none d-md-flex flex-column text-slate-300" style={{ width: '16rem', zIndex: 50, background: 'linear-gradient(180deg, #0f172a 0%, #0f172a 100%)', boxShadow: '4px 0 24px rgba(0,0,0,0.18)', borderRight: '1px solid #1e293b' }}>
+        {/* Logo */}
+        <div className="d-flex align-items-center gap-3 px-4 border-bottom border-slate-800" style={{ paddingTop: '1.25rem', paddingBottom: '1.25rem' }}>
+          <div className="d-flex align-items-center justify-content-center text-white fw-bold rounded-3" style={{ width: '34px', height: '34px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', boxShadow: '0 4px 12px rgba(99,102,241,0.45)', flexShrink: 0, fontSize: '15px', letterSpacing: '-1px' }}>
+            LN
           </div>
-          <span className="fs-4 fw-semibold text-white tracking-tight">LabelNexus</span>
+          <div>
+            <span className="fw-bold text-white" style={{ fontSize: '1rem', letterSpacing: '-0.3px' }}>LabelNexus</span>
+            <p className="mb-0 text-slate-500" style={{ fontSize: '10px', letterSpacing: '0.5px' }}>ANNOTATION PLATFORM</p>
+          </div>
         </div>
 
-        <div className="flex-fill py-4 px-3 overflow-y-auto custom-scrollbar">
+        <div className="flex-fill px-3 overflow-y-auto custom-scrollbar" style={{ paddingTop: '1rem', paddingBottom: '1rem' }}>
           {user.user.roleName === UserRole.ANNOTATOR ? (
             <AnnotatorNavigation />
           ) : (
-            <>
-              <p className="px-3 small fw-bold text-slate-500 text-uppercase tracking-wider mb-2">Workspace</p>
-              <div className="d-flex flex-column gap-1">{renderSidebarLinks()}</div>
-            </>
+            <div className="d-flex flex-column" style={{ gap: '1.5rem' }}>
+              <div className="d-flex flex-column gap-1">
+                <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>Workspace</p>
+                {renderSidebarLinks()}
+              </div>
+              <div className="d-flex flex-column gap-1">
+                <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>Account</p>
+                <Link to="/profile" className={`w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 small fw-medium text-decoration-none sidebar-link ${
+                  isActive('/profile') ? 'bg-indigo-600 text-white sidebar-link-active' : 'text-slate-400'
+                }`}>
+                  <User size={18} />
+                  Profile
+                </Link>
+              </div>
+            </div>
           )}
         </div>
 
         {/* User Profile Snippet */}
-        <div className="p-3 border-top border-slate-800 bg-slate-900">
-          <div className="d-flex align-items-center gap-2">
-            {/* Clickable Area for Profile */}
+        <div className="border-top border-slate-800" style={{ padding: '0.75rem', background: 'rgba(15,23,42,0.8)' }}>
+          <div className="d-flex align-items-center gap-2 rounded-3 px-2 py-2" style={{ background: 'rgba(30,41,59,0.6)' }}>
             <div
-              className="sidebar-link rounded-3 px-3 py-2 flex-fill"
+              className="d-flex align-items-center gap-2 flex-fill sidebar-link rounded-3"
               onClick={() => navigate('/profile')}
-              style={{ cursor: 'pointer', margin: '-0.75rem -0.5rem -0.75rem -0.75rem', padding: '0.75rem' }}
+              style={{ cursor: 'pointer', padding: '0.375rem 0.5rem', minWidth: 0 }}
               title="View Profile"
             >
-              <div className="d-flex align-items-center gap-3">
+              <div className="position-relative" style={{ flexShrink: 0 }}>
                 <img
                   src={user.avatarUrl}
                   alt="User"
-                  style={{ width: '36px', height: '36px', flexShrink: 0 }}
+                  style={{ width: '34px', height: '34px', display: 'block' }}
                   className="rounded-circle border border-2 border-slate-700 bg-slate-800"
                 />
-                <div className="flex-fill text-start" style={{ minWidth: 0 }}>
-                  <p className="small fw-medium text-white mb-0 text-truncate">{user.user.name}</p>
-                  <p className="text-uppercase fw-bold text-slate-500 mb-0" style={{ fontSize: '10px', letterSpacing: '0.05em' }}>{user.user.roleName}</p>
-                </div>
+                <span className="position-absolute bottom-0 end-0 rounded-circle border border-2 border-slate-800" style={{ width: '10px', height: '10px', background: '#10b981' }}></span>
+              </div>
+              <div className="flex-fill text-start" style={{ minWidth: 0 }}>
+                <p className="small fw-semibold text-white mb-0 text-truncate" style={{ lineHeight: 1.3 }}>{user.user.name}</p>
+                <p className="text-uppercase fw-bold text-slate-500 mb-0" style={{ fontSize: '10px', letterSpacing: '0.06em', lineHeight: 1.3 }}>{user.user.roleName}</p>
               </div>
             </div>
-
-            {/* Separate Logout Button */}
             <button 
               onClick={onLogout} 
-              className="btn btn-link text-slate-500 rounded d-flex align-items-center justify-content-center" 
-              title="Logout"
-              style={{ 
-                flexShrink: 0, 
-                width: '36px', 
-                height: '36px',
-                padding: 0,
-                minWidth: 'auto'
-              }}
+              className="btn btn-link text-slate-500 d-flex align-items-center justify-content-center rounded-2" 
+              title="Sign Out"
+              style={{ flexShrink: 0, width: '32px', height: '32px', padding: 0, minWidth: 'auto' }}
             >
-              <LogOut size={16} />
+              <LogOut size={15} />
             </button>
           </div>
         </div>
@@ -180,40 +186,46 @@ export const Layout = ({ children, user, onLogout }) => {
 
       {/* Mobile Drawer (Overlay) */}
       {mobileMenuOpen && (
-        <div className="position-fixed top-0 start-0 bottom-0 end-0 d-md-none backdrop-blur-sm" style={{ zIndex: 1050, backgroundColor: 'rgba(15, 23, 42, 0.5)' }} onClick={() => setMobileMenuOpen(false)}>
-          <div className="position-absolute start-0 top-0 bottom-0 bg-slate-900 p-4 shadow-lg max-w-xs" style={{ width: '75%' }} onClick={e => e.stopPropagation()}>
-            <div className="d-flex align-items-center justify-content-between mb-4">
+        <div className="position-fixed top-0 start-0 bottom-0 end-0 d-md-none" style={{ zIndex: 1050, backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(2px)' }} onClick={() => setMobileMenuOpen(false)}>
+          <div className="position-absolute start-0 top-0 bottom-0 shadow-lg" style={{ width: 'min(75%, 300px)', background: 'linear-gradient(180deg, #0f172a 0%, #0f172a 100%)', borderRight: '1px solid #1e293b' }} onClick={e => e.stopPropagation()}>
+            {/* Mobile Header */}
+            <div className="d-flex align-items-center justify-content-between px-4 border-bottom border-slate-800" style={{ paddingTop: '1.25rem', paddingBottom: '1.25rem' }}>
               <div className="d-flex align-items-center gap-3">
-                <div className="w-8 h-8 bg-indigo-600 rounded-3 d-flex align-items-center justify-content-center text-white fw-bold">L</div>
-                <span className="fs-4 fw-semibold text-white">LabelNexus</span>
+                <div className="d-flex align-items-center justify-content-center text-white fw-bold rounded-3" style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', boxShadow: '0 4px 12px rgba(99,102,241,0.4)', flexShrink: 0, fontSize: '13px' }}>LN</div>
+                <span className="fw-bold text-white" style={{ fontSize: '0.95rem' }}>LabelNexus</span>
               </div>
-              <button onClick={() => setMobileMenuOpen(false)} className="btn btn-link text-slate-400">
-                <X size={24} />
+              <button onClick={() => setMobileMenuOpen(false)} className="btn btn-link text-slate-400 p-1">
+                <X size={22} />
               </button>
             </div>
-            <div className="d-flex flex-column gap-2">
-              {/* Mobile simplified logic - just close menu on click */}
+            {/* Mobile Nav */}
+            <div className="px-3 overflow-y-auto custom-scrollbar" style={{ paddingTop: '1rem', paddingBottom: '1rem' }}>
               <div onClick={() => setMobileMenuOpen(false)}>
                 {user.user.roleName === UserRole.ANNOTATOR ? (
                   <AnnotatorNavigation />
                 ) : (
-                  renderSidebarLinks()
+                  <div className="d-flex flex-column" style={{ gap: '1.5rem' }}>
+                    <div className="d-flex flex-column gap-1">
+                      <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>Workspace</p>
+                      {renderSidebarLinks()}
+                    </div>
+                    <div className="d-flex flex-column gap-1">
+                      <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>Account</p>
+                      <button
+                        onClick={() => navigate('/profile')}
+                        className="w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 text-slate-400 small fw-medium btn btn-link text-decoration-none text-start sidebar-link"
+                      >
+                        <User size={18} />
+                        Profile
+                      </button>
+                      <button onClick={onLogout} className="w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 text-slate-400 small fw-medium btn btn-link text-decoration-none text-start sidebar-link">
+                        <LogOut size={18} />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
-
-              <div className="border-top border-slate-800 my-3" style={{ height: '1px' }}></div>
-
-              <button
-                onClick={() => { setMobileMenuOpen(false); navigate('/profile'); }}
-                className="w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 text-slate-400 fw-medium btn btn-link text-decoration-none text-start"
-              >
-                <UserIcon size={18} />
-                My Profile
-              </button>
-              <button onClick={onLogout} className="w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 text-slate-400 fw-medium btn btn-link text-decoration-none text-start">
-                <LogOut size={18} />
-                Sign Out
-              </button>
             </div>
           </div>
         </div>
@@ -242,8 +254,8 @@ export const Layout = ({ children, user, onLogout }) => {
             <div className="d-none d-md-block bg-slate-200" style={{ height: '2rem', width: '1px' }}></div>
 
             <div className="d-none d-md-flex align-items-center gap-2">
-              <span className="badge bg-indigo-50 text-indigo-700 border border-indigo-100 text-uppercase fw-medium" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-                {user.role}
+              <span className="badge text-uppercase fw-semibold" style={{ fontSize: '0.68rem', letterSpacing: '0.06em', padding: '0.35rem 0.75rem', background: 'linear-gradient(90deg, #eef2ff, #e0e7ff)', color: '#4338ca', border: '1px solid #c7d2fe', borderRadius: '999px' }}>
+                {user.user.roleName || user.role}
               </span>
             </div>
           </div>

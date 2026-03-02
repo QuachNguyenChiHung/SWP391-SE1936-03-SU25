@@ -17,7 +17,7 @@ export const AnnotationSidebar = ({
     const annotationsList = Array.isArray(annotations) ? annotations : [];
 
     return (
-        <div className={`sidebar ${showGuidelines ? '' : 'hidden'}`} style={{ position: window.innerWidth < 768 ? 'absolute' : 'relative', right: 0, top: 0, bottom: 0 }}>
+        <div className={`sidebar ${showGuidelines ? '' : 'hidden'}`} style={{ position: 'relative', right: 0, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Mobile Toggle Handle */}
             <button
                 onClick={() => setShowGuidelines(!showGuidelines)}
@@ -26,7 +26,7 @@ export const AnnotationSidebar = ({
                 {showGuidelines ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
             </button>
 
-            <div className="flex-grow-1 overflow-auto custom-scrollbar p-3">
+            <div className="d-flex flex-column flex-grow-1 overflow-auto custom-scrollbar p-3" style={{ minHeight: 0 }}>
                 {/* Class Selector */}
                 <div className="mb-4">
                     <h4 className="text-uppercase fw-bold text-muted mb-3" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Label Classes</h4>

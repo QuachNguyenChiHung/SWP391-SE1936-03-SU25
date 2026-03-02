@@ -47,107 +47,46 @@ export const AnnotatorNavigation = () => {
     ];
 
     return (
-        <nav className="annotator-navigation">
+        <nav className="d-flex flex-column" style={{ gap: '1.5rem', padding: '4px 0' }}>
             {menuItems.map((section, idx) => (
-                <div key={idx} className="nav-section">
-                    <div className="nav-section-title">{section.section}</div>
+                <div key={idx} className="d-flex flex-column gap-1">
+                    <p className="px-3 mb-1 text-uppercase fw-bold text-slate-500"
+                        style={{ fontSize: '11px', letterSpacing: '0.6px' }}>
+                        {section.section}
+                    </p>
                     {section.items.map((item, i) => {
                         const Icon = item.icon;
-                        const isActive = location.pathname === item.path;
-                        
+                        const active = location.pathname === item.path;
+
                         return (
                             <Link
                                 key={i}
                                 to={item.path}
-                                className={`nav-item ${isActive ? 'active' : ''}`}
+                                className={`w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 small fw-medium text-decoration-none sidebar-link ${
+                                    active ? 'bg-indigo-600 text-white sidebar-link-active' : 'text-slate-400'
+                                }`}
                             >
                                 <Icon size={18} />
-                                <span className="nav-label">{item.label}</span>
+                                <span className="flex-fill">{item.label}</span>
                                 {item.badge > 0 && (
-                                    <span className="nav-badge">{item.badge > 9 ? '9+' : item.badge}</span>
+                                    <span
+                                        className="d-flex align-items-center justify-content-center fw-bold"
+                                        style={{
+                                            minWidth: '20px', height: '20px',
+                                            padding: '0 6px', borderRadius: '10px',
+                                            fontSize: '11px',
+                                            backgroundColor: active ? '#ffffff' : '#ef4444',
+                                            color: active ? '#4f46e5' : '#ffffff',
+                                        }}
+                                    >
+                                        {item.badge > 9 ? '9+' : item.badge}
+                                    </span>
                                 )}
                             </Link>
                         );
                     })}
                 </div>
             ))}
-
-            <style>{`
-                .annotator-navigation {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 24px;
-                    padding: 16px 0;
-                }
-
-                .nav-section {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 4px;
-                }
-
-                .nav-section-title {
-                    font-size: 11px;
-                    font-weight: 700;
-                    color: #64748b;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    padding: 8px 16px;
-                    margin-bottom: 4px;
-                }
-
-                .nav-item {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    padding: 10px 16px;
-                    color: #94a3b8;
-                    text-decoration: none;
-                    border-radius: 8px;
-                    margin: 0 8px;
-                    transition: all 0.2s ease;
-                    position: relative;
-                }
-
-                .nav-item:hover {
-                    background: rgba(99, 102, 241, 0.1);
-                    color: #6366f1;
-                }
-
-                .nav-item.active {
-                    background: #6366f1;
-                    color: white;
-                }
-
-                .nav-item.active:hover {
-                    background: #4f46e5;
-                }
-
-                .nav-label {
-                    flex: 1;
-                    font-size: 14px;
-                    font-weight: 500;
-                }
-
-                .nav-badge {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    min-width: 20px;
-                    height: 20px;
-                    padding: 0 6px;
-                    background: #ef4444;
-                    color: white;
-                    border-radius: 10px;
-                    font-size: 11px;
-                    font-weight: 700;
-                }
-
-                .nav-item.active .nav-badge {
-                    background: white;
-                    color: #6366f1;
-                }
-            `}</style>
         </nav>
     );
 };

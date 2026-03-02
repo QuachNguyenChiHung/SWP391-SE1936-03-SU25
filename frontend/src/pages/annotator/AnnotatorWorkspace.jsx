@@ -1012,7 +1012,7 @@ export const AnnotatorWorkspace = ({ user }) => {
             <div className="animate-fade-in container-lg mx-auto">
                 <div className="d-flex justify-content-between align-items-center mb-4">
                     <div className="d-flex align-items-center gap-3">
-                        <button onClick={handleBackToBatchList} className="btn btn-link text-muted text-decoration-none d-flex align-items-center gap-1 p-0">
+                        <button onClick={handleBackToBatchList} className="btn btn-link text-muted text-decoration-none d-flex align-items-center gap-1 p-0" title="Back to task batches">
                             <ChevronLeft size={16} />
                             Back to Batches
                         </button>
@@ -1073,9 +1073,10 @@ export const AnnotatorWorkspace = ({ user }) => {
                                         >
                                             <div className="position-relative bg-slate-100" style={{ height: '8rem' }}>
                                                 <img
-                                                    src={import.meta.env.VITE_URL_UPLOADS + "/" + item.thumbnailPath || import.meta.env.VITE_URL_UPLOADS + "/" + item.filePath || 'https://via.placeholder.com/300x200?text=No+Image'}
+                                                    src={item.thumbnailPath ? import.meta.env.VITE_URL_UPLOADS + "/" + item.thumbnailPath : item.filePath ? import.meta.env.VITE_URL_UPLOADS + "/" + item.filePath : 'https://via.placeholder.com/300x200?text=No+Image'}
                                                     alt={item.fileName || `Item ${item.id}`}
                                                     className="w-100 h-100 task-card-image"
+                                                    onError={(e) => { e.target.src = 'https://via.placeholder.com/300x200?text=Image+Error'; }}
                                                 />
                                                 {item.dataItemStatus && (
                                                     <div className="position-absolute" style={{ top: '0.5rem', right: '0.5rem' }}>
@@ -1165,7 +1166,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                                             <div className="flex-grow-1">
                                                 <h3 className="fw-bold text-slate-900 fs-6 mb-1">{batch.projectName}</h3>
                                                 <p className="text-muted mb-0" style={{ fontSize: '0.75rem' }}>
-                                                    Assigned by {batch.annotatorName || 'Manager'}
+                                                    Assigned by {batch.assignedByName || batch.annotatorName || 'Manager'}
                                                 </p>
                                             </div>
                                         </div>
@@ -1252,12 +1253,12 @@ export const AnnotatorWorkspace = ({ user }) => {
     const projectClasses = projectLabels;
 
     return (
-        <div className="d-flex flex-column animate-fade-in-zoom bg-white rounded-4 shadow-sm border border-slate-200 overflow-hidden" style={{}}>
+        <div className="d-flex flex-column animate-fade-in-zoom bg-white rounded-4 shadow-sm border border-slate-200 overflow-hidden h-100" style={{}}>
 
             {/* Workspace Toolbar Header */}
             <div className="border-bottom border-slate-200 d-flex align-items-center justify-content-between px-3 bg-white flex-shrink-0" style={{ height: '3.5rem', zIndex: 10 }}>
                 <div className="d-flex align-items-center gap-3">
-                    <button onClick={handleBackToItemList} className="btn btn-link text-muted text-decoration-none d-flex align-items-center gap-1 p-0 hover-text-slate-800" style={{ fontSize: '0.875rem', transition: 'color 0.15s' }}>
+                    <button onClick={handleBackToItemList} className="btn btn-link text-muted text-decoration-none d-flex align-items-center gap-1 p-0 hover-text-slate-800" title="Back to item list" style={{ fontSize: '0.875rem', transition: 'color 0.15s' }}>
                         <ChevronLeft size={16} />
                         Back to Items
                     </button>
@@ -1398,8 +1399,8 @@ export const AnnotatorWorkspace = ({ user }) => {
 
                     {/* Submitted Read-Only Banner */}
                     {selectedBatch?.status === 'Submitted' && (
-                        <div className="alert alert-info mb-0 d-flex align-items-center gap-2 rounded-0" style={{ padding: '0.75rem 1rem', fontSize: '0.875rem' }}>
-                            <span>⏸️ Task Submitted - Read Only Mode</span>
+                        <div className="alert alert-warning mb-0 d-flex align-items-center gap-2 rounded-0" style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', backgroundColor: '#fef08a', borderColor: '#fcd34d', color: '#92400e' }}>
+                            <span className="fw-semibold">⏸️ Task Submitted - Read Only Mode</span>
                         </div>
                     )}
 
@@ -1437,9 +1438,10 @@ export const AnnotatorWorkspace = ({ user }) => {
                             <div style={{ position: 'relative', display: 'inline-block', maxWidth: '800px', maxHeight: '600px' }}>
                                 <img
                                     ref={imageRef}
-                                    src={import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem?.filePath || import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem?.thumbnailPath || 'https://via.placeholder.com/800x600?text=No+Image'}
+                                    src={selectedItem?.filePath ? import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem.filePath : selectedItem?.thumbnailPath ? import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem.thumbnailPath : 'https://via.placeholder.com/800x600?text=No+Image'}
                                     alt={selectedItem?.fileName || 'Work'}
                                     draggable={false}
+                                    onError={(e) => { e.target.src = 'https://via.placeholder.com/800x600?text=Image+Error'; }}
                                     style={{
                                         display: 'block',
                                         width: '100%',
@@ -1691,7 +1693,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                 </div>
 
                 {/* Right Sidebar */}
-                <div className="d-flex flex-column gap-3 p-3 bg-light border-start" style={{ width: '320px', overflowY: 'auto' }}>
+                <div className="d-flex flex-column gap-3 p-3 bg-white border-start border-slate-200" style={{ width: '320px', overflowY: 'auto', minHeight: 0, flex: '0 0 320px' }}>
                     {/* Annotation Sidebar */}
                     <AnnotationSidebar
                         showGuidelines={showGuidelines}
