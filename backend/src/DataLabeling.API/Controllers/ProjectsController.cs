@@ -67,6 +67,37 @@ public class ProjectsController : ControllerBase
         var userId = GetUserId();
         var role = GetUserRole();
 
+        // Reviewer sees projects they've reviewed or have items pending review
+        if (role == UserRole.Reviewer)
+        {
+            var (reviewerItems, reviewerTotalCount) = await _uow.Projects.GetPagedByReviewerAsync(
+                userId, pageNumber, pageSize, status, searchTerm, cancellationToken);
+
+            var reviewerResult = reviewerItems.Select(p => new ProjectDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Type = p.Type,
+                Status = p.Status,
+                Deadline = p.Deadline,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt,
+                TotalItems = p.Dataset?.DataItems?.Count ?? 0,
+                FinishedItems = p.Dataset?.DataItems?.Count(d => d.Status == DataItemStatus.Approved) ?? 0
+            }).ToList();
+
+            var reviewerPagedResult = new PagedResult<ProjectDto>
+            {
+                Items = reviewerResult,
+                TotalCount = reviewerTotalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+
+            return Ok(ApiResponse<PagedResult<ProjectDto>>.SuccessResponse(reviewerPagedResult));
+        }
+
         // Annotator sees only projects where they have assigned tasks
         if (role == UserRole.Annotator)
         {

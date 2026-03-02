@@ -120,6 +120,53 @@ public class ProjectRepository : Repository<Project>, IProjectRepository
         return (items, totalCount);
     }
 
+    public async Task<(IEnumerable<Project> Items, int TotalCount)> GetPagedByReviewerAsync(
+        int reviewerId,
+        int pageNumber,
+        int pageSize,
+        ProjectStatus? status = null,
+        string? searchTerm = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Projects where the reviewer has already reviewed items
+        var reviewedProjectIds = _context.Reviews
+            .Where(r => r.ReviewerId == reviewerId)
+            .Select(r => r.DataItem.Dataset.ProjectId)
+            .Distinct();
+
+        // Projects that have items pending review (status = Submitted)
+        var pendingProjectIds = _context.DataItems
+            .Where(di => di.Status == DataItemStatus.Submitted)
+            .Select(di => di.Dataset.ProjectId)
+            .Distinct();
+
+        var projectIdsQuery = reviewedProjectIds.Union(pendingProjectIds).Distinct();
+
+        var query = _dbSet.Where(p => projectIdsQuery.Contains(p.Id));
+
+        if (status.HasValue)
+            query = query.Where(p => p.Status == status.Value);
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(term));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Include(p => p.CreatedBy)
+            .Include(p => p.Dataset)
+                .ThenInclude(d => d!.DataItems)
+            .OrderByDescending(p => p.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
     public async Task<IEnumerable<Project>> GetWithUpcomingDeadlineAsync(int daysAhead, CancellationToken cancellationToken = default)
     {
         var targetDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(daysAhead));
