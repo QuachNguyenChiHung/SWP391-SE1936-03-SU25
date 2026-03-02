@@ -1,4 +1,4 @@
-import { 
+import {
     LayoutDashboard, Target, Bell, User, Settings
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
@@ -21,15 +21,15 @@ export const AnnotatorNavigation = () => {
                 console.error('Failed to fetch counts:', error);
             }
         };
-        
+
         fetchCounts();
         // Refresh every 30 seconds
         const interval = setInterval(fetchCounts, 30000);
         return () => clearInterval(interval);
     }, []);
-    
+
     const menuItems = [
-        { 
+        {
             section: 'WORKSPACE',
             items: [
                 { icon: LayoutDashboard, label: 'Dashboard', path: '/annotator/dashboard' },
@@ -62,9 +62,8 @@ export const AnnotatorNavigation = () => {
                             <Link
                                 key={i}
                                 to={item.path}
-                                className={`w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 small fw-medium text-decoration-none sidebar-link ${
-                                    active ? 'bg-indigo-600 text-white sidebar-link-active' : 'text-slate-400'
-                                }`}
+                                className={`w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 small fw-medium text-decoration-none sidebar-link ${active ? 'bg-indigo-600 text-white sidebar-link-active' : 'text-slate-400'
+                                    }`}
                             >
                                 <Icon size={18} />
                                 <span className="flex-fill">{item.label}</span>

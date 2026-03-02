@@ -138,9 +138,8 @@ export const Layout = ({ children, user, onLogout }) => {
               </div>
               <div className="d-flex flex-column gap-1">
                 <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>Account</p>
-                <Link to="/profile" className={`w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 small fw-medium text-decoration-none sidebar-link ${
-                  isActive('/profile') ? 'bg-indigo-600 text-white sidebar-link-active' : 'text-slate-400'
-                }`}>
+                <Link to="/profile" className={`w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 small fw-medium text-decoration-none sidebar-link ${isActive('/profile') ? 'bg-indigo-600 text-white sidebar-link-active' : 'text-slate-400'
+                  }`}>
                   <User size={18} />
                   Profile
                 </Link>
@@ -172,9 +171,9 @@ export const Layout = ({ children, user, onLogout }) => {
                 <p className="text-uppercase fw-bold text-slate-500 mb-0" style={{ fontSize: '10px', letterSpacing: '0.06em', lineHeight: 1.3 }}>{user.user.roleName}</p>
               </div>
             </div>
-            <button 
-              onClick={onLogout} 
-              className="btn btn-link text-slate-500 d-flex align-items-center justify-content-center rounded-2" 
+            <button
+              onClick={onLogout}
+              className="btn btn-link text-slate-500 d-flex align-items-center justify-content-center rounded-2"
               title="Sign Out"
               style={{ flexShrink: 0, width: '32px', height: '32px', padding: 0, minWidth: 'auto' }}
             >
