@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IAnnotationService, AnnotationService>();
         services.AddScoped<IReviewService, ReviewService>();
         services.AddScoped<IActivityLogService, ActivityLogService>();
+        services.AddScoped<INotificationService, NotificationService>();
 
         return services;
     }

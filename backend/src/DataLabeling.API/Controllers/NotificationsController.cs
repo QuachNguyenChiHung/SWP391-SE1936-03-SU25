@@ -1,6 +1,6 @@
 using DataLabeling.Application.DTOs.Common;
 using DataLabeling.Application.DTOs.Notifications;
-using DataLabeling.Core.Interfaces;
+using DataLabeling.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -15,11 +15,11 @@ namespace DataLabeling.API.Controllers;
 [Authorize]
 public class NotificationsController : ControllerBase
 {
-    private readonly IUnitOfWork _uow;
+    private readonly INotificationService _notificationService;
 
-    public NotificationsController(IUnitOfWork uow)
+    public NotificationsController(INotificationService notificationService)
     {
-        _uow = uow;
+        _notificationService = notificationService;
     }
 
     private int GetUserId()
@@ -53,28 +53,8 @@ public class NotificationsController : ControllerBase
         if (userId == 0)
             return Unauthorized(new { success = false, message = "User ID not found in token." });
 
-        var (items, totalCount) = await _uow.Notifications.GetPagedByUserIdAsync(
+        var result = await _notificationService.GetNotificationsAsync(
             userId, pageNumber, pageSize, unreadOnly, cancellationToken);
-
-        var dtos = items.Select(n => new NotificationDto
-        {
-            Id = n.Id,
-            Type = n.Type,
-            Title = n.Title,
-            Content = n.Content,
-            ReferenceType = n.ReferenceType,
-            ReferenceId = n.ReferenceId,
-            IsRead = n.IsRead,
-            CreatedAt = n.CreatedAt
-        });
-
-        var result = new PagedResult<NotificationDto>
-        {
-            Items = dtos,
-            TotalCount = totalCount,
-            PageNumber = pageNumber,
-            PageSize = pageSize
-        };
 
         return Ok(ApiResponse<PagedResult<NotificationDto>>.SuccessResponse(result));
     }
@@ -93,7 +73,7 @@ public class NotificationsController : ControllerBase
         if (userId == 0)
             return Unauthorized(new { success = false, message = "User ID not found in token." });
 
-        var count = await _uow.Notifications.GetUnreadCountAsync(userId, cancellationToken);
+        var count = await _notificationService.GetUnreadCountAsync(userId, cancellationToken);
 
         return Ok(ApiResponse<int>.SuccessResponse(count));
     }
@@ -115,13 +95,15 @@ public class NotificationsController : ControllerBase
         if (userId == 0)
             return Unauthorized(new { success = false, message = "User ID not found in token." });
 
-        var notification = await _uow.Notifications.GetByIdAsync(id, cancellationToken);
-        if (notification == null || notification.UserId != userId)
+        try
+        {
+            await _notificationService.MarkAsReadAsync(userId, id, cancellationToken);
+            return Ok(ApiResponse.SuccessResponse("Notification marked as read."));
+        }
+        catch (KeyNotFoundException)
+        {
             return NotFound(ApiResponse.FailureResponse("Notification not found."));
-
-        await _uow.Notifications.MarkAsReadAsync(id, cancellationToken);
-
-        return Ok(ApiResponse.SuccessResponse("Notification marked as read."));
+        }
     }
 
     /// <summary>
@@ -138,7 +120,7 @@ public class NotificationsController : ControllerBase
         if (userId == 0)
             return Unauthorized(new { success = false, message = "User ID not found in token." });
 
-        await _uow.Notifications.MarkAllAsReadAsync(userId, cancellationToken);
+        await _notificationService.MarkAllAsReadAsync(userId, cancellationToken);
 
         return Ok(ApiResponse.SuccessResponse("All notifications marked as read."));
     }
