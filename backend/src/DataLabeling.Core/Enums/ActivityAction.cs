@@ -30,5 +30,11 @@ public enum ActivityAction
     Login = 8,
 
     /// <summary>User logged out</summary>
-    Logout = 9
+    Logout = 9,
+
+    /// <summary>Reviewer assigned to review a data item</summary>
+    AssignReview = 10,
+
+    /// <summary>Reviewer unassigned from reviewing a data item</summary>
+    UnassignReview = 11
 }

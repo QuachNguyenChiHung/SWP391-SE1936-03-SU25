@@ -69,7 +69,7 @@ public class DashboardService : IDashboardService
         var reviewerStats = await _uow.Reviews.GetReviewerStatisticsAsync(userId, ct);
 
         var (pendingItems, pendingCount) = await _uow.Reviews.GetPendingReviewItemsPagedAsync(
-            1, 10, null, ct);
+            1, 10, userId, null, ct);
 
         var pendingQueue = (pendingItems ?? Enumerable.Empty<Core.Entities.DataItem>())
             .Select(item => new DashboardPendingReviewItemDto

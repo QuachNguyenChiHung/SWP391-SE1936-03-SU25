@@ -55,12 +55,17 @@ public class ReviewRepository : Repository<Review>, IReviewRepository
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
     }
 
-    public async Task<IEnumerable<DataItem>> GetPendingReviewItemsAsync(int projectId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<DataItem>> GetPendingReviewItemsAsync(int projectId, int currentReviewerId, CancellationToken cancellationToken = default)
     {
+        var now = DateTime.UtcNow;
         return await _context.DataItems
-            .Where(d => d.Dataset.ProjectId == projectId && d.Status == DataItemStatus.Submitted)
+            .Where(d => d.Dataset.ProjectId == projectId &&
+                (d.Status == DataItemStatus.Submitted
+                || (d.Status == DataItemStatus.InReview && d.AssignedReviewerId == currentReviewerId)
+                || (d.Status == DataItemStatus.InReview && d.ReviewLockExpiry < now)))
             .Include(d => d.Annotations)
                 .ThenInclude(a => a.Label)
+            .Include(d => d.AssignedReviewer)
             .OrderBy(d => d.Id)
             .ToListAsync(cancellationToken);
     }
@@ -68,10 +73,15 @@ public class ReviewRepository : Repository<Review>, IReviewRepository
     public async Task<(IEnumerable<DataItem> Items, int TotalCount)> GetPendingReviewItemsPagedAsync(
         int pageNumber,
         int pageSize,
+        int currentReviewerId,
         int? projectId = null,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.DataItems.Where(d => d.Status == DataItemStatus.Submitted);
+        var now = DateTime.UtcNow;
+        var query = _context.DataItems.Where(d =>
+            d.Status == DataItemStatus.Submitted
+            || (d.Status == DataItemStatus.InReview && d.AssignedReviewerId == currentReviewerId)
+            || (d.Status == DataItemStatus.InReview && d.ReviewLockExpiry < now));
 
         if (projectId.HasValue)
             query = query.Where(d => d.Dataset.ProjectId == projectId.Value);
@@ -86,6 +96,7 @@ public class ReviewRepository : Repository<Review>, IReviewRepository
             .Include(d => d.TaskItems)
                 .ThenInclude(ti => ti.Task)
                     .ThenInclude(t => t.Annotator)
+            .Include(d => d.AssignedReviewer)
             .OrderBy(d => d.Id)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)

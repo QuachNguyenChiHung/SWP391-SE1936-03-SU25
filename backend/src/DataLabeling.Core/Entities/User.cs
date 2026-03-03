@@ -136,4 +136,9 @@ public class User : BaseEntity
     /// Activity logs for this user.
     /// </summary>
     public virtual ICollection<ActivityLog> ActivityLogs { get; set; } = new List<ActivityLog>();
+
+    /// <summary>
+    /// Data items currently locked by this user for review.
+    /// </summary>
+    public virtual ICollection<DataItem> ReviewLockedDataItems { get; set; } = new List<DataItem>();
 }

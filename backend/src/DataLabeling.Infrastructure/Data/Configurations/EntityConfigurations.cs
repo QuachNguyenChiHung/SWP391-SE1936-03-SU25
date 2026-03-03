@@ -46,8 +46,14 @@ public class DataItemConfiguration : IEntityTypeConfiguration<DataItem>
             .HasForeignKey(d => d.DatasetId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasOne(d => d.AssignedReviewer)
+            .WithMany(u => u.ReviewLockedDataItems)
+            .HasForeignKey(d => d.AssignedReviewerId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.HasIndex(d => d.DatasetId);
         builder.HasIndex(d => d.Status);
+        builder.HasIndex(d => d.AssignedReviewerId);
     }
 }
 

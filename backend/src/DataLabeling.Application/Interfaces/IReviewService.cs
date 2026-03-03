@@ -38,6 +38,18 @@ public interface IReviewService
         int dataItemId,
         CancellationToken cancellationToken = default);
 
+    // ==================== Reviewer Assignment ====================
+
+    /// <summary>
+    /// Assigns a reviewer to a data item, locking it for review.
+    /// </summary>
+    Task AssignReviewerAsync(int dataItemId, int reviewerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Unassigns a reviewer from a data item, releasing the lock.
+    /// </summary>
+    Task UnassignReviewerAsync(int dataItemId, int reviewerId, CancellationToken cancellationToken = default);
+
     // ==================== Pending Review Items ====================
 
     /// <summary>
@@ -46,6 +58,7 @@ public interface IReviewService
     Task<PagedResult<PendingReviewItemDto>> GetPendingReviewItemsAsync(
         int pageNumber,
         int pageSize,
+        int currentReviewerId,
         int? projectId = null,
         CancellationToken cancellationToken = default);
 
@@ -54,6 +67,7 @@ public interface IReviewService
     /// </summary>
     Task<ReviewEditorDto?> GetReviewEditorDataAsync(
         int dataItemId,
+        int currentReviewerId,
         CancellationToken cancellationToken = default);
 
     // ==================== Error Types ====================

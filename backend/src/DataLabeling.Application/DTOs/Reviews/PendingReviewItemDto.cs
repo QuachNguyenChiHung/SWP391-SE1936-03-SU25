@@ -15,6 +15,9 @@ public class PendingReviewItemDto
     public int AnnotationCount { get; set; }
     public string AnnotatorName { get; set; } = string.Empty;
     public DateTime SubmittedAt { get; set; }
+    public bool IsLocked { get; set; }
+    public bool IsLockedByMe { get; set; }
+    public string? AssignedReviewerName { get; set; }
 }
 
 /// <summary>

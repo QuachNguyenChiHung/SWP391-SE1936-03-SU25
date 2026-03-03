@@ -34,9 +34,19 @@ public class ReviewService : IReviewService
         if (dataItem == null)
             throw new NotFoundException("DataItem", dataItemId);
 
-        // Validate data item is in Submitted status
-        if (dataItem.Status != DataItemStatus.Submitted)
+        // Auto-expire lock if needed
+        TryAutoExpireLock(dataItem);
+
+        // Validate data item is in Submitted or InReview status
+        if (dataItem.Status == DataItemStatus.InReview)
+        {
+            if (dataItem.AssignedReviewerId != reviewerId)
+                throw new ValidationException("This data item is locked by another reviewer.");
+        }
+        else if (dataItem.Status != DataItemStatus.Submitted)
+        {
             throw new ValidationException($"Data item is not ready for review. Current status: {dataItem.Status}");
+        }
 
         // Validate reviewer exists and has Reviewer role
         var reviewer = await _unitOfWork.Users.GetByIdAsync(reviewerId, cancellationToken);
@@ -88,10 +98,13 @@ public class ReviewService : IReviewService
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
-        // Update data item status
+        // Update data item status and clear lock fields
         dataItem.Status = request.Decision == ReviewDecision.Approved
             ? DataItemStatus.Approved
             : DataItemStatus.Rejected;
+        dataItem.AssignedReviewerId = null;
+        dataItem.ReviewAssignedAt = null;
+        dataItem.ReviewLockExpiry = null;
         dataItem.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.DataItems.Update(dataItem);
 
@@ -176,20 +189,26 @@ public class ReviewService : IReviewService
     public async Task<PagedResult<PendingReviewItemDto>> GetPendingReviewItemsAsync(
         int pageNumber,
         int pageSize,
+        int currentReviewerId,
         int? projectId = null,
         CancellationToken cancellationToken = default)
     {
         var (items, totalCount) = await _unitOfWork.Reviews.GetPendingReviewItemsPagedAsync(
-            pageNumber, pageSize, projectId, cancellationToken);
+            pageNumber, pageSize, currentReviewerId, projectId, cancellationToken);
 
-        // Items are already loaded with Dataset.Project, TaskItems.Task.Annotator, and Annotations
+        // Items are already loaded with Dataset.Project, TaskItems.Task.Annotator, Annotations, and AssignedReviewer
         // via GetPendingReviewItemsPagedAsync - use navigation properties directly to avoid N+1
+        var now = DateTime.UtcNow;
         var result = items.Select(item =>
         {
+            // Auto-expire lock lazily
+            TryAutoExpireLock(item);
+
             var project = item.Dataset?.Project;
             var taskItem = item.TaskItems?.FirstOrDefault();
             var annotatorName = taskItem?.Task?.Annotator?.Name ?? "";
             var submittedAt = taskItem?.CompletedAt ?? item.UpdatedAt ?? item.CreatedAt;
+            var isLocked = item.Status == DataItemStatus.InReview && item.ReviewLockExpiry > now;
 
             return new PendingReviewItemDto
             {
@@ -202,7 +221,10 @@ public class ReviewService : IReviewService
                 ThumbnailPath = item.ThumbnailPath,
                 AnnotationCount = item.Annotations?.Count ?? 0,
                 AnnotatorName = annotatorName,
-                SubmittedAt = submittedAt
+                SubmittedAt = submittedAt,
+                IsLocked = isLocked,
+                IsLockedByMe = isLocked && item.AssignedReviewerId == currentReviewerId,
+                AssignedReviewerName = isLocked ? item.AssignedReviewer?.Name : null
             };
         }).ToList();
 
@@ -217,6 +239,7 @@ public class ReviewService : IReviewService
 
     public async Task<ReviewEditorDto?> GetReviewEditorDataAsync(
         int dataItemId,
+        int currentReviewerId,
         CancellationToken cancellationToken = default)
     {
         var dataItem = await _unitOfWork.DataItems.GetByIdAsync(dataItemId, cancellationToken);
@@ -239,7 +262,7 @@ public class ReviewService : IReviewService
 
         // Get navigation (other pending items in same project)
         var (pendingItems, _) = await _unitOfWork.Reviews.GetPendingReviewItemsPagedAsync(
-            1, 1000, dataset.ProjectId, cancellationToken);
+            1, 1000, currentReviewerId, dataset.ProjectId, cancellationToken);
         var pendingList = pendingItems.OrderBy(i => i.Id).ToList();
         var currentIndex = pendingList.FindIndex(i => i.Id == dataItemId);
 
@@ -313,6 +336,117 @@ public class ReviewService : IReviewService
             RejectedCount = stats.RejectedCount,
             ApprovalRate = stats.ApprovalRate
         };
+    }
+
+    // ==================== Lock duration configuration ====================
+    private const int ReviewLockHours = 2;
+
+    public async Task AssignReviewerAsync(int dataItemId, int reviewerId, CancellationToken cancellationToken = default)
+    {
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var dataItem = await _unitOfWork.DataItems.GetByIdAsync(dataItemId, cancellationToken);
+            if (dataItem == null)
+                throw new NotFoundException("DataItem", dataItemId);
+
+            // Auto-expire lock if needed
+            TryAutoExpireLock(dataItem);
+
+            if (dataItem.Status == DataItemStatus.InReview)
+            {
+                if (dataItem.AssignedReviewerId == reviewerId)
+                    throw new ValidationException("You have already assigned this item.");
+                throw new ValidationException("This data item is already assigned to another reviewer.");
+            }
+
+            if (dataItem.Status != DataItemStatus.Submitted)
+                throw new ValidationException($"Data item is not ready for review. Current status: {dataItem.Status}");
+
+            // Validate reviewer exists and has Reviewer role
+            var reviewer = await _unitOfWork.Users.GetByIdAsync(reviewerId, cancellationToken);
+            if (reviewer == null)
+                throw new NotFoundException("User", reviewerId);
+            if (reviewer.Role != UserRole.Reviewer && reviewer.Role != UserRole.Admin)
+                throw new ForbiddenException("Only reviewers can assign review items.");
+
+            // Lock the item
+            dataItem.Status = DataItemStatus.InReview;
+            dataItem.AssignedReviewerId = reviewerId;
+            dataItem.ReviewAssignedAt = DateTime.UtcNow;
+            dataItem.ReviewLockExpiry = DateTime.UtcNow.AddHours(ReviewLockHours);
+            dataItem.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.DataItems.Update(dataItem);
+
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+            // Log activity
+            await _activityLogService.LogAsync(
+                reviewerId,
+                ActivityAction.AssignReview,
+                "DataItem",
+                dataItemId,
+                JsonSerializer.Serialize(new { reviewerId, lockExpiry = dataItem.ReviewLockExpiry }),
+                cancellationToken: cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task UnassignReviewerAsync(int dataItemId, int reviewerId, CancellationToken cancellationToken = default)
+    {
+        var dataItem = await _unitOfWork.DataItems.GetByIdAsync(dataItemId, cancellationToken);
+        if (dataItem == null)
+            throw new NotFoundException("DataItem", dataItemId);
+
+        if (dataItem.Status != DataItemStatus.InReview)
+            throw new ValidationException("Data item is not currently assigned for review.");
+
+        // Only the assigned reviewer or Admin can unassign
+        var user = await _unitOfWork.Users.GetByIdAsync(reviewerId, cancellationToken);
+        if (user == null)
+            throw new NotFoundException("User", reviewerId);
+
+        if (dataItem.AssignedReviewerId != reviewerId && user.Role != UserRole.Admin)
+            throw new ForbiddenException("Only the assigned reviewer or an Admin can unassign this item.");
+
+        // Reset to Submitted
+        dataItem.Status = DataItemStatus.Submitted;
+        dataItem.AssignedReviewerId = null;
+        dataItem.ReviewAssignedAt = null;
+        dataItem.ReviewLockExpiry = null;
+        dataItem.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.DataItems.Update(dataItem);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Log activity
+        await _activityLogService.LogAsync(
+            reviewerId,
+            ActivityAction.UnassignReview,
+            "DataItem",
+            dataItemId,
+            JsonSerializer.Serialize(new { unassignedBy = reviewerId }),
+            cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Lazily checks if a review lock has expired and resets the item to Submitted if so.
+    /// </summary>
+    private static void TryAutoExpireLock(DataItem dataItem)
+    {
+        if (dataItem.Status == DataItemStatus.InReview
+            && dataItem.ReviewLockExpiry.HasValue
+            && dataItem.ReviewLockExpiry.Value < DateTime.UtcNow)
+        {
+            dataItem.Status = DataItemStatus.Submitted;
+            dataItem.AssignedReviewerId = null;
+            dataItem.ReviewAssignedAt = null;
+            dataItem.ReviewLockExpiry = null;
+            dataItem.UpdatedAt = DateTime.UtcNow;
+        }
     }
 
     private async Task CheckAndUpdateTaskCompletionAsync(int dataItemId, CancellationToken cancellationToken)
