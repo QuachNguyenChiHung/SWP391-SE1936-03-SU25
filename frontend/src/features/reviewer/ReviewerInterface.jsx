@@ -6,33 +6,141 @@ import {
     MessageSquare,
     Eye,
     EyeOff,
+    Maximize2,
+    FileText,
     ChevronLeft,
     ChevronRight,
-    Maximize2,
-    AlertCircle,
-    Pencil,
-    Save,
-    FileText
+    Loader
 } from 'lucide-react';
 import { MOCK_TASKS, MOCK_PROJECTS } from '../../shared/services/mockData.js';
 import getInforFromCookie from '../../shared/utils/getInfoFromCookie.js';
 import { UserRole } from '../../shared/types/types.js';
+import api from '../../shared/utils/api.js';
+
 export const ReviewerInterface = ({ onTitleChange }) => {
-    const task = MOCK_TASKS[0]; // In real app, this comes from a queue
+    // Queue states
+    const [queueItems, setQueueItems] = useState([]);
+    const [currentItemIndex, setCurrentItemIndex] = useState(0);
+    const [isLoadingQueue, setIsLoadingQueue] = useState(false);
+    const [queueError, setQueueError] = useState(null);
+    const [pagination, setPagination] = useState({
+        pageNumber: 1,
+        pageSize: 10,
+        totalCount: 0,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false
+    });
+
+    // Detailed review data states
+    const [reviewData, setReviewData] = useState(null);
+    const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+    const [detailError, setDetailError] = useState(null);
+
+    const [showQueuePanel, setShowQueuePanel] = useState(true);
+
+    // Fetch review queue items
+    const fetchReviewQueue = async (pageNumber = 1) => {
+        setIsLoadingQueue(true);
+        setQueueError(null);
+        try {
+            const res = await api.get('/reviews/pending', {
+                params: {
+                    pageNumber,
+                    pageSize: 10
+                }
+            });
+            const itemsList = res?.data?.items || [];
+
+            if (Array.isArray(itemsList)) {
+                setQueueItems(itemsList);
+                setPagination({
+                    pageNumber: res?.data?.pageNumber || pageNumber,
+                    pageSize: res?.data?.pageSize || 10,
+                    totalCount: res?.data?.totalCount || itemsList.length,
+                    totalPages: res?.data?.totalPages || 1,
+                    hasPreviousPage: res?.data?.hasPreviousPage || false,
+                    hasNextPage: res?.data?.hasNextPage || false
+                });
+                setCurrentItemIndex(0);
+
+                // Load detailed data for first item
+                if (itemsList.length > 0) {
+                    fetchReviewDetail(itemsList[0].id);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load review queue:', error);
+            setQueueError(error?.response?.data?.message || 'Failed to load items');
+        } finally {
+            setIsLoadingQueue(false);
+        }
+    };
+
+    // Fetch detailed review data for a specific item
+    const fetchReviewDetail = async (dataItemId) => {
+        setIsLoadingDetail(true);
+        setDetailError(null);
+        try {
+            const res = await api.get(`/data-items/${dataItemId}/review-editor`);
+            setReviewData(res?.data || null);
+        } catch (error) {
+            console.error('Failed to load review detail:', error);
+            setDetailError(error?.response?.data?.message || 'Failed to load review details');
+        } finally {
+            setIsLoadingDetail(false);
+        }
+    };
+
+    // Handle item selection from queue
+    const handleSelectQueueItem = (index) => {
+        setCurrentItemIndex(index);
+        if (queueItems[index]) {
+            fetchReviewDetail(queueItems[index].id);
+        }
+    };
+
+    // Mock task as current selected item
+    const currentQueueItem = queueItems[currentItemIndex];
+
+    // Use detailed review data for annotations and metadata
+    const task = currentQueueItem ? {
+        id: currentQueueItem.id,
+        imageUrl: currentQueueItem.filePath ||
+            (reviewData?.filePath ? process.env.VITE_URL_UPLOADS + '/' + reviewData.filePath : ''),
+        projectId: currentQueueItem.projectId,
+        annotations: reviewData?.annotations?.map(ann => ({
+            ...ann,
+            coordinates: typeof ann.coordinates === 'string'
+                ? JSON.parse(ann.coordinates)
+                : ann.coordinates,
+            labelId: ann.labelId,
+            confidence: ann.confidence
+        })) || [],
+        errorTypes: reviewData?.errorTypes || [],
+        navigation: reviewData?.navigation || {},
+        annotatorName: currentQueueItem.annotatorName,
+        submittedAt: currentQueueItem.submittedAt,
+        ...currentQueueItem
+    } : MOCK_TASKS[0];
+
     const project = MOCK_PROJECTS.find(p => p.id === task.projectId);
 
     const [showLabels, setShowLabels] = useState(true);
     const [rejectReason, setRejectReason] = useState('');
     const [actionState, setActionState] = useState('IDLE');
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+    const [submitError, setSubmitError] = useState(null);
 
     // Guidelines State
     const [guidelines, setGuidelines] = useState('');
-    const [isEditingGuidelines, setIsEditingGuidelines] = useState(false);
 
     useEffect(() => {
         if (onTitleChange) {
             onTitleChange('Review Queue');
         }
+        // Fetch review queue on component mount
+        fetchReviewQueue();
     }, [onTitleChange]);
 
     useEffect(() => {
@@ -46,13 +154,78 @@ export const ReviewerInterface = ({ onTitleChange }) => {
     const currentRole = cookieUser?.user?.roleName || cookieUser?.user?.role || cookieUser?.role || null;
     const isAdmin = currentRole === UserRole.ADMIN || currentRole === 'Admin' || currentRole === 'ADMIN';
 
-    const REJECT_REASONS = [
-        "Loose Bounding Box",
-        "Wrong Class Label",
-        "Missed Object",
-        "Occlusion Error",
-        "Other"
-    ];
+    // Get error types from review data or fallback to defaults
+    const REJECT_REASONS = task.errorTypes && task.errorTypes.length > 0
+        ? task.errorTypes.map(et => et.name)
+        : [
+            "Loose Bounding Box",
+            "Wrong Class Label",
+            "Missed Object",
+            "Occlusion Error",
+            "Other"
+        ];
+
+    // Navigation handlers
+    const handleNextItem = () => {
+        if (task.navigation?.nextDataItemId) {
+            handleSelectQueueItem(currentItemIndex + 1);
+        }
+    };
+
+    const handlePreviousItem = () => {
+        if (task.navigation?.previousDataItemId) {
+            handleSelectQueueItem(currentItemIndex - 1);
+        }
+    };
+
+    // Submit review handler
+    const submitReview = async (decision, feedback = '') => {
+        if (!currentQueueItem?.id) {
+            setSubmitError('No item selected');
+            return;
+        }
+
+        setIsSubmittingReview(true);
+        setSubmitError(null);
+
+        try {
+            // Get error type IDs if rejecting
+            let errorTypeIds = [];
+            if (decision === 'Rejected' && rejectReason) {
+                const selectedErrorType = task.errorTypes?.find(et => et.name === rejectReason);
+                if (selectedErrorType) {
+                    errorTypeIds = [selectedErrorType.id];
+                }
+            }
+
+            const payload = {
+                decision,
+                feedback: feedback || rejectReason || '',
+                errorTypeIds
+            };
+
+            const res = await api.post(`/data-items/${currentQueueItem.id}/reviews`, payload);
+
+            console.log('Review submitted successfully:', res.data);
+
+            // Reset state
+            setActionState('IDLE');
+            setRejectReason('');
+
+            // Move to next item if available
+            if (task.navigation?.hasNextPage || currentItemIndex < queueItems.length - 1) {
+                handleNextItem();
+            } else {
+                // Reload queue if no more items
+                fetchReviewQueue();
+            }
+        } catch (error) {
+            console.error('Failed to submit review:', error);
+            setSubmitError(error?.response?.data?.message || 'Failed to submit review');
+        } finally {
+            setIsSubmittingReview(false);
+        }
+    };
 
     return (
         <div className="d-flex flex-column" style={{ height: 'calc(100vh - 8rem)' }}>
@@ -60,9 +233,15 @@ export const ReviewerInterface = ({ onTitleChange }) => {
             <div className="d-flex justify-content-between align-items-center mb-4 px-1">
                 <div>
                     <h2 className="fs-5 fw-bold text-dark">Review Queue</h2>
-                    <p className="fs-6 text-muted">12 items pending validation</p>
+                    <p className="fs-6 text-muted">{pagination.totalCount} items pending validation</p>
                 </div>
-
+                <button
+                    onClick={() => setShowQueuePanel(!showQueuePanel)}
+                    className="btn btn-light border d-lg-none"
+                    title="Toggle queue list"
+                >
+                    {showQueuePanel ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+                </button>
             </div>
 
             <div className="flex-fill d-flex gap-4" style={{ minHeight: 0 }}>
@@ -90,49 +269,69 @@ export const ReviewerInterface = ({ onTitleChange }) => {
 
                     {/* Image Viewer */}
                     <div className="flex-fill bg-dark d-flex align-items-center justify-content-center position-relative overflow-hidden">
-                        <div className="position-relative" style={{}}>
-                            <img src={task.imageUrl} alt="Review" className="mw-100 mh-100 object-fit-contain d-block" />
+                        {isLoadingDetail ? (
+                            <div className="d-flex flex-column align-items-center justify-content-center">
+                                <Loader className="spinner" size={40} style={{ color: '#fff' }} />
+                                <p className="text-white mt-2">Loading review...</p>
+                            </div>
+                        ) : (
+                            <div className="position-relative" style={{}}>
+                                <img
+                                    src={task.imageUrl ? (task.imageUrl.startsWith('http')
+                                        ? task.imageUrl
+                                        : (import.meta.env.VITE_URL_UPLOADS + '/' + task.imageUrl))
+                                        : 'https://via.placeholder.com/800x600?text=No+Image'}
+                                    alt="Review"
+                                    className="mw-100 mh-100 object-fit-contain d-block"
+                                    onError={(e) => { e.target.src = 'https://via.placeholder.com/800x600?text=Image+Error'; }}
+                                />
 
-                            {showLabels && task.annotations.map((ann) => {
-                                const labelClass = project?.classes.find(c => c.id === ann.labelId);
-                                return (
-                                    <div
-                                        key={ann.id}
-                                        className="position-absolute border border-2 bg-white bg-opacity-10"
-                                        style={{
-                                            borderColor: labelClass?.color || '#000',
-                                            left: Math.max(0, Math.min(ann.coordinates.x, window.innerWidth)),
-                                            top: Math.max(0, Math.min(ann.coordinates.y, window.innerHeight)),
-                                            width: ann.coordinates.width,
-                                            height: ann.coordinates.height,
-                                            pointerEvents: 'none'
-                                        }}
-                                    >
-                                        {/* Label Name Tag on Box */}
+                                {showLabels && task.annotations.map((ann) => {
+                                    const labelClass = project?.classes.find(c => c.id === ann.labelId);
+                                    return (
                                         <div
-                                            className="position-absolute px-2 py-1 fw-bold text-white rounded-top shadow-sm d-flex align-items-center gap-1 text-nowrap"
+                                            key={ann.id}
+                                            className="position-absolute border border-2 bg-white bg-opacity-10"
                                             style={{
-                                                backgroundColor: labelClass?.color,
-                                                top: ann.coordinates.y > 30 ? '-1.5rem' : '0',
-                                                left: '-2px',
-                                                fontSize: '10px'
+                                                borderColor: labelClass?.color || '#000',
+                                                left: Math.max(0, Math.min(ann.coordinates.x, window.innerWidth)),
+                                                top: Math.max(0, Math.min(ann.coordinates.y, window.innerHeight)),
+                                                width: ann.coordinates.width,
+                                                height: ann.coordinates.height,
+                                                pointerEvents: 'none'
                                             }}
                                         >
-                                            {labelClass?.name}
-                                            {ann.confidence && (
-                                                <span className="opacity-75 fw-normal ms-1">{(ann.confidence * 100).toFixed(0)}%</span>
-                                            )}
+                                            {/* Label Name Tag on Box */}
+                                            <div
+                                                className="position-absolute px-2 py-1 fw-bold text-white rounded-top shadow-sm d-flex align-items-center gap-1 text-nowrap"
+                                                style={{
+                                                    backgroundColor: labelClass?.color,
+                                                    top: ann.coordinates.y > 30 ? '-1.5rem' : '0',
+                                                    left: '-2px',
+                                                    fontSize: '10px'
+                                                }}
+                                            >
+                                                {labelClass?.name}
+                                                {ann.confidence && (
+                                                    <span className="opacity-75 fw-normal ms-1">{(ann.confidence * 100).toFixed(0)}%</span>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                )
-                            })}
-                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
                     </div>
 
                     {/* Action Bar (Footer) */}
                     <div className="p-4 bg-white border-top ">
                         {actionState === 'REJECTING' ? (
                             <div>
+                                {submitError && (
+                                    <div className="alert alert-danger mb-3" role="alert">
+                                        {submitError}
+                                    </div>
+                                )}
                                 <p className="fs-6 fw-semibold text-dark mb-3">Select Rejection Reason:</p>
                                 <div className="d-flex flex-wrap gap-2 mb-4">
                                     {REJECT_REASONS.map(reason => (
@@ -158,31 +357,50 @@ export const ReviewerInterface = ({ onTitleChange }) => {
                                         Cancel
                                     </button>
                                     <button
-                                        disabled={!rejectReason}
+                                        disabled={!rejectReason || isSubmittingReview}
+                                        onClick={() => submitReview('Rejected')}
                                         className="btn btn-danger flex-fill fw-semibold shadow-sm"
                                         style={{ fontSize: '14px' }}
                                     >
-                                        Confirm Rejection
+                                        {isSubmittingReview ? 'Submitting...' : 'Confirm Rejection'}
                                     </button>
                                 </div>
                             </div>
                         ) : (
-                            <div className="d-flex align-items-center gap-3" style={{ height: '3rem' }}>
-                                <button
-                                    onClick={() => setActionState('REJECTING')}
-                                    className="btn btn-danger flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
-                                    style={{ fontSize: '14px' }}
-                                >
-                                    <X size={18} />
-                                    Reject
-                                </button>
-                                <button className="btn btn-warning h-100 px-4 d-flex align-items-center justify-content-center gap-2 fw-semibold" title="Escalate to Manager" style={{ fontSize: '14px' }}>
-                                    <Flag size={18} />
-                                </button>
-                                <button className="btn btn-success h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm" style={{ flex: '2', fontSize: '14px' }}>
-                                    <Check size={18} />
-                                    Accept & Next
-                                </button>
+                            <div>
+                                {submitError && (
+                                    <div className="alert alert-danger mb-3" role="alert">
+                                        {submitError}
+                                    </div>
+                                )}
+                                <div className="d-flex align-items-center gap-3" style={{ height: '3rem' }}>
+                                    <button
+                                        onClick={() => setActionState('REJECTING')}
+                                        disabled={isSubmittingReview}
+                                        className="btn btn-danger flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                                        style={{ fontSize: '14px' }}
+                                    >
+                                        <X size={18} />
+                                        Reject
+                                    </button>
+                                    <button
+                                        disabled={isSubmittingReview}
+                                        className="btn btn-warning h-100 px-4 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                                        title="Escalate to Manager"
+                                        style={{ fontSize: '14px' }}
+                                    >
+                                        <Flag size={18} />
+                                    </button>
+                                    <button
+                                        disabled={isSubmittingReview}
+                                        onClick={() => submitReview('Approved')}
+                                        className="btn btn-success h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm"
+                                        style={{ flex: '2', fontSize: '14px' }}
+                                    >
+                                        <Check size={18} />
+                                        {isSubmittingReview ? 'Submitting...' : 'Accept & Next'}
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -190,6 +408,99 @@ export const ReviewerInterface = ({ onTitleChange }) => {
 
                 {/* Info Sidebar (Desktop Only) */}
                 <div className="d-none d-lg-flex flex-column gap-4" style={{ width: '60%', maxHeight: '100%', overflowY: 'auto' }}>
+
+                    {/* Review Queue List */}
+                    <div className="bg-white border rounded shadow-sm d-flex flex-column overflow-hidden">
+                        <div className="p-3 bg-info bg-opacity-10 border-bottom border-info border-opacity-25 d-flex align-items-center justify-content-between">
+                            <div className="d-flex align-items-center gap-2 text-info fw-semibold" style={{ fontSize: '12px' }}>
+                                <FileText size={14} />
+                                <span>Queue ({currentItemIndex + 1}/{queueItems.length})</span>
+                            </div>
+                        </div>
+                        <div className="overflow-auto" style={{ flex: '1', minHeight: '280px' }}>
+                            {isLoadingQueue && (
+                                <div className="p-4 text-center text-muted">
+                                    <Loader size={20} className="d-inline-block me-2 animate-spin" />
+                                    Loading items...
+                                </div>
+                            )}
+                            {queueError && (
+                                <div className="p-3 bg-danger bg-opacity-10 border-bottom border-danger text-danger" style={{ fontSize: '12px' }}>
+                                    {queueError}
+                                </div>
+                            )}
+                            {!isLoadingQueue && queueItems.length === 0 && (
+                                <div className="p-4 text-center text-muted">
+                                    No items to review
+                                </div>
+                            )}
+                            {!isLoadingQueue && queueItems.map((item, idx) => (
+                                <div
+                                    key={item.id}
+                                    onClick={() => setCurrentItemIndex(idx)}
+                                    className={`p-3 border-bottom cursor-pointer transition-colors ${idx === currentItemIndex
+                                        ? 'bg-info bg-opacity-10 border-left border-info border-3'
+                                        : 'bg-white hover:bg-light'}`}
+                                    style={{
+                                        cursor: 'pointer',
+                                        borderLeft: idx === currentItemIndex ? '4px solid #0d6efd' : 'none',
+                                        paddingLeft: idx === currentItemIndex ? 'calc(0.75rem - 3px)' : '0.75rem'
+                                    }}
+                                >
+                                    <div className="d-flex align-items-start gap-2">
+                                        {item.thumbnailPath && (
+                                            <img
+                                                src={item.thumbnailPath}
+                                                alt="Thumbnail"
+                                                className="rounded"
+                                                style={{ width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0 }}
+                                                onError={(e) => e.target.style.display = 'none'}
+                                            />
+                                        )}
+                                        <div className="flex-fill" style={{ minWidth: 0 }}>
+                                            <p className="fw-medium text-dark mb-1" style={{ fontSize: '12px' }}>
+                                                {item.fileName}
+                                            </p>
+                                            <p className="text-muted mb-1" style={{ fontSize: '11px' }}>
+                                                Project: {item.projectName}
+                                            </p>
+                                            <div className="d-flex gap-3" style={{ fontSize: '10px' }}>
+                                                <span className="text-muted">
+                                                    Annotations: <strong>{item.annotationCount}</strong>
+                                                </span>
+                                                <span className="badge bg-secondary text-white">{item.annotatorName}</span>
+                                            </div>
+                                            <p className="text-muted mb-0" style={{ fontSize: '10px', marginTop: '4px' }}>
+                                                {new Date(item.submittedAt).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        {/* Pagination Controls */}
+                        {pagination.totalPages > 1 && (
+                            <div className="p-3 bg-light border-top d-flex align-items-center justify-content-between">
+                                <button
+                                    onClick={() => fetchReviewQueue(pagination.pageNumber - 1)}
+                                    disabled={!pagination.hasPreviousPage}
+                                    className="btn btn-sm btn-outline-secondary"
+                                >
+                                    <ChevronLeft size={14} />
+                                </button>
+                                <span style={{ fontSize: '12px' }} className="text-muted">
+                                    Page {pagination.pageNumber} of {pagination.totalPages}
+                                </span>
+                                <button
+                                    onClick={() => fetchReviewQueue(pagination.pageNumber + 1)}
+                                    disabled={!pagination.hasNextPage}
+                                    className="btn btn-sm btn-outline-secondary"
+                                >
+                                    <ChevronRight size={14} />
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
                     {/* Guidelines Panel */}
                     <div className="bg-white border  rounded shadow-sm d-flex flex-column" style={{ flex: '0 0 auto' }}>

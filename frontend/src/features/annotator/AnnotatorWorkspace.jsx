@@ -141,6 +141,7 @@ export const AnnotatorWorkspace = ({ user }) => {
             setIsLoadingBatches(true);
             try {
                 const res = await api.get('/Tasks');
+                console.log(res.data);
                 if (!mounted) return;
                 const tasks = res?.data?.items || [];
                 setTaskBatches(tasks);
@@ -299,6 +300,12 @@ export const AnnotatorWorkspace = ({ user }) => {
             return;
         }
 
+        // Check if item is already completed
+        if (selectedItem?.status === 'Completed') {
+            showToast('Cannot edit - item has been completed', 'warning');
+            return;
+        }
+
         if (!selectedItem?.dataItemId || !labelId) {
             showToast('Please select a label class first', 'warning');
             return;
@@ -366,6 +373,12 @@ export const AnnotatorWorkspace = ({ user }) => {
             return;
         }
 
+        // Check if item is already completed
+        if (selectedItem?.status === 'Completed') {
+            showToast('Cannot delete - item has been completed', 'warning');
+            return;
+        }
+
         if (!annotationId) {
             console.error('No annotation ID provided');
             return;
@@ -405,6 +418,12 @@ export const AnnotatorWorkspace = ({ user }) => {
         // Check if task is already submitted
         if (selectedBatch?.status === 'Submitted') {
             showToast('Cannot edit - task has been submitted', 'warning');
+            return;
+        }
+
+        // Check if item is already completed
+        if (selectedItem?.status === 'Completed') {
+            showToast('Cannot edit - item has been completed', 'warning');
             return;
         }
 
@@ -913,8 +932,8 @@ export const AnnotatorWorkspace = ({ user }) => {
             return;
         }
 
-        // Prevent drawing if task is submitted
-        if (selectedBatch?.status === 'Submitted' && (selectedTool === 'BOX' || selectedTool === 'POLYGON')) {
+        // Prevent drawing if task is submitted or item is completed
+        if ((selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Completed') && (selectedTool === 'BOX' || selectedTool === 'POLYGON')) {
             return;
         }
 
@@ -960,7 +979,7 @@ export const AnnotatorWorkspace = ({ user }) => {
 
     // Handle double click to finish polygon
     const handleContainerDoubleClick = (e) => {
-        if (selectedTool === 'POLYGON' && polygonPoints.length >= 3 && selectedBatch?.status !== 'Submitted') {
+        if (selectedTool === 'POLYGON' && polygonPoints.length >= 3 && selectedBatch?.status !== 'Submitted' && selectedItem?.status !== 'Completed') {
             e.preventDefault();
             e.stopPropagation();
 
@@ -1120,6 +1139,103 @@ export const AnnotatorWorkspace = ({ user }) => {
         );
     }
 
+    // Helper function to render batch card
+    const renderBatchCard = (batch) => (
+        <div key={batch.id} className="col">
+            <div
+                onClick={() => handleSelectBatch(batch)}
+                className="bg-white rounded-4 border border-slate-200 shadow-sm overflow-hidden h-100 d-flex flex-column"
+                style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+                {/* Header */}
+                <div className="p-4 border-bottom border-slate-100">
+                    <div className="d-flex align-items-start gap-3">
+                        <div className="p-2 bg-indigo-50 rounded-3 text-indigo-600">
+                            <Layers size={20} />
+                        </div>
+                        <div className="flex-grow-1">
+                            <h3 className="fw-bold text-slate-900 fs-6 mb-1">{batch.projectName}</h3>
+                            <p className="text-muted mb-0" style={{ fontSize: '0.75rem' }}>
+                                Assigned by {batch.assignedByName || batch.annotatorName || 'Manager'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Progress */}
+                <div className="p-4 flex-grow-1">
+                    <div className="mb-3">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                            <span className="text-muted" style={{ fontSize: '0.75rem' }}>Progress</span>
+                            <span className="fw-bold text-slate-900" style={{ fontSize: '0.875rem' }}>
+                                {batch.progressPercent.toFixed(0)}%
+                            </span>
+                        </div>
+                        <div className="progress" style={{ height: '8px', borderRadius: '4px' }}>
+                            <div
+                                className="progress-bar bg-indigo-600"
+                                role="progressbar"
+                                style={{ width: `${batch.progressPercent}%` }}
+                                aria-valuenow={batch.progressPercent}
+                                aria-valuemin="0"
+                                aria-valuemax="100"
+                            ></div>
+                        </div>
+                    </div>
+
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <p className="text-muted mb-0" style={{ fontSize: '0.75rem' }}>Total Items</p>
+                            <p className="fw-bold text-slate-900 mb-0" style={{ fontSize: '1.25rem' }}>{batch.totalItems}</p>
+                        </div>
+                        <div className="text-end">
+                            <p className="text-muted mb-0" style={{ fontSize: '0.75rem' }}>Completed</p>
+                            <p className="fw-bold text-success mb-0" style={{ fontSize: '1.25rem' }}>{batch.completedItems}</p>
+                        </div>
+                    </div>
+
+                    <div className="d-flex align-items-center gap-2 mb-2">
+                        <Calendar size={12} className="text-muted" />
+                        <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                            Assigned: {new Date(batch.assignedAt).toLocaleDateString()}
+                        </span>
+                    </div>
+
+                    {batch.completedAt && (
+                        <div className="d-flex align-items-center gap-2">
+                            <Check size={12} className="text-success" />
+                            <span className="text-success" style={{ fontSize: '0.75rem' }}>
+                                Completed: {new Date(batch.completedAt).toLocaleDateString()}
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-3 bg-slate-50 border-top border-slate-100 d-flex justify-content-between align-items-center">
+                    <span className={`status-badge ${batch.status === 'Completed' ? 'completed' : batch.status === 'InProgress' ? 'in-progress' : 'pending'}`}>
+                        {batch.status}
+                    </span>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteTask(batch.id);
+                        }}
+                        className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
+                        style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                        title={batch.totalItems > 0 ? 'Delete all items first' : 'Delete task'}
+                        disabled={batch.totalItems > 0}
+                    >
+                        <Trash2 size={12} />
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
     // --- VIEW: Task Batches List ---
     if (!selectedBatch) {
 
@@ -1147,102 +1263,88 @@ export const AnnotatorWorkspace = ({ user }) => {
                         <p className="text-muted mx-auto mt-2" style={{ maxWidth: '28rem' }}>You currently don't have any task batches assigned. Check back later or contact your manager.</p>
                     </div>
                 ) : (
-                    <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                        {taskBatches.map((batch) => (
-                            <div key={batch.id} className="col">
-                                <div
-                                    onClick={() => handleSelectBatch(batch)}
-                                    className="bg-white rounded-4 border border-slate-200 shadow-sm overflow-hidden h-100 d-flex flex-column"
-                                    style={{ cursor: 'pointer', transition: 'all 0.2s' }}
-                                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
-                                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                                >
-                                    {/* Header */}
-                                    <div className="p-4 border-bottom border-slate-100">
-                                        <div className="d-flex align-items-start gap-3">
-                                            <div className="p-2 bg-indigo-50 rounded-3 text-indigo-600">
-                                                <Layers size={20} />
-                                            </div>
-                                            <div className="flex-grow-1">
-                                                <h3 className="fw-bold text-slate-900 fs-6 mb-1">{batch.projectName}</h3>
-                                                <p className="text-muted mb-0" style={{ fontSize: '0.75rem' }}>
-                                                    Assigned by {batch.assignedByName || batch.annotatorName || 'Manager'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Progress */}
-                                    <div className="p-4 flex-grow-1">
-                                        <div className="mb-3">
-                                            <div className="d-flex justify-content-between align-items-center mb-2">
-                                                <span className="text-muted" style={{ fontSize: '0.75rem' }}>Progress</span>
-                                                <span className="fw-bold text-slate-900" style={{ fontSize: '0.875rem' }}>
-                                                    {batch.progressPercent.toFixed(0)}%
-                                                </span>
-                                            </div>
-                                            <div className="progress" style={{ height: '8px', borderRadius: '4px' }}>
-                                                <div
-                                                    className="progress-bar bg-indigo-600"
-                                                    role="progressbar"
-                                                    style={{ width: `${batch.progressPercent}%` }}
-                                                    aria-valuenow={batch.progressPercent}
-                                                    aria-valuemin="0"
-                                                    aria-valuemax="100"
-                                                ></div>
-                                            </div>
-                                        </div>
-
-                                        <div className="d-flex justify-content-between align-items-center mb-3">
-                                            <div>
-                                                <p className="text-muted mb-0" style={{ fontSize: '0.75rem' }}>Total Items</p>
-                                                <p className="fw-bold text-slate-900 mb-0" style={{ fontSize: '1.25rem' }}>{batch.totalItems}</p>
-                                            </div>
-                                            <div className="text-end">
-                                                <p className="text-muted mb-0" style={{ fontSize: '0.75rem' }}>Completed</p>
-                                                <p className="fw-bold text-success mb-0" style={{ fontSize: '1.25rem' }}>{batch.completedItems}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="d-flex align-items-center gap-2 mb-2">
-                                            <Calendar size={12} className="text-muted" />
-                                            <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-                                                Assigned: {new Date(batch.assignedAt).toLocaleDateString()}
-                                            </span>
-                                        </div>
-
-                                        {batch.completedAt && (
-                                            <div className="d-flex align-items-center gap-2">
-                                                <Check size={12} className="text-success" />
-                                                <span className="text-success" style={{ fontSize: '0.75rem' }}>
-                                                    Completed: {new Date(batch.completedAt).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Footer */}
-                                    <div className="p-3 bg-slate-50 border-top border-slate-100 d-flex justify-content-between align-items-center">
-                                        <span className={`status-badge ${batch.status === 'Completed' ? 'completed' : batch.status === 'InProgress' ? 'in-progress' : 'pending'}`}>
-                                            {batch.status}
+                    <div>
+                        {console.log('All task statuses:', taskBatches.map(b => b.status))}
+                        {/* Assigned Section */}
+                        {taskBatches.filter(b => {
+                            const status = b.status?.toLowerCase();
+                            return status === 'assigned' || status === 'new' || status === 'pending';
+                        }).length > 0 && (
+                                <div className="mb-5">
+                                    <h3 className="fs-5 fw-bold text-slate-900 mb-3 d-flex align-items-center gap-2">
+                                        <span className="badge bg-warning text-dark">Assigned</span>
+                                        <span className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
+                                            {taskBatches.filter(b => {
+                                                const status = b.status?.toLowerCase();
+                                                return status === 'assigned' || status === 'new' || status === 'pending';
+                                            }).length} task{taskBatches.filter(b => {
+                                                const status = b.status?.toLowerCase();
+                                                return status === 'assigned' || status === 'new' || status === 'pending';
+                                            }).length !== 1 ? 's' : ''}
                                         </span>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteTask(batch.id);
-                                            }}
-                                            className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
-                                            style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
-                                            title={batch.totalItems > 0 ? 'Delete all items first' : 'Delete task'}
-                                            disabled={batch.totalItems > 0}
-                                        >
-                                            <Trash2 size={12} />
-                                            Delete
-                                        </button>
+                                    </h3>
+                                    <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                                        {taskBatches.filter(b => {
+                                            const status = b.status?.toLowerCase();
+                                            return status === 'assigned' || status === 'new' || status === 'pending';
+                                        }).map((batch) => renderBatchCard(batch))}
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            )}
+
+                        {/* In Progress Section */}
+                        {taskBatches.filter(b => {
+                            const status = b.status?.toLowerCase();
+                            return status === 'inprogress' || status === 'in progress' || status === 'in_progress';
+                        }).length > 0 && (
+                                <div className="mb-5">
+                                    <h3 className="fs-5 fw-bold text-slate-900 mb-3 d-flex align-items-center gap-2">
+                                        <span className="badge bg-info text-white">In Progress</span>
+                                        <span className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
+                                            {taskBatches.filter(b => {
+                                                const status = b.status?.toLowerCase();
+                                                return status === 'inprogress' || status === 'in progress' || status === 'in_progress';
+                                            }).length} task{taskBatches.filter(b => {
+                                                const status = b.status?.toLowerCase();
+                                                return status === 'inprogress' || status === 'in progress' || status === 'in_progress';
+                                            }).length !== 1 ? 's' : ''}
+                                        </span>
+                                    </h3>
+                                    <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                                        {taskBatches.filter(b => {
+                                            const status = b.status?.toLowerCase();
+                                            return status === 'inprogress' || status === 'in progress' || status === 'in_progress';
+                                        }).map((batch) => renderBatchCard(batch))}
+                                    </div>
+                                </div>
+                            )}
+
+                        {/* Completed Section */}
+                        {taskBatches.filter(b => {
+                            const status = b.status?.toLowerCase();
+                            return status === 'completed' || status === 'done' || status === 'finished' || status === 'submitted';
+                        }).length > 0 && (
+                                <div className="mb-5">
+                                    <h3 className="fs-5 fw-bold text-slate-900 mb-3 d-flex align-items-center gap-2">
+                                        <span className="badge bg-success">Completed</span>
+                                        <span className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
+                                            {taskBatches.filter(b => {
+                                                const status = b.status?.toLowerCase();
+                                                return status === 'completed' || status === 'done' || status === 'finished' || status === 'submitted';
+                                            }).length} task{taskBatches.filter(b => {
+                                                const status = b.status?.toLowerCase();
+                                                return status === 'completed' || status === 'done' || status === 'finished' || status === 'submitted';
+                                            }).length !== 1 ? 's' : ''}
+                                        </span>
+                                    </h3>
+                                    <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                                        {taskBatches.filter(b => {
+                                            const status = b.status?.toLowerCase();
+                                            return status === 'completed' || status === 'done' || status === 'finished' || status === 'submitted';
+                                        }).map((batch) => renderBatchCard(batch))}
+                                    </div>
+                                </div>
+                            )}
                     </div>
                 )}
             </div>
@@ -1668,25 +1770,25 @@ export const AnnotatorWorkspace = ({ user }) => {
                     <div className="p-4 bg-white border-top border-slate-200">
                         <div className="d-flex align-items-center gap-3" style={{ height: '3rem' }}>
                             <button
-                                onClick={handleRejectItem}
+                                onClick={handlePreviousItem}
                                 disabled={selectedBatch?.status === 'Submitted'}
-                                className="btn btn-danger flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                                className="btn btn-outline-secondary h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
                                 style={{ fontSize: '0.875rem', opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
-                                title={selectedBatch?.status === 'Submitted' ? 'Task submitted - read only' : ''}
+                                title={selectedBatch?.status === 'Submitted' ? 'Task submitted - read only' : 'Go to previous item'}
                             >
-                                <X size={18} />
-                                Reject
+                                <ChevronLeft size={18} />
+                                Previous
                             </button>
 
                             <button
-                                onClick={handleAcceptAndNext}
+                                onClick={selectedItem?.status === 'Completed' ? handleNextItem : handleAcceptAndNext}
                                 disabled={selectedBatch?.status === 'Submitted'}
-                                className="btn btn-success h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm"
-                                style={{ flex: '2', fontSize: '0.875rem', opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
-                                title={selectedBatch?.status === 'Submitted' ? 'Task submitted - read only' : ''}
+                                className={`btn flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm ${selectedItem?.status === 'Completed' ? 'btn-secondary' : 'btn-success'}`}
+                                style={{ fontSize: '0.875rem', opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
+                                title={selectedBatch?.status === 'Submitted' ? 'Task submitted - read only' : selectedItem?.status === 'Completed' ? 'Move to next item' : ''}
                             >
                                 <Check size={18} />
-                                Accept & Next
+                                {selectedItem?.status === 'Completed' ? 'Next' : 'Accept & Next'}
                             </button>
                         </div>
                     </div>

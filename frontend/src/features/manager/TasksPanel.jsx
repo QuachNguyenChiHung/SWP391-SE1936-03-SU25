@@ -117,7 +117,7 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         setLoadingItems(true);
         try {
             const res = await api.get(`/projects/${pId}/data-items`, { params: { pageNumber, pageSize } });
-            const filteredItems = res.data.items.filter(i => i.status !== 'Assigned');
+            const filteredItems = res.data.items.filter(i => i.status === 'Pending');
             console.log('Fetched data items:', filteredItems);
             if (res?.data) {
                 setDataItems({
