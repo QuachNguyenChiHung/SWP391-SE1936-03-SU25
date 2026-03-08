@@ -160,11 +160,23 @@ public class DataItemsController : ControllerBase
     /// </summary>
     [HttpGet("data-items/{id:int}")]
     [ProducesResponseType(typeof(DataItemDetailDto), 200)]
+    [ProducesResponseType(403)]
     [ProducesResponseType(404)]
     public async Task<ActionResult<DataItemDetailDto>> GetDataItemDetail(
         int id,
         CancellationToken cancellationToken = default)
     {
+        var userId = GetUserId();
+        var role = GetUserRole();
+
+        // Annotator can only view data items assigned to them
+        if (role == UserRole.Annotator)
+        {
+            var isAssigned = await _uow.DataItems.IsAssignedToAnnotatorAsync(id, userId, cancellationToken);
+            if (!isAssigned)
+                return Forbid();
+        }
+
         var result = await _dataItemService.GetDataItemDetailAsync(id, cancellationToken);
 
         if (result == null)

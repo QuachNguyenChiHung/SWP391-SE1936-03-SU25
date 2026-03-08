@@ -20,11 +20,13 @@ public class TasksController : ControllerBase
 {
     private readonly IUnitOfWork _uow;
     private readonly ITaskService _taskService;
+    private readonly IAnnotationService _annotationService;
 
-    public TasksController(IUnitOfWork uow, ITaskService taskService)
+    public TasksController(IUnitOfWork uow, ITaskService taskService, IAnnotationService annotationService)
     {
         _uow = uow;
         _taskService = taskService;
+        _annotationService = annotationService;
     }
 
     private int GetUserId()
@@ -371,5 +373,29 @@ public class TasksController : ControllerBase
     {
         var annotators = await _taskService.GetAvailableAnnotatorsAsync(cancellationToken);
         return Ok(annotators);
+    }
+
+    /// <summary>
+    /// Get paginated work history for the current annotator across all tasks and projects.
+    /// Optionally filter by data item status.
+    /// </summary>
+    [HttpGet("my-items")]
+    [Authorize(Roles = "Annotator")]
+    [ProducesResponseType(typeof(PagedResult<MyWorkItemDto>), 200)]
+    [ProducesResponseType(401)]
+    public async Task<ActionResult<PagedResult<MyWorkItemDto>>> GetMyWorkHistory(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] DataItemStatus? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
+        var result = await _annotationService.GetMyWorkHistoryAsync(
+            userId, pageNumber, pageSize, status, cancellationToken);
+
+        return Ok(result);
     }
 }

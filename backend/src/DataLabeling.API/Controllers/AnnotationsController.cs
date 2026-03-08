@@ -1,6 +1,8 @@
 using DataLabeling.Application.DTOs.Annotations;
 using DataLabeling.Application.Interfaces;
+using DataLabeling.Core.Enums;
 using DataLabeling.Core.Exceptions;
+using DataLabeling.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -16,10 +18,12 @@ namespace DataLabeling.API.Controllers;
 public class AnnotationsController : ControllerBase
 {
     private readonly IAnnotationService _annotationService;
+    private readonly IUnitOfWork _uow;
 
-    public AnnotationsController(IAnnotationService annotationService)
+    public AnnotationsController(IAnnotationService annotationService, IUnitOfWork uow)
     {
         _annotationService = annotationService;
+        _uow = uow;
     }
 
     private int GetUserId()
@@ -35,6 +39,19 @@ public class AnnotationsController : ControllerBase
         return 0;
     }
 
+    private UserRole GetUserRole()
+    {
+        var roleClaim = User.FindFirst(ClaimTypes.Role)
+                     ?? User.FindFirst("role");
+
+        if (roleClaim != null && Enum.TryParse<UserRole>(roleClaim.Value, out var role))
+        {
+            return role;
+        }
+
+        return UserRole.Annotator;
+    }
+
     // ==================== Annotation CRUD ====================
 
     /// <summary>
@@ -42,10 +59,21 @@ public class AnnotationsController : ControllerBase
     /// </summary>
     [HttpGet("data-items/{dataItemId:int}/annotations")]
     [ProducesResponseType(typeof(IEnumerable<AnnotationDto>), 200)]
+    [ProducesResponseType(403)]
     public async Task<ActionResult<IEnumerable<AnnotationDto>>> GetAnnotations(
         int dataItemId,
         CancellationToken cancellationToken = default)
     {
+        var userId = GetUserId();
+        var role = GetUserRole();
+
+        if (role == UserRole.Annotator)
+        {
+            var isAssigned = await _uow.DataItems.IsAssignedToAnnotatorAsync(dataItemId, userId, cancellationToken);
+            if (!isAssigned)
+                return Forbid();
+        }
+
         var annotations = await _annotationService.GetByDataItemIdAsync(dataItemId, cancellationToken);
         return Ok(annotations);
     }
@@ -55,6 +83,7 @@ public class AnnotationsController : ControllerBase
     /// </summary>
     [HttpGet("annotations/{id:int}")]
     [ProducesResponseType(typeof(AnnotationDto), 200)]
+    [ProducesResponseType(403)]
     [ProducesResponseType(404)]
     public async Task<ActionResult<AnnotationDto>> GetAnnotation(
         int id,
@@ -63,6 +92,16 @@ public class AnnotationsController : ControllerBase
         var annotation = await _annotationService.GetByIdAsync(id, cancellationToken);
         if (annotation == null)
             return NotFound(new { success = false, message = "Annotation not found" });
+
+        var userId = GetUserId();
+        var role = GetUserRole();
+
+        if (role == UserRole.Annotator)
+        {
+            var isAssigned = await _uow.DataItems.IsAssignedToAnnotatorAsync(annotation.DataItemId, userId, cancellationToken);
+            if (!isAssigned)
+                return Forbid();
+        }
 
         return Ok(annotation);
     }

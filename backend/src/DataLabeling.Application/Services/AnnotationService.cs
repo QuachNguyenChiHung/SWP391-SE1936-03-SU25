@@ -1,5 +1,7 @@
 using System.Text.Json;
 using DataLabeling.Application.DTOs.Annotations;
+using DataLabeling.Application.DTOs.Common;
+using DataLabeling.Application.DTOs.Tasks;
 using DataLabeling.Application.Interfaces;
 using DataLabeling.Core.Entities;
 using DataLabeling.Core.Enums;
@@ -541,5 +543,65 @@ public class AnnotationService : IAnnotationService
         }
 
         return rejectedItems.OrderByDescending(r => r.RejectedAt);
+    }
+
+    public async Task<PagedResult<MyWorkItemDto>> GetMyWorkHistoryAsync(
+        int annotatorId,
+        int pageNumber,
+        int pageSize,
+        DataItemStatus? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (items, totalCount) = await _unitOfWork.DataItems.GetPagedByAnnotatorAsync(
+            annotatorId, pageNumber, pageSize, status, cancellationToken);
+
+        var itemList = items.ToList();
+
+        // Batch-load TaskItems to get TaskId + AssignedAt + CompletedAt
+        var dataItemIds = itemList.Select(d => d.Id).ToList();
+        var taskItems = await _unitOfWork.TaskItems.GetByDataItemIdsAndAnnotatorAsync(
+            dataItemIds, annotatorId, cancellationToken);
+        var taskItemByDataItem = taskItems.ToDictionary(ti => ti.DataItemId);
+
+        // Batch-load latest reviews for rejected items only
+        var rejectedIds = itemList.Where(d => d.Status == DataItemStatus.Rejected).Select(d => d.Id).ToList();
+        var reviewByDataItem = new Dictionary<int, Review?>();
+        foreach (var id in rejectedIds)
+        {
+            reviewByDataItem[id] = await _unitOfWork.Reviews.GetLatestByDataItemIdAsync(id, cancellationToken);
+        }
+
+        var result = itemList.Select(d =>
+        {
+            var ti = taskItemByDataItem.GetValueOrDefault(d.Id);
+            var review = reviewByDataItem.GetValueOrDefault(d.Id);
+
+            return new MyWorkItemDto
+            {
+                TaskItemId = ti?.Id ?? 0,
+                TaskId = ti?.TaskId ?? 0,
+                DataItemId = d.Id,
+                FileName = d.FileName,
+                ThumbnailPath = d.ThumbnailPath,
+                Status = d.Status,
+                ProjectId = d.Dataset?.ProjectId ?? 0,
+                ProjectName = d.Dataset?.Project?.Name ?? "",
+                AssignedAt = ti?.AssignedAt ?? d.CreatedAt,
+                CompletedAt = ti?.CompletedAt,
+                Feedback = review?.Feedback,
+                ErrorTypes = review?.ReviewErrorTypes?
+                    .Select(ret => ret.ErrorType?.Name ?? "")
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .ToList() ?? new List<string>()
+            };
+        }).ToList();
+
+        return new PagedResult<MyWorkItemDto>
+        {
+            Items = result,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
     }
 }

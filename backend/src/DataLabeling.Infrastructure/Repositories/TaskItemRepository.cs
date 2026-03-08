@@ -58,4 +58,16 @@ public class TaskItemRepository : Repository<TaskItem>, ITaskItemRepository
         return await _dbSet
             .CountAsync(ti => ti.TaskId == taskId && ti.Status == TaskItemStatus.Completed, cancellationToken);
     }
+
+    public async Task<IEnumerable<TaskItem>> GetByDataItemIdsAndAnnotatorAsync(
+        IEnumerable<int> dataItemIds,
+        int annotatorId,
+        CancellationToken cancellationToken = default)
+    {
+        var idList = dataItemIds.ToList();
+        return await _dbSet
+            .Where(ti => idList.Contains(ti.DataItemId) && ti.Task.AnnotatorId == annotatorId)
+            .Include(ti => ti.Task)
+            .ToListAsync(cancellationToken);
+    }
 }
