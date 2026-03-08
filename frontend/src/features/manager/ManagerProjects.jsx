@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Plus, Calendar, Tag, Layers, Clock, CheckCircle2, AlertCircle, XCircle, Trash2 } from 'lucide-react';
-import { MOCK_PROJECTS } from '../../shared/services/mockData.js';
 import { ProjectStatus } from '../../shared/types/types.js';
 import axios from 'axios';
 import api from '../../shared/utils/api.js';

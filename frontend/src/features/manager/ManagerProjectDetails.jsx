@@ -11,7 +11,6 @@ import OverviewPanel from './OverviewPanel.jsx';
 import DatasetPanel from './DatasetPanel.jsx';
 import LabelsPanel from './LabelsPanel.jsx';
 import TasksPanel from './TasksPanel.jsx';
-import { MOCK_PROJECTS, MOCK_TASKS, MOCK_USERS } from '../../shared/services/mockData.js';
 import { ProjectStatus, DataItemStatus } from '../../shared/types/types.js';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import Modal from 'react-bootstrap/Modal';
@@ -367,7 +366,8 @@ export const ManagerProjectDetails = ({ user }) => {
         { id: 'Tasks', icon: Layers },
     ];
 
-    const projectTasks = MOCK_TASKS.filter(t => t.projectId === project.id);
+    // TODO: Fetch project tasks from API
+    const projectTasks = [];
     const tasksByAssignee = projectTasks.reduce((acc, task) => {
         const key = task.assignedTo || 'Unassigned';
         if (!acc[key]) acc[key] = [];

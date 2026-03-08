@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import { MOCK_PROJECTS } from '../../shared/services/mockData.js';
 import { Layers, CheckCircle2, FileText, Users, Plus, ArrowUpRight, Calendar } from 'lucide-react';
 import api from '../../shared/utils/api.js';
 import { useEffect, useState } from 'react';

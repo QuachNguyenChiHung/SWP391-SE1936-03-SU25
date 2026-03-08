@@ -252,21 +252,46 @@ export const AnnotatorWorkspace = ({ user }) => {
                 const transformedAnnotations = annotationsData.map(ann => {
                     // Parse coordinates JSON string
                     const coords = JSON.parse(ann.coordinates);
+
+                    let processedCoordinates;
+                    if (coords.type === 'bbox') {
+                        // Handle both old format (x, y, width, height) and new format (points array)
+                        if (Array.isArray(coords.points) && coords.points.length === 2) {
+                            // New format: already in [{x1, y1}, {x2, y2}] format
+                            processedCoordinates = {
+                                type: 'bbox',
+                                points: coords.points
+                            };
+                        } else if (Array.isArray(coords) && coords.length === 2) {
+                            // Alternative new format where coords itself is the array
+                            processedCoordinates = {
+                                type: 'bbox',
+                                points: coords
+                            };
+                        } else {
+                            // Old format: convert from {x, y, width, height} to [{x1, y1}, {x2, y2}]
+                            processedCoordinates = {
+                                type: 'bbox',
+                                points: [
+                                    { x: coords.x, y: coords.y },
+                                    { x: coords.x + coords.width, y: coords.y + coords.height }
+                                ]
+                            };
+                        }
+                    } else {
+                        // Polygon format stays the same
+                        processedCoordinates = {
+                            type: 'polygon',
+                            points: coords.points
+                        };
+                    }
+
                     return {
                         id: ann.id,
                         labelId: ann.labelId,
                         labelName: ann.labelName,
                         labelColor: ann.labelColor,
-                        coordinates: coords.type === 'bbox' ? {
-                            type: 'bbox',
-                            x: coords.x,
-                            y: coords.y,
-                            width: coords.width,
-                            height: coords.height
-                        } : {
-                            type: 'polygon',
-                            points: coords.points
-                        },
+                        coordinates: processedCoordinates,
                         createdBy: ann.createdByName,
                         createdAt: ann.createdAt
                     };
@@ -313,7 +338,17 @@ export const AnnotatorWorkspace = ({ user }) => {
 
         try {
             // Format coordinates as JSON string based on type
-            const coordinatesJson = JSON.stringify(coordinates);
+            let coordinatesObj = coordinates;
+            if (Array.isArray(coordinates) && coordinates.length === 2) {
+                // New format from drawing: array of two points [{x1, y1}, {x2, y2}]
+                // Wrap it with type information
+                coordinatesObj = {
+                    type: 'bbox',
+                    points: coordinates
+                };
+            }
+
+            const coordinatesJson = JSON.stringify(coordinatesObj);
 
             const payload = {
                 labelId: labelId,
@@ -328,14 +363,48 @@ export const AnnotatorWorkspace = ({ user }) => {
             console.log('API response - new annotation:', newAnnotation);
 
             if (newAnnotation) {
-                // Parse coordinates and keep the structure
+                // Parse coordinates and transform to new format
                 const coords = JSON.parse(newAnnotation.coordinates);
+
+                let processedCoordinates;
+                if (coords.type === 'bbox') {
+                    // Handle both old format (x, y, width, height) and new format (points array)
+                    if (Array.isArray(coords.points) && coords.points.length === 2) {
+                        // New format: already in [{x1, y1}, {x2, y2}] format
+                        processedCoordinates = {
+                            type: 'bbox',
+                            points: coords.points
+                        };
+                    } else if (Array.isArray(coords) && coords.length === 2) {
+                        // Alternative new format where coords itself is the array
+                        processedCoordinates = {
+                            type: 'bbox',
+                            points: coords
+                        };
+                    } else {
+                        // Old format: convert from {x, y, width, height} to [{x1, y1}, {x2, y2}]
+                        processedCoordinates = {
+                            type: 'bbox',
+                            points: [
+                                { x: coords.x, y: coords.y },
+                                { x: coords.x + coords.width, y: coords.y + coords.height }
+                            ]
+                        };
+                    }
+                } else {
+                    // Polygon format stays the same
+                    processedCoordinates = {
+                        type: 'polygon',
+                        points: coords.points
+                    };
+                }
+
                 const transformedAnnotation = {
-                    id: newAnnotation.id, // This should be 104 from your example
+                    id: newAnnotation.id,
                     labelId: newAnnotation.labelId,
                     labelName: newAnnotation.labelName,
                     labelColor: newAnnotation.labelColor,
-                    coordinates: coords, // This will have {type: 'bbox', x, y, width, height}
+                    coordinates: processedCoordinates,
                     createdBy: newAnnotation.createdByName,
                     createdAt: newAnnotation.createdAt
                 };
@@ -699,7 +768,13 @@ export const AnnotatorWorkspace = ({ user }) => {
             const newAnnotation = {
                 id: `ai-${Date.now()}`,
                 labelId: activeLabelId || 'default',
-                coordinates: { x: 400, y: 300, width: 150, height: 150 },
+                coordinates: {
+                    type: 'bbox',
+                    points: [
+                        { x: 400, y: 300 },
+                        { x: 550, y: 450 }
+                    ]
+                },
                 confidence: 0.94,
                 createdBy: 'AI'
             };
@@ -753,18 +828,32 @@ export const AnnotatorWorkspace = ({ user }) => {
                     if (ann.id !== dragInfo.id) return ann;
 
                     // Handle BBOX movement
-                    if (dragInfo.type === 'bbox' && ann.coordinates.type === 'bbox') {
+                    if (dragInfo.type === 'bbox' && ann.coordinates.type === 'bbox' && ann.coordinates.points) {
                         const { offsetX, offsetY } = dragInfo;
+                        const [p1, p2] = ann.coordinates.points;
+                        const width = Math.abs(p2.x - p1.x);
+                        const height = Math.abs(p2.y - p1.y);
+
                         let newX = mouseX - offsetX;
                         let newY = mouseY - offsetY;
 
                         // Clamp to Image Boundaries
-                        newX = Math.max(bounds.minX, Math.min(newX, bounds.maxX - ann.coordinates.width));
-                        newY = Math.max(bounds.minY, Math.min(newY, bounds.maxY - ann.coordinates.height));
+                        newX = Math.max(bounds.minX, Math.min(newX, bounds.maxX - width));
+                        newY = Math.max(bounds.minY, Math.min(newY, bounds.maxY - height));
+
+                        // Update both points maintaining the same width and height
+                        const dx = newX - Math.min(p1.x, p2.x);
+                        const dy = newY - Math.min(p1.y, p2.y);
 
                         return {
                             ...ann,
-                            coordinates: { ...ann.coordinates, x: newX, y: newY }
+                            coordinates: {
+                                ...ann.coordinates,
+                                points: [
+                                    { x: p1.x + dx, y: p1.y + dy },
+                                    { x: p2.x + dx, y: p2.y + dy }
+                                ]
+                            }
                         };
                     }
 
@@ -842,14 +931,11 @@ export const AnnotatorWorkspace = ({ user }) => {
 
                 // Min size check (5x5 pixels)
                 if (w > 5 && h > 5) {
-                    // Create bbox coordinates
-                    const coordinates = {
-                        type: 'bbox',
-                        x: Math.round(x),
-                        y: Math.round(y),
-                        width: Math.round(w),
-                        height: Math.round(h)
-                    };
+                    // Create bbox coordinates in new format: [{x1, y1}, {x2, y2}]
+                    const coordinates = [
+                        { x: Math.round(x), y: Math.round(y) },
+                        { x: Math.round(x + w), y: Math.round(y + h) }
+                    ];
 
                     // Save to API
                     handleCreateAnnotation(coordinates, activeLabelId);
@@ -903,12 +989,16 @@ export const AnnotatorWorkspace = ({ user }) => {
         const coords = getRelativeCoordinates(e.clientX, e.clientY);
 
         // Handle different annotation types
-        if (ann.coordinates.type === 'bbox') {
+        if (ann.coordinates.type === 'bbox' && ann.coordinates.points) {
+            // New format: coordinates.points = [{x: x1, y: y1}, {x: x2, y: y2}]
+            const [p1, p2] = ann.coordinates.points;
+            const x1 = Math.min(p1.x, p2.x);
+            const y1 = Math.min(p1.y, p2.y);
             dragRef.current = {
                 id: ann.id,
                 type: 'bbox',
-                offsetX: coords.x - ann.coordinates.x,
-                offsetY: coords.y - ann.coordinates.y,
+                offsetX: coords.x - x1,
+                offsetY: coords.y - y1,
                 originalCoordinates: JSON.stringify(ann.coordinates)
             };
             setIsDraggingBox(true);
@@ -1358,87 +1448,98 @@ export const AnnotatorWorkspace = ({ user }) => {
         <div className="d-flex flex-column animate-fade-in-zoom bg-white rounded-4 shadow-sm border border-slate-200 overflow-hidden h-100" style={{}}>
 
             {/* Workspace Toolbar Header */}
-            <div className="border-bottom border-slate-200 d-flex align-items-center justify-content-between px-3 bg-white flex-shrink-0" style={{ height: '3.5rem', zIndex: 10 }}>
-                <div className="d-flex align-items-center gap-3">
-                    <button onClick={handleBackToItemList} className="btn btn-link text-muted text-decoration-none d-flex align-items-center gap-1 p-0 hover-text-slate-800" title="Back to item list" style={{ fontSize: '0.875rem', transition: 'color 0.15s' }}>
-                        <ChevronLeft size={16} />
-                        Back to Items
-                    </button>
-                    <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
-                    <div className="d-flex align-items-center gap-2">
-                        <span className="text-uppercase text-muted fw-bold" style={{ fontSize: '0.625rem', letterSpacing: '0.05em' }}>
-                            ITEM #{selectedItem?.id}
-                        </span>
-                        <h3 className="mb-0 fw-semibold text-slate-900" style={{ fontSize: '0.875rem' }}>
-                            {selectedItem?.fileName || `Item ${selectedItem?.id}`}
-                        </h3>
-                        {selectedItem?.dataItemStatus && (
-                            <span className={`badge ${selectedItem.dataItemStatus === 'Approved' ? 'bg-success' : selectedItem.dataItemStatus === 'Rejected' ? 'bg-danger' : 'bg-secondary'}`} style={{ fontSize: '0.625rem' }}>
-                                {selectedItem.dataItemStatus}
-                            </span>
-                        )}
+            <div className="border-bottom border-slate-200 bg-white flex-shrink-0" style={{ zIndex: 10 }}>
+                {/* Status Indicator - shown when task is submitted */}
+                {selectedBatch?.status === 'Submitted' && (
+                    <div className="alert alert-warning mb-0 py-2 px-3 d-flex align-items-center gap-2 border-bottom border-warning border-opacity-25" role="alert" style={{ fontSize: '0.75rem' }}>
+                        <span className="badge bg-warning">Read-Only</span>
+                        <span>Task Submitted - Annotations cannot be edited</span>
                     </div>
-                </div>
+                )}
 
-                <div className="d-flex align-items-center gap-2">
-                    {/* Progress Indicator */}
-                    {selectedBatch && (
-                        <ProgressIndicator
-                            completed={selectedBatch.completedItems || 0}
-                            total={selectedBatch.totalItems || 0}
-                            startTime={selectedBatch.startedAt}
-                            compact={true}
-                        />
-                    )}
+                {/* Main Toolbar */}
+                <div className="d-flex align-items-center justify-content-between px-3" style={{ height: '3.5rem' }}>
+                    <div className="d-flex align-items-center gap-3">
+                        <button onClick={handleBackToItemList} className="btn btn-link text-muted text-decoration-none d-flex align-items-center gap-1 p-0 hover-text-slate-800" title="Back to item list" style={{ fontSize: '0.875rem', transition: 'color 0.15s' }}>
+                            <ChevronLeft size={16} />
+                            Back to Items
+                        </button>
+                        <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+                        <div className="d-flex align-items-center gap-2">
+                            <span className="text-uppercase text-muted fw-bold" style={{ fontSize: '0.625rem', letterSpacing: '0.05em' }}>
+                                ITEM #{selectedItem?.id}
+                            </span>
+                            <h3 className="mb-0 fw-semibold text-slate-900" style={{ fontSize: '0.875rem' }}>
+                                {selectedItem?.fileName || `Item ${selectedItem?.id}`}
+                            </h3>
+                            {selectedItem?.dataItemStatus && (
+                                <span className={`badge ${selectedItem.dataItemStatus === 'Approved' ? 'bg-success' : selectedItem.dataItemStatus === 'Rejected' ? 'bg-danger' : 'bg-secondary'}`} style={{ fontSize: '0.625rem' }}>
+                                    {selectedItem.dataItemStatus}
+                                </span>
+                            )}
+                        </div>
+                    </div>
 
-                    <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+                    <div className="d-flex align-items-center gap-2">
+                        {/* Progress Indicator */}
+                        {selectedBatch && (
+                            <ProgressIndicator
+                                completed={selectedBatch.completedItems || 0}
+                                total={selectedBatch.totalItems || 0}
+                                startTime={selectedBatch.startedAt}
+                                compact={true}
+                            />
+                        )}
 
-                    {/* Keyboard Shortcuts Button */}
-                    <button
-                        onClick={() => setShowShortcutsHelp(true)}
-                        className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
-                        title="Keyboard Shortcuts (?)"
-                        style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
-                    >
-                        <Keyboard size={14} />
-                    </button>
+                        <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
 
-                    <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+                        {/* Keyboard Shortcuts Button */}
+                        <button
+                            onClick={() => setShowShortcutsHelp(true)}
+                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                            title="Keyboard Shortcuts (?)"
+                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+                        >
+                            <Keyboard size={14} />
+                        </button>
 
-                    {/* Navigation buttons */}
-                    <button
-                        onClick={handlePreviousItem}
-                        className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
-                        style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
-                        disabled={batchItems.length <= 1}
-                    >
-                        <ChevronLeft size={14} />
-                        Previous
-                    </button>
+                        <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
 
-                    <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-                        {batchItems.findIndex(item => item.id === selectedItem?.id) + 1} / {batchItems.length}
-                    </span>
+                        {/* Navigation buttons */}
+                        <button
+                            onClick={handlePreviousItem}
+                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+                            disabled={batchItems.length <= 1}
+                        >
+                            <ChevronLeft size={14} />
+                            Previous
+                        </button>
 
-                    <button
-                        onClick={handleNextItem}
-                        className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
-                        style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
-                        disabled={batchItems.length <= 1}
-                    >
-                        Next
-                        <ChevronRight size={14} />
-                    </button>
+                        <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                            {batchItems.findIndex(item => item.id === selectedItem?.id) + 1} / {batchItems.length}
+                        </span>
 
-                    <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+                        <button
+                            onClick={handleNextItem}
+                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+                            disabled={batchItems.length <= 1}
+                        >
+                            Next
+                            <ChevronRight size={14} />
+                        </button>
 
-                    <button
-                        onClick={() => setShowGuidelines(!showGuidelines)}
-                        className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
-                        style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
-                    >
-                        {showGuidelines ? 'Hide Labels' : 'Show Labels'}
-                    </button>
+                        <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+
+                        <button
+                            onClick={() => setShowGuidelines(!showGuidelines)}
+                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+                        >
+                            {showGuidelines ? 'Hide Labels' : 'Show Labels'}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1560,7 +1661,16 @@ export const AnnotatorWorkspace = ({ user }) => {
                                     const boxColor = ann.labelColor || '#6366f1';
 
                                     // Render bbox type
-                                    if (ann.coordinates.type === 'bbox') {
+                                    if (ann.coordinates.type === 'bbox' && ann.coordinates.points && ann.coordinates.points.length === 2) {
+                                        // New format: coordinates.points = [{x: x1, y: y1}, {x: x2, y: y2}]
+                                        const [p1, p2] = ann.coordinates.points;
+                                        const x1 = Math.min(p1.x, p2.x);
+                                        const y1 = Math.min(p1.y, p2.y);
+                                        const x2 = Math.max(p1.x, p2.x);
+                                        const y2 = Math.max(p1.y, p2.y);
+                                        const width = x2 - x1;
+                                        const height = y2 - y1;
+
                                         return (
                                             <div
                                                 key={ann.id}
@@ -1571,10 +1681,10 @@ export const AnnotatorWorkspace = ({ user }) => {
                                                 style={{
                                                     borderColor: boxColor,
                                                     borderWidth: isSelected ? '2px' : '2px',
-                                                    left: ann.coordinates.x,
-                                                    top: ann.coordinates.y,
-                                                    width: ann.coordinates.width,
-                                                    height: ann.coordinates.height,
+                                                    left: x1,
+                                                    top: y1,
+                                                    width: width,
+                                                    height: height,
                                                     backgroundColor: `${boxColor}15`,
                                                     cursor: 'grab',
                                                     animation: isSelected ? 'glowingBorder 2s ease-in-out infinite' : 'none',
@@ -1600,8 +1710,12 @@ export const AnnotatorWorkspace = ({ user }) => {
                                         const points = ann.coordinates.points;
                                         const pointsString = points.map(p => `${p.x},${p.y}`).join(' ');
 
-                                        // Use first point for label position
-                                        const firstPoint = points[0];
+                                        // Find the highest point (minimum Y coordinate)
+                                        const highestPoint = points.reduce((min, p) => p.y < min.y ? p : min, points[0]);
+                                        const labelX = highestPoint.x;
+                                        const labelY = highestPoint.y;
+                                        const labelWidth = ann.labelName ? (ann.labelName.length * 6 + 8) : 50;
+                                        const labelHeight = 16;
 
                                         return (
                                             <svg
@@ -1637,38 +1751,48 @@ export const AnnotatorWorkspace = ({ user }) => {
                                                     onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
                                                 />
 
-                                                {/* Label background */}
-                                                <rect
-                                                    x={firstPoint.x - 2}
-                                                    y={firstPoint.y - 20}
-                                                    width={ann.labelName ? (ann.labelName.length * 6 + 8) : 50}
-                                                    height="16"
-                                                    fill={boxColor}
-                                                    rx="3"
-                                                    style={{ pointerEvents: 'auto', cursor: 'move' }}
-                                                    onMouseDown={(e) => {
-                                                        e.stopPropagation();
-                                                        handleAnnotationMouseDown(e, ann);
-                                                    }}
-                                                    onClick={() => setSelectedAnnotationId(ann.id)}
-                                                    onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
-                                                />
+                                                {/* Label background - bottom-left snapped to highest point */}
+                                                <g transform={`translate(${labelX}, ${labelY})`} style={{ pointerEvents: 'auto' }}>
+                                                    <rect
+                                                        x={0}
+                                                        y={-labelHeight}
+                                                        width={labelWidth}
+                                                        height={labelHeight}
+                                                        fill={boxColor}
+                                                        rx="3"
+                                                        style={{ cursor: 'move' }}
+                                                        onMouseDown={(e) => {
+                                                            e.stopPropagation();
+                                                            handleAnnotationMouseDown(e, ann);
+                                                        }}
+                                                        onClick={() => setSelectedAnnotationId(ann.id)}
+                                                        onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
+                                                    />
 
-                                                {/* Label text */}
-                                                <text
-                                                    x={firstPoint.x + 2}
-                                                    y={firstPoint.y - 9}
-                                                    fill="white"
-                                                    fontSize="10"
-                                                    fontWeight="bold"
-                                                >
-                                                    {ann.labelName || 'Object'}
-                                                    {ann.confidence && (
-                                                        <tspan opacity="0.8" fontWeight="normal">
-                                                            {' '}{(ann.confidence * 100).toFixed(0)}%
-                                                        </tspan>
-                                                    )}
-                                                </text>
+                                                    {/* Label text */}
+                                                    <text
+                                                        x={4}
+                                                        y={-5}
+                                                        fill="white"
+                                                        fontSize="10"
+                                                        fontWeight="bold"
+                                                        style={{ pointerEvents: 'auto', cursor: 'move' }}
+                                                        onMouseDown={(e) => {
+                                                            e.stopPropagation();
+                                                            handleAnnotationMouseDown(e, ann);
+                                                        }}
+                                                        onClick={() => setSelectedAnnotationId(ann.id)}
+                                                        onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
+                                                    >
+                                                        {ann.labelName || 'Object'}
+                                                        {ann.confidence && (
+                                                            <tspan opacity="0.8" fontWeight="normal">
+                                                                {' '}{(ann.confidence * 100).toFixed(0)}%
+                                                            </tspan>
+                                                        )}
+                                                    </text>
+                                                </g>
+
 
                                                 {/* Draw points */}
                                                 {points.map((point, idx) => (

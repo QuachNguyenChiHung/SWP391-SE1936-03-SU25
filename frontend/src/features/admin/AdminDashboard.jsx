@@ -1,14 +1,14 @@
 import { useNavigate } from 'react-router-dom';
-import { MOCK_USERS, MOCK_PROJECTS } from '../../shared/services/mockData.js';
 import { Users, CheckCircle2, UserX, Layers, Plus, AlertCircle, ArrowUpRight, MoreVertical } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 export const AdminDashboard = ({ user }) => {
     const navigate = useNavigate();
-    const totalUsers = MOCK_USERS.length;
-    const activeUsers = MOCK_USERS.filter(u => u.active).length;
-    const bannedUsers = MOCK_USERS.filter(u => !u.active).length;
-    const totalProjects = MOCK_PROJECTS.length;
+    // TODO: Fetch users and projects from API
+    const totalUsers = 0;
+    const activeUsers = 0;
+    const bannedUsers = 0;
+    const totalProjects = 0;
 
     const stats = [
         { label: 'Registered Users', value: totalUsers, icon: Users, color: '#4f46e5', bg: 'rgba(79, 70, 229, 0.1)' },
@@ -60,7 +60,7 @@ export const AdminDashboard = ({ user }) => {
                             </div>
                             <div style={{ height: '300px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={MOCK_PROJECTS}>
+                                    <BarChart data={[]}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                                         <XAxis
                                             dataKey="name"

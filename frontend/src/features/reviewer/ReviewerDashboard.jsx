@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MOCK_TASKS } from '../../shared/services/mockData.js';
 import { DataItemStatus, UserRole } from '../../shared/types/types.js';
 import { Eye, ThumbsUp, ThumbsDown, PieChart, Plus, CheckCircle2, AlertCircle, ArrowRight, Activity, Clock, X } from 'lucide-react';
 import getInforFromCookie from '../../shared/utils/getInfoFromCookie.js';
@@ -14,12 +13,9 @@ export const ReviewerDashboard = ({ user }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // --- Giữ nguyên Logic cũ ---
-    const reviewedTasks = MOCK_TASKS.filter(t =>
-        t.status === DataItemStatus.ACCEPTED || t.status === DataItemStatus.REJECTED
-    );
-    const fallbackTotalReviewed = reviewedTasks.length;
-    const fallbackCorrectItems = reviewedTasks.filter(t => t.status === DataItemStatus.ACCEPTED).length;
+    // --- Fallback values while API loads ---
+    const fallbackTotalReviewed = 0;
+    const fallbackCorrectItems = 0;
 
     const stats = (() => {
         const totalReviewed = statsFromApi?.totalReviewed ?? fallbackTotalReviewed;

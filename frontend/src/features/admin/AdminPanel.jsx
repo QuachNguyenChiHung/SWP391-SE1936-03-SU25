@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../shared/utils/api.js';
 import getInforFromCookie from '../../shared/utils/getInfoFromCookie.js';
-import { MOCK_ACTIVITY } from '../../shared/services/mockData.js';
 import { UserRole } from '../../shared/types/types.js';
 import {
     Activity, UserPlus, Search, X, Check, Mail, Shield, User,
@@ -366,25 +365,11 @@ export const AdminPanel = ({ user }) => {
                         </div>
                         <div className="card-body p-0">
                             <div className="list-group list-group-flush">
-                                {MOCK_ACTIVITY.map((log, index) => (
-                                    <div key={log.id} className="list-group-item border d-flex gap-3 py-3">
-                                        <div className="d-flex flex-column align-items-center">
-                                            <div className="rounded-circle bg-light border d-flex align-items-center justify-content-center" style={{ width: 32, height: 32 }}>
-                                                <User size={14} className="text-muted" />
-                                            </div>
-                                            {index !== MOCK_ACTIVITY.length - 1 && <div className="vr h-100 my-1 bg-secondary bg-opacity-25"></div>}
-                                        </div>
-                                        <div>
-                                            <p className="small mb-1 text-dark fw-medium">{log.action}</p>
-                                            <p className="text-muted small mb-1">{log.details}</p>
-                                            <div className="d-flex align-items-center gap-2 text-muted" style={{ fontSize: '0.7rem' }}>
-                                                <span>{new Date(log.timestamp).toLocaleString()}</span>
-                                                <span>•</span>
-                                                <span>User #{log.userId}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                                <div className="text-center text-muted py-4">
+                                    <Activity size={32} className="mb-2 opacity-50" />
+                                    <p className="mb-0">No activity logs available</p>
+                                    {/* TODO: Fetch activity logs from API */}
+                                </div>
                             </div>
                         </div>
                     </div>

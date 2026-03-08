@@ -12,7 +12,6 @@ import {
     ChevronRight,
     Loader
 } from 'lucide-react';
-import { MOCK_TASKS, MOCK_PROJECTS } from '../../shared/services/mockData.js';
 import getInforFromCookie from '../../shared/utils/getInfoFromCookie.js';
 import { UserRole } from '../../shared/types/types.js';
 import api from '../../shared/utils/api.js';
@@ -122,9 +121,9 @@ export const ReviewerInterface = ({ onTitleChange }) => {
         annotatorName: currentQueueItem.annotatorName,
         submittedAt: currentQueueItem.submittedAt,
         ...currentQueueItem
-    } : MOCK_TASKS[0];
+    } : { id: null, projectId: null, annotations: [] };
 
-    const project = MOCK_PROJECTS.find(p => p.id === task.projectId);
+    const project = null;
 
     const [showLabels, setShowLabels] = useState(true);
     const [rejectReason, setRejectReason] = useState('');
@@ -248,260 +247,390 @@ export const ReviewerInterface = ({ onTitleChange }) => {
                 {/* Main Review Canvas */}
                 <div className="flex-fill bg-white border  rounded shadow-sm d-flex flex-column overflow-hidden position-relative">
 
-                    {/* Toolbar */}
-                    <div className="d-flex align-items-center justify-content-between px-4 bg-light border-bottom " style={{ height: '3rem' }}>
-                        <div className="d-flex align-items-center gap-3">
-                            <span className="text-uppercase text-muted fw-bold" style={{ fontSize: '12px', letterSpacing: '0.05em' }}>Item #{task.id}</span>
-                            <span className="vr" style={{ height: '1rem' }}></span>
-                            <button
-                                onClick={() => setShowLabels(!showLabels)}
-                                className="btn btn-link p-0 d-flex align-items-center gap-1 text-muted text-decoration-none"
-                                style={{ fontSize: '12px' }}
-                            >
-                                {showLabels ? <Eye size={14} /> : <EyeOff size={14} />}
-                                {showLabels ? 'Hide Labels' : 'Show Labels'}
-                            </button>
-                        </div>
-                        <button className="btn btn-link p-0 text-muted">
-                            <Maximize2 size={16} />
-                        </button>
-                    </div>
-
-                    {/* Image Viewer */}
-                    <div className="flex-fill bg-dark d-flex align-items-center justify-content-center position-relative overflow-hidden">
-                        {isLoadingDetail ? (
-                            <div className="d-flex flex-column align-items-center justify-content-center">
-                                <Loader className="spinner" size={40} style={{ color: '#fff' }} />
-                                <p className="text-white mt-2">Loading review...</p>
-                            </div>
-                        ) : (
-                            <div className="position-relative" style={{}}>
-                                <img
-                                    src={task.imageUrl ? (task.imageUrl.startsWith('http')
-                                        ? task.imageUrl
-                                        : (import.meta.env.VITE_URL_UPLOADS + '/' + task.imageUrl))
-                                        : 'https://via.placeholder.com/800x600?text=No+Image'}
-                                    alt="Review"
-                                    className="mw-100 mh-100 object-fit-contain d-block"
-                                    onError={(e) => { e.target.src = 'https://via.placeholder.com/800x600?text=Image+Error'; }}
-                                />
-
-                                {showLabels && task.annotations.map((ann) => {
-                                    const labelClass = project?.classes.find(c => c.id === ann.labelId);
-                                    return (
-                                        <div
-                                            key={ann.id}
-                                            className="position-absolute border border-2 bg-white bg-opacity-10"
-                                            style={{
-                                                borderColor: labelClass?.color || '#000',
-                                                left: Math.max(0, Math.min(ann.coordinates.x, window.innerWidth)),
-                                                top: Math.max(0, Math.min(ann.coordinates.y, window.innerHeight)),
-                                                width: ann.coordinates.width,
-                                                height: ann.coordinates.height,
-                                                pointerEvents: 'none'
-                                            }}
-                                        >
-                                            {/* Label Name Tag on Box */}
-                                            <div
-                                                className="position-absolute px-2 py-1 fw-bold text-white rounded-top shadow-sm d-flex align-items-center gap-1 text-nowrap"
-                                                style={{
-                                                    backgroundColor: labelClass?.color,
-                                                    top: ann.coordinates.y > 30 ? '-1.5rem' : '0',
-                                                    left: '-2px',
-                                                    fontSize: '10px'
-                                                }}
-                                            >
-                                                {labelClass?.name}
-                                                {ann.confidence && (
-                                                    <span className="opacity-75 fw-normal ms-1">{(ann.confidence * 100).toFixed(0)}%</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Action Bar (Footer) */}
-                    <div className="p-4 bg-white border-top ">
-                        {actionState === 'REJECTING' ? (
-                            <div>
-                                {submitError && (
-                                    <div className="alert alert-danger mb-3" role="alert">
-                                        {submitError}
-                                    </div>
-                                )}
-                                <p className="fs-6 fw-semibold text-dark mb-3">Select Rejection Reason:</p>
-                                <div className="d-flex flex-wrap gap-2 mb-4">
-                                    {REJECT_REASONS.map(reason => (
-                                        <button
-                                            key={reason}
-                                            onClick={() => setRejectReason(reason)}
-                                            className={`btn px-3 py-2 fw-medium rounded ${rejectReason === reason
-                                                ? 'btn-outline-danger border-danger-subtle bg-danger bg-opacity-10'
-                                                : 'btn-outline-secondary'
-                                                }`}
-                                            style={{ fontSize: '12px' }}
-                                        >
-                                            {reason}
-                                        </button>
-                                    ))}
-                                </div>
+                    {queueItems.length > 0 ? (
+                        <>
+                            {/* Toolbar */}
+                            <div className="d-flex align-items-center justify-content-between px-4 bg-light border-bottom " style={{ height: '3rem' }}>
                                 <div className="d-flex align-items-center gap-3">
+                                    <span className="text-uppercase text-muted fw-bold" style={{ fontSize: '12px', letterSpacing: '0.05em' }}>Item #{task.id}</span>
+                                    <span className="vr" style={{ height: '1rem' }}></span>
                                     <button
-                                        onClick={() => setActionState('IDLE')}
-                                        className="btn btn-link text-muted fw-medium"
-                                        style={{ fontSize: '14px' }}
+                                        onClick={() => setShowLabels(!showLabels)}
+                                        className="btn btn-link p-0 d-flex align-items-center gap-1 text-muted text-decoration-none"
+                                        style={{ fontSize: '12px' }}
                                     >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        disabled={!rejectReason || isSubmittingReview}
-                                        onClick={() => submitReview('Rejected')}
-                                        className="btn btn-danger flex-fill fw-semibold shadow-sm"
-                                        style={{ fontSize: '14px' }}
-                                    >
-                                        {isSubmittingReview ? 'Submitting...' : 'Confirm Rejection'}
+                                        {showLabels ? <Eye size={14} /> : <EyeOff size={14} />}
+                                        {showLabels ? 'Hide Labels' : 'Show Labels'}
                                     </button>
                                 </div>
+                                <button className="btn btn-link p-0 text-muted">
+                                    <Maximize2 size={16} />
+                                </button>
                             </div>
-                        ) : (
-                            <div>
-                                {submitError && (
-                                    <div className="alert alert-danger mb-3" role="alert">
-                                        {submitError}
+
+                            {/* Image Viewer */}
+                            <div className="flex-fill bg-dark d-flex align-items-center justify-content-center position-relative overflow-hidden">
+                                {isLoadingDetail ? (
+                                    <div className="d-flex flex-column align-items-center justify-content-center">
+                                        <Loader className="spinner" size={40} style={{ color: '#fff' }} />
+                                        <p className="text-white mt-2">Loading review...</p>
+                                    </div>
+                                ) : (
+                                    <div className="position-relative" style={{}}>
+                                        <img
+                                            src={task.imageUrl ? (task.imageUrl.startsWith('http')
+                                                ? task.imageUrl
+                                                : (import.meta.env.VITE_URL_UPLOADS + '/' + task.imageUrl))
+                                                : 'https://via.placeholder.com/800x600?text=No+Image'}
+                                            alt="Review"
+                                            className="mw-100 mh-100 object-fit-contain d-block"
+                                            onError={(e) => { e.target.src = 'https://via.placeholder.com/800x600?text=Image+Error'; }}
+                                        />
+
+                                        {showLabels && task.annotations.map((ann) => {
+                                            const coords = ann.coordinates;
+                                            const coordType = coords?.type || (coords?.points ? 'polygon' : 'bbox');
+
+                                            // Handle new bbox format: {type: 'bbox', points: [{x1, y1}, {x2, y2}]}
+                                            if (coordType === 'bbox' && coords?.points && coords.points.length === 2) {
+                                                const [p1, p2] = coords.points;
+                                                const x1 = Math.min(p1.x, p2.x);
+                                                const y1 = Math.min(p1.y, p2.y);
+                                                const x2 = Math.max(p1.x, p2.x);
+                                                const y2 = Math.max(p1.y, p2.y);
+                                                const width = x2 - x1;
+                                                const height = y2 - y1;
+                                                const labelAbove = y1 > 30;
+
+                                                return (
+                                                    <div key={ann.id}>
+                                                        {/* Bbox outline */}
+                                                        <div
+                                                            className="position-absolute bg-white bg-opacity-10"
+                                                            style={{
+                                                                border: `2px solid ${ann.labelColor || '#000'}`,
+                                                                left: `${x1}px`,
+                                                                top: `${y1}px`,
+                                                                width: `${width}px`,
+                                                                height: `${height}px`,
+                                                                pointerEvents: 'none',
+                                                                boxSizing: 'border-box'
+                                                            }}
+                                                        />
+                                                        {/* Label tag */}
+                                                        <div
+                                                            className="position-absolute px-2 py-1 fw-bold text-white rounded-top shadow-sm d-flex align-items-center gap-1 text-nowrap"
+                                                            style={{
+                                                                backgroundColor: ann.labelColor || '#000',
+                                                                left: `${x1}px`,
+                                                                top: `${labelAbove ? y1 : y1 + height}px`,
+                                                                transform: labelAbove ? 'translateY(-100%)' : 'none',
+                                                                fontSize: '10px',
+                                                                pointerEvents: 'none',
+                                                                zIndex: 10
+                                                            }}
+                                                        >
+                                                            <span>{ann.labelName || 'Unknown'}</span>
+                                                            {ann.confidence && (
+                                                                <span className="opacity-75 fw-normal ms-1">{(ann.confidence * 100).toFixed(0)}%</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+
+                                            // Handle polygon format: {type: 'polygon', points: [{x, y}, {x, y}, ...]}
+                                            if (coordType === 'polygon' && coords?.points && coords.points.length > 0) {
+                                                const points = coords.points.map((p, i) => `${p.x},${p.y}`).join(' ');
+                                                const xValues = coords.points.map(p => p.x);
+                                                const yValues = coords.points.map(p => p.y);
+                                                const minX = Math.min(...xValues);
+                                                const minY = Math.min(...yValues);
+                                                const maxX = Math.max(...xValues);
+                                                const maxY = Math.max(...yValues);
+
+                                                // Find the highest point (minimum Y)
+                                                const highestPoint = coords.points.reduce((min, p) => p.y < min.y ? p : min, coords.points[0]);
+
+                                                return (
+                                                    <div key={ann.id}>
+                                                        {/* Polygon outline using SVG */}
+                                                        <svg
+                                                            className="position-absolute"
+                                                            style={{
+                                                                left: 0,
+                                                                top: 0,
+                                                                pointerEvents: 'none',
+                                                                overflow: 'visible'
+                                                            }}
+                                                            width="100%"
+                                                            height="100%"
+                                                        >
+                                                            <polygon
+                                                                points={points}
+                                                                fill="rgba(255, 255, 255, 0.1)"
+                                                                stroke={ann.labelColor || '#000'}
+                                                                strokeWidth="2"
+                                                            />
+                                                        </svg>
+                                                        {/* Label tag - bottom-left snapped to highest point */}
+                                                        <div
+                                                            className="position-absolute px-2 py-1 fw-bold text-white rounded-top shadow-sm d-flex align-items-center gap-1 text-nowrap"
+                                                            style={{
+                                                                backgroundColor: ann.labelColor || '#000',
+                                                                left: `${highestPoint.x}px`,
+                                                                top: `${highestPoint.y}px`,
+                                                                transform: 'translateY(-100%)',
+                                                                fontSize: '10px',
+                                                                pointerEvents: 'none',
+                                                                zIndex: 10
+                                                            }}
+                                                        >
+                                                            <span>{ann.labelName || 'Unknown'}</span>
+                                                            {ann.confidence && (
+                                                                <span className="opacity-75 fw-normal ms-1">{(ann.confidence * 100).toFixed(0)}%</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+
+                                            // Handle old bbox format: {x, y, width, height}
+                                            if (coords?.x !== undefined && coords?.y !== undefined && coords?.width !== undefined && coords?.height !== undefined) {
+                                                const labelAbove = coords.y > 30;
+
+                                                return (
+                                                    <div key={ann.id}>
+                                                        {/* Bbox outline */}
+                                                        <div
+                                                            className="position-absolute bg-white bg-opacity-10"
+                                                            style={{
+                                                                border: `2px solid ${ann.labelColor || '#000'}`,
+                                                                left: `${coords.x}px`,
+                                                                top: `${coords.y}px`,
+                                                                width: `${coords.width}px`,
+                                                                height: `${coords.height}px`,
+                                                                pointerEvents: 'none',
+                                                                boxSizing: 'border-box'
+                                                            }}
+                                                        />
+                                                        {/* Label tag */}
+                                                        <div
+                                                            className="position-absolute px-2 py-1 fw-bold text-white rounded-top shadow-sm d-flex align-items-center gap-1 text-nowrap"
+                                                            style={{
+                                                                backgroundColor: ann.labelColor || '#000',
+                                                                left: `${coords.x}px`,
+                                                                top: `${labelAbove ? coords.y : coords.y + coords.height}px`,
+                                                                transform: labelAbove ? 'translateY(-100%)' : 'none',
+                                                                fontSize: '10px',
+                                                                pointerEvents: 'none',
+                                                                zIndex: 10
+                                                            }}
+                                                        >
+                                                            <span>{ann.labelName || 'Unknown'}</span>
+                                                            {ann.confidence && (
+                                                                <span className="opacity-75 fw-normal ms-1">{(ann.confidence * 100).toFixed(0)}%</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+
+                                            return null;
+                                        })}
                                     </div>
                                 )}
-                                <div className="d-flex align-items-center gap-3" style={{ height: '3rem' }}>
-                                    <button
-                                        onClick={() => setActionState('REJECTING')}
-                                        disabled={isSubmittingReview}
-                                        className="btn btn-danger flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
-                                        style={{ fontSize: '14px' }}
-                                    >
-                                        <X size={18} />
-                                        Reject
-                                    </button>
-                                    <button
-                                        disabled={isSubmittingReview}
-                                        className="btn btn-warning h-100 px-4 d-flex align-items-center justify-content-center gap-2 fw-semibold"
-                                        title="Escalate to Manager"
-                                        style={{ fontSize: '14px' }}
-                                    >
-                                        <Flag size={18} />
-                                    </button>
-                                    <button
-                                        disabled={isSubmittingReview}
-                                        onClick={() => submitReview('Approved')}
-                                        className="btn btn-success h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm"
-                                        style={{ flex: '2', fontSize: '14px' }}
-                                    >
-                                        <Check size={18} />
-                                        {isSubmittingReview ? 'Submitting...' : 'Accept & Next'}
-                                    </button>
-                                </div>
                             </div>
-                        )}
-                    </div>
+
+                            {/* Action Bar (Footer) */}
+                            <div className="p-4 bg-white border-top ">
+                                {actionState === 'REJECTING' ? (
+                                    <div>
+                                        {submitError && (
+                                            <div className="alert alert-danger mb-3" role="alert">
+                                                {submitError}
+                                            </div>
+                                        )}
+                                        <p className="fs-6 fw-semibold text-dark mb-3">Select Rejection Reason:</p>
+                                        <div className="d-flex flex-wrap gap-2 mb-4">
+                                            {REJECT_REASONS.map(reason => (
+                                                <button
+                                                    key={reason}
+                                                    onClick={() => setRejectReason(reason)}
+                                                    className={`btn px-3 py-2 fw-medium rounded ${rejectReason === reason
+                                                        ? 'btn-outline-danger border-danger-subtle bg-danger bg-opacity-10'
+                                                        : 'btn-outline-secondary'
+                                                        }`}
+                                                    style={{ fontSize: '12px' }}
+                                                >
+                                                    {reason}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="d-flex align-items-center gap-3">
+                                            <button
+                                                onClick={() => setActionState('IDLE')}
+                                                className="btn btn-link text-muted fw-medium"
+                                                style={{ fontSize: '14px' }}
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                disabled={!rejectReason || isSubmittingReview}
+                                                onClick={() => submitReview('Rejected')}
+                                                className="btn btn-danger flex-fill fw-semibold shadow-sm"
+                                                style={{ fontSize: '14px' }}
+                                            >
+                                                {isSubmittingReview ? 'Submitting...' : 'Confirm Rejection'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        {submitError && (
+                                            <div className="alert alert-danger mb-3" role="alert">
+                                                {submitError}
+                                            </div>
+                                        )}
+                                        <div className="d-flex align-items-center gap-3" style={{ height: '3rem' }}>
+                                            <button
+                                                onClick={() => setActionState('REJECTING')}
+                                                disabled={isSubmittingReview}
+                                                className="btn btn-danger flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                                                style={{ fontSize: '14px' }}
+                                            >
+                                                <X size={18} />
+                                                Reject
+                                            </button>
+                                            <button
+                                                disabled={isSubmittingReview}
+                                                className="btn btn-warning h-100 px-4 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                                                title="Escalate to Manager"
+                                                style={{ fontSize: '14px' }}
+                                            >
+                                                <Flag size={18} />
+                                            </button>
+                                            <button
+                                                disabled={isSubmittingReview}
+                                                onClick={() => submitReview('Approved')}
+                                                className="btn btn-success h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm"
+                                                style={{ flex: '2', fontSize: '14px' }}
+                                            >
+                                                <Check size={18} />
+                                                {isSubmittingReview ? 'Submitting...' : 'Accept & Next'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="w-100 flex-fill d-flex align-items-center justify-content-center bg-white">
+                            <div className="text-center">
+                                <h3 className="fs-5 fw-bold text-muted mb-2">No pending items</h3>
+                                <p className="text-muted" style={{ fontSize: '14px' }}>All items have been reviewed</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Info Sidebar (Desktop Only) */}
                 <div className="d-none d-lg-flex flex-column gap-4" style={{ width: '60%', maxHeight: '100%', overflowY: 'auto' }}>
 
                     {/* Review Queue List */}
-                    <div className="bg-white border rounded shadow-sm d-flex flex-column overflow-hidden">
-                        <div className="p-3 bg-info bg-opacity-10 border-bottom border-info border-opacity-25 d-flex align-items-center justify-content-between">
-                            <div className="d-flex align-items-center gap-2 text-info fw-semibold" style={{ fontSize: '12px' }}>
-                                <FileText size={14} />
-                                <span>Queue ({currentItemIndex + 1}/{queueItems.length})</span>
-                            </div>
-                        </div>
-                        <div className="overflow-auto" style={{ flex: '1', minHeight: '280px' }}>
-                            {isLoadingQueue && (
-                                <div className="p-4 text-center text-muted">
-                                    <Loader size={20} className="d-inline-block me-2 animate-spin" />
-                                    Loading items...
-                                </div>
-                            )}
-                            {queueError && (
-                                <div className="p-3 bg-danger bg-opacity-10 border-bottom border-danger text-danger" style={{ fontSize: '12px' }}>
-                                    {queueError}
-                                </div>
-                            )}
-                            {!isLoadingQueue && queueItems.length === 0 && (
-                                <div className="p-4 text-center text-muted">
-                                    No items to review
-                                </div>
-                            )}
-                            {!isLoadingQueue && queueItems.map((item, idx) => (
-                                <div
-                                    key={item.id}
-                                    onClick={() => setCurrentItemIndex(idx)}
-                                    className={`p-3 border-bottom cursor-pointer transition-colors ${idx === currentItemIndex
-                                        ? 'bg-info bg-opacity-10 border-left border-info border-3'
-                                        : 'bg-white hover:bg-light'}`}
-                                    style={{
-                                        cursor: 'pointer',
-                                        borderLeft: idx === currentItemIndex ? '4px solid #0d6efd' : 'none',
-                                        paddingLeft: idx === currentItemIndex ? 'calc(0.75rem - 3px)' : '0.75rem'
-                                    }}
-                                >
-                                    <div className="d-flex align-items-start gap-2">
-                                        {item.thumbnailPath && (
-                                            <img
-                                                src={item.thumbnailPath}
-                                                alt="Thumbnail"
-                                                className="rounded"
-                                                style={{ width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0 }}
-                                                onError={(e) => e.target.style.display = 'none'}
-                                            />
-                                        )}
-                                        <div className="flex-fill" style={{ minWidth: 0 }}>
-                                            <p className="fw-medium text-dark mb-1" style={{ fontSize: '12px' }}>
-                                                {item.fileName}
-                                            </p>
-                                            <p className="text-muted mb-1" style={{ fontSize: '11px' }}>
-                                                Project: {item.projectName}
-                                            </p>
-                                            <div className="d-flex gap-3" style={{ fontSize: '10px' }}>
-                                                <span className="text-muted">
-                                                    Annotations: <strong>{item.annotationCount}</strong>
-                                                </span>
-                                                <span className="badge bg-secondary text-white">{item.annotatorName}</span>
-                                            </div>
-                                            <p className="text-muted mb-0" style={{ fontSize: '10px', marginTop: '4px' }}>
-                                                {new Date(item.submittedAt).toLocaleDateString()}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        {/* Pagination Controls */}
-                        {pagination.totalPages > 1 && (
-                            <div className="p-3 bg-light border-top d-flex align-items-center justify-content-between">
-                                <button
-                                    onClick={() => fetchReviewQueue(pagination.pageNumber - 1)}
-                                    disabled={!pagination.hasPreviousPage}
-                                    className="btn btn-sm btn-outline-secondary"
-                                >
-                                    <ChevronLeft size={14} />
-                                </button>
-                                <span style={{ fontSize: '12px' }} className="text-muted">
-                                    Page {pagination.pageNumber} of {pagination.totalPages}
-                                </span>
-                                <button
-                                    onClick={() => fetchReviewQueue(pagination.pageNumber + 1)}
-                                    disabled={!pagination.hasNextPage}
-                                    className="btn btn-sm btn-outline-secondary"
-                                >
-                                    <ChevronRight size={14} />
-                                </button>
-                            </div>
-                        )}
-                    </div>
-
+                    {
+                    // <div className="bg-white border rounded shadow-sm d-flex flex-column overflow-hidden">
+                    //     <div className="p-3 bg-info bg-opacity-10 border-bottom border-info border-opacity-25 d-flex align-items-center justify-content-between">
+                    //         <div className="d-flex align-items-center gap-2 text-info fw-semibold" style={{ fontSize: '12px' }}>
+                    //             <FileText size={14} />
+                    //             <span>Queue ({currentItemIndex + 1}/{queueItems.length})</span>
+                    //         </div>
+                    //     </div>
+                    //     <div className="overflow-auto" style={{ flex: '1', minHeight: '280px' }}>
+                    //         {isLoadingQueue && (
+                    //             <div className="p-4 text-center text-muted">
+                    //                 <Loader size={20} className="d-inline-block me-2 animate-spin" />
+                    //                 Loading items...
+                    //             </div>
+                    //         )}
+                    //         {queueError && (
+                    //             <div className="p-3 bg-danger bg-opacity-10 border-bottom border-danger text-danger" style={{ fontSize: '12px' }}>
+                    //                 {queueError}
+                    //             </div>
+                    //         )}
+                    //         {!isLoadingQueue && queueItems.length === 0 && (
+                    //             <div className="p-4 text-center text-muted">
+                    //                 No items to review
+                    //             </div>
+                    //         )}
+                    //         {!isLoadingQueue && queueItems.map((item, idx) => (
+                    //             <div
+                    //                 key={item.id}
+                    //                 onClick={() => setCurrentItemIndex(idx)}
+                    //                 className={`p-3 border-bottom cursor-pointer transition-colors ${idx === currentItemIndex
+                    //                     ? 'bg-info bg-opacity-10 border-left border-info border-3'
+                    //                     : 'bg-white hover:bg-light'}`}
+                    //                 style={{
+                    //                     cursor: 'pointer',
+                    //                     borderLeft: idx === currentItemIndex ? '4px solid #0d6efd' : 'none',
+                    //                     paddingLeft: idx === currentItemIndex ? 'calc(0.75rem - 3px)' : '0.75rem'
+                    //                 }}
+                    //             >
+                    //                 <div className="d-flex align-items-start gap-2">
+                    //                     {item.thumbnailPath && (
+                    //                         <img
+                    //                             src={item.thumbnailPath}
+                    //                             alt="Thumbnail"
+                    //                             className="rounded"
+                    //                             style={{ width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0 }}
+                    //                             onError={(e) => e.target.style.display = 'none'}
+                    //                         />
+                    //                     )}
+                    //                     <div className="flex-fill" style={{ minWidth: 0 }}>
+                    //                         <p className="fw-medium text-dark mb-1" style={{ fontSize: '12px' }}>
+                    //                             {item.fileName}
+                    //                         </p>
+                    //                         <p className="text-muted mb-1" style={{ fontSize: '11px' }}>
+                    //                             Project: {item.projectName}
+                    //                         </p>
+                    //                         <div className="d-flex gap-3" style={{ fontSize: '10px' }}>
+                    //                             <span className="text-muted">
+                    //                                 Annotations: <strong>{item.annotationCount}</strong>
+                    //                             </span>
+                    //                             <span className="badge bg-secondary text-white">{item.annotatorName}</span>
+                    //                         </div>
+                    //                         <p className="text-muted mb-0" style={{ fontSize: '10px', marginTop: '4px' }}>
+                    //                             {new Date(item.submittedAt).toLocaleDateString()}
+                    //                         </p>
+                    //                     </div>
+                    //                 </div>
+                    //             </div>
+                    //         ))}
+                    //     </div>
+                    //     {/* Pagination Controls */}
+                    //     {pagination.totalPages > 1 && (
+                    //         <div className="p-3 bg-light border-top d-flex align-items-center justify-content-between">
+                    //             <button
+                    //                 onClick={() => fetchReviewQueue(pagination.pageNumber - 1)}
+                    //                 disabled={!pagination.hasPreviousPage}
+                    //                 className="btn btn-sm btn-outline-secondary"
+                    //             >
+                    //                 <ChevronLeft size={14} />
+                    //             </button>
+                    //             <span style={{ fontSize: '12px' }} className="text-muted">
+                    //                 Page {pagination.pageNumber} of {pagination.totalPages}
+                    //             </span>
+                    //             <button
+                    //                 onClick={() => fetchReviewQueue(pagination.pageNumber + 1)}
+                    //                 disabled={!pagination.hasNextPage}
+                    //                 className="btn btn-sm btn-outline-secondary"
+                    //             >
+                    //                 <ChevronRight size={14} />
+                    //             </button>
+                    //         </div>
+                    //     )}
+                    // </div>
+}
                     {/* Guidelines Panel */}
                     <div className="bg-white border  rounded shadow-sm d-flex flex-column" style={{ flex: '0 0 auto' }}>
                         <div className="p-3 bg-primary bg-opacity-10 border-bottom border-primary border-opacity-25 d-flex align-items-center justify-content-between">
