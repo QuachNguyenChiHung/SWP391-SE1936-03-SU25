@@ -539,98 +539,98 @@ export const ReviewerInterface = ({ onTitleChange }) => {
 
                     {/* Review Queue List */}
                     {
-                    // <div className="bg-white border rounded shadow-sm d-flex flex-column overflow-hidden">
-                    //     <div className="p-3 bg-info bg-opacity-10 border-bottom border-info border-opacity-25 d-flex align-items-center justify-content-between">
-                    //         <div className="d-flex align-items-center gap-2 text-info fw-semibold" style={{ fontSize: '12px' }}>
-                    //             <FileText size={14} />
-                    //             <span>Queue ({currentItemIndex + 1}/{queueItems.length})</span>
-                    //         </div>
-                    //     </div>
-                    //     <div className="overflow-auto" style={{ flex: '1', minHeight: '280px' }}>
-                    //         {isLoadingQueue && (
-                    //             <div className="p-4 text-center text-muted">
-                    //                 <Loader size={20} className="d-inline-block me-2 animate-spin" />
-                    //                 Loading items...
-                    //             </div>
-                    //         )}
-                    //         {queueError && (
-                    //             <div className="p-3 bg-danger bg-opacity-10 border-bottom border-danger text-danger" style={{ fontSize: '12px' }}>
-                    //                 {queueError}
-                    //             </div>
-                    //         )}
-                    //         {!isLoadingQueue && queueItems.length === 0 && (
-                    //             <div className="p-4 text-center text-muted">
-                    //                 No items to review
-                    //             </div>
-                    //         )}
-                    //         {!isLoadingQueue && queueItems.map((item, idx) => (
-                    //             <div
-                    //                 key={item.id}
-                    //                 onClick={() => setCurrentItemIndex(idx)}
-                    //                 className={`p-3 border-bottom cursor-pointer transition-colors ${idx === currentItemIndex
-                    //                     ? 'bg-info bg-opacity-10 border-left border-info border-3'
-                    //                     : 'bg-white hover:bg-light'}`}
-                    //                 style={{
-                    //                     cursor: 'pointer',
-                    //                     borderLeft: idx === currentItemIndex ? '4px solid #0d6efd' : 'none',
-                    //                     paddingLeft: idx === currentItemIndex ? 'calc(0.75rem - 3px)' : '0.75rem'
-                    //                 }}
-                    //             >
-                    //                 <div className="d-flex align-items-start gap-2">
-                    //                     {item.thumbnailPath && (
-                    //                         <img
-                    //                             src={item.thumbnailPath}
-                    //                             alt="Thumbnail"
-                    //                             className="rounded"
-                    //                             style={{ width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0 }}
-                    //                             onError={(e) => e.target.style.display = 'none'}
-                    //                         />
-                    //                     )}
-                    //                     <div className="flex-fill" style={{ minWidth: 0 }}>
-                    //                         <p className="fw-medium text-dark mb-1" style={{ fontSize: '12px' }}>
-                    //                             {item.fileName}
-                    //                         </p>
-                    //                         <p className="text-muted mb-1" style={{ fontSize: '11px' }}>
-                    //                             Project: {item.projectName}
-                    //                         </p>
-                    //                         <div className="d-flex gap-3" style={{ fontSize: '10px' }}>
-                    //                             <span className="text-muted">
-                    //                                 Annotations: <strong>{item.annotationCount}</strong>
-                    //                             </span>
-                    //                             <span className="badge bg-secondary text-white">{item.annotatorName}</span>
-                    //                         </div>
-                    //                         <p className="text-muted mb-0" style={{ fontSize: '10px', marginTop: '4px' }}>
-                    //                             {new Date(item.submittedAt).toLocaleDateString()}
-                    //                         </p>
-                    //                     </div>
-                    //                 </div>
-                    //             </div>
-                    //         ))}
-                    //     </div>
-                    //     {/* Pagination Controls */}
-                    //     {pagination.totalPages > 1 && (
-                    //         <div className="p-3 bg-light border-top d-flex align-items-center justify-content-between">
-                    //             <button
-                    //                 onClick={() => fetchReviewQueue(pagination.pageNumber - 1)}
-                    //                 disabled={!pagination.hasPreviousPage}
-                    //                 className="btn btn-sm btn-outline-secondary"
-                    //             >
-                    //                 <ChevronLeft size={14} />
-                    //             </button>
-                    //             <span style={{ fontSize: '12px' }} className="text-muted">
-                    //                 Page {pagination.pageNumber} of {pagination.totalPages}
-                    //             </span>
-                    //             <button
-                    //                 onClick={() => fetchReviewQueue(pagination.pageNumber + 1)}
-                    //                 disabled={!pagination.hasNextPage}
-                    //                 className="btn btn-sm btn-outline-secondary"
-                    //             >
-                    //                 <ChevronRight size={14} />
-                    //             </button>
-                    //         </div>
-                    //     )}
-                    // </div>
-}
+                        // <div className="bg-white border rounded shadow-sm d-flex flex-column overflow-hidden">
+                        //     <div className="p-3 bg-info bg-opacity-10 border-bottom border-info border-opacity-25 d-flex align-items-center justify-content-between">
+                        //         <div className="d-flex align-items-center gap-2 text-info fw-semibold" style={{ fontSize: '12px' }}>
+                        //             <FileText size={14} />
+                        //             <span>Queue ({currentItemIndex + 1}/{queueItems.length})</span>
+                        //         </div>
+                        //     </div>
+                        //     <div className="overflow-auto" style={{ flex: '1', minHeight: '280px' }}>
+                        //         {isLoadingQueue && (
+                        //             <div className="p-4 text-center text-muted">
+                        //                 <Loader size={20} className="d-inline-block me-2 animate-spin" />
+                        //                 Loading items...
+                        //             </div>
+                        //         )}
+                        //         {queueError && (
+                        //             <div className="p-3 bg-danger bg-opacity-10 border-bottom border-danger text-danger" style={{ fontSize: '12px' }}>
+                        //                 {queueError}
+                        //             </div>
+                        //         )}
+                        //         {!isLoadingQueue && queueItems.length === 0 && (
+                        //             <div className="p-4 text-center text-muted">
+                        //                 No items to review
+                        //             </div>
+                        //         )}
+                        //         {!isLoadingQueue && queueItems.map((item, idx) => (
+                        //             <div
+                        //                 key={item.id}
+                        //                 onClick={() => setCurrentItemIndex(idx)}
+                        //                 className={`p-3 border-bottom cursor-pointer transition-colors ${idx === currentItemIndex
+                        //                     ? 'bg-info bg-opacity-10 border-left border-info border-3'
+                        //                     : 'bg-white hover:bg-light'}`}
+                        //                 style={{
+                        //                     cursor: 'pointer',
+                        //                     borderLeft: idx === currentItemIndex ? '4px solid #0d6efd' : 'none',
+                        //                     paddingLeft: idx === currentItemIndex ? 'calc(0.75rem - 3px)' : '0.75rem'
+                        //                 }}
+                        //             >
+                        //                 <div className="d-flex align-items-start gap-2">
+                        //                     {item.thumbnailPath && (
+                        //                         <img
+                        //                             src={item.thumbnailPath}
+                        //                             alt="Thumbnail"
+                        //                             className="rounded"
+                        //                             style={{ width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0 }}
+                        //                             onError={(e) => e.target.style.display = 'none'}
+                        //                         />
+                        //                     )}
+                        //                     <div className="flex-fill" style={{ minWidth: 0 }}>
+                        //                         <p className="fw-medium text-dark mb-1" style={{ fontSize: '12px' }}>
+                        //                             {item.fileName}
+                        //                         </p>
+                        //                         <p className="text-muted mb-1" style={{ fontSize: '11px' }}>
+                        //                             Project: {item.projectName}
+                        //                         </p>
+                        //                         <div className="d-flex gap-3" style={{ fontSize: '10px' }}>
+                        //                             <span className="text-muted">
+                        //                                 Annotations: <strong>{item.annotationCount}</strong>
+                        //                             </span>
+                        //                             <span className="badge bg-secondary text-white">{item.annotatorName}</span>
+                        //                         </div>
+                        //                         <p className="text-muted mb-0" style={{ fontSize: '10px', marginTop: '4px' }}>
+                        //                             {new Date(item.submittedAt).toLocaleDateString()}
+                        //                         </p>
+                        //                     </div>
+                        //                 </div>
+                        //             </div>
+                        //         ))}
+                        //     </div>
+                        //     {/* Pagination Controls */}
+                        //     {pagination.totalPages > 1 && (
+                        //         <div className="p-3 bg-light border-top d-flex align-items-center justify-content-between">
+                        //             <button
+                        //                 onClick={() => fetchReviewQueue(pagination.pageNumber - 1)}
+                        //                 disabled={!pagination.hasPreviousPage}
+                        //                 className="btn btn-sm btn-outline-secondary"
+                        //             >
+                        //                 <ChevronLeft size={14} />
+                        //             </button>
+                        //             <span style={{ fontSize: '12px' }} className="text-muted">
+                        //                 Page {pagination.pageNumber} of {pagination.totalPages}
+                        //             </span>
+                        //             <button
+                        //                 onClick={() => fetchReviewQueue(pagination.pageNumber + 1)}
+                        //                 disabled={!pagination.hasNextPage}
+                        //                 className="btn btn-sm btn-outline-secondary"
+                        //             >
+                        //                 <ChevronRight size={14} />
+                        //             </button>
+                        //         </div>
+                        //     )}
+                        // </div>
+                    }
                     {/* Guidelines Panel */}
                     <div className="bg-white border  rounded shadow-sm d-flex flex-column" style={{ flex: '0 0 auto' }}>
                         <div className="p-3 bg-primary bg-opacity-10 border-bottom border-primary border-opacity-25 d-flex align-items-center justify-content-between">
