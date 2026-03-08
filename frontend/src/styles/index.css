@@ -1,0 +1,161 @@
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #ffffff;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Reset for dashboard pages */
+.layout-container {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Profile hover effect */
+.hover-bg-slate-800:hover {
+  background-color: rgba(30, 41, 59, 0.5);
+  transition: background-color 0.2s ease;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Sidebar link styles - ensure consistent appearance */
+.sidebar-link {
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  border: none !important;
+  outline: none !important;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0 !important;
+  box-shadow: none !important;
+  position: relative;
+}
+
+.sidebar-link::before,
+.sidebar-link::after {
+  display: none !important;
+}
+
+.sidebar-link:hover:not(.sidebar-link-active) {
+  background-color: rgba(99, 102, 241, 0.08) !important;
+  color: #c7d2fe !important;
+}
+
+.sidebar-link-active {
+  background: linear-gradient(90deg, #4f46e5 0%, #6366f1 100%) !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35) !important;
+}
+
+.sidebar-link:active,
+.sidebar-link:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+  border: none !important;
+}
+
+.sidebar-link-active:active,
+.sidebar-link-active:focus {
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35) !important;
+}
+
+.layout-container aside a,
+.layout-container aside button {
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.layout-container aside a:active,
+.layout-container aside button:active {
+  transform: none;
+  box-shadow: none;
+}
+
+.layout-container aside a:focus,
+.layout-container aside button:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Remove default button styles */
+.layout-container aside button.btn-link {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border: none;
+}
+
+.layout-container aside button.btn-link:hover,
+.layout-container aside button.btn-link:focus {
+  text-decoration: none;
+  border: none;
+}
+
+/* Ensure consistent width for all sidebar items */
+.layout-container aside .d-flex.flex-column.gap-1 > * {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Override Bootstrap default button behaviors */
+.btn:focus,
+.btn:active,
+.btn:active:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.btn-link:focus,
+.btn-link:active {
+  text-decoration: none !important;
+}
+
+/* Prevent layout shift on click */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a:active,
+button:active {
+  position: relative;
+}
+
+/* Avatar profile section hover */
+.layout-container aside .sidebar-link:not(.sidebar-link-active):hover {
+  background-color: rgba(99, 102, 241, 0.08) !important;
+}
+
+/* Ensure no layout shift on any interaction */
+.layout-container aside * {
+  box-sizing: border-box;
+}
+
+.layout-container aside a,
+.layout-container aside button,
+.layout-container aside div[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
