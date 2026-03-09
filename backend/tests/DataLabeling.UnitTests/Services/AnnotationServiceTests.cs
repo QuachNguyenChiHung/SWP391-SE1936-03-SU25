@@ -236,6 +236,47 @@ public class AnnotationServiceTests
         _mockUow.Annotations.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<Annotation>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // ==================== UpdateAsync - Null checks ====================
+
+    [Fact]
+    public async Task UpdateAsync_WithNullDataItem_ThrowsNotFoundException()
+    {
+        // Arrange
+        var annotation = new Annotation { Id = 1, DataItemId = 99, CreatedById = 5, Coordinates = "{}" };
+        _mockUow.Annotations.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(annotation);
+        _mockUow.Labels.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(MakeLabel(1));
+        _mockUow.DataItems.Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>())).ReturnsAsync((DataItem?)null);
+
+        var request = new UpdateAnnotationRequest { LabelId = 1 };
+
+        // Act
+        var act = () => _sut.UpdateAsync(1, request, userId: 5);
+
+        // Assert
+        await act.Should().ThrowAsync<NotFoundException>().WithMessage("*DataItem*");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithNullDataset_ThrowsNotFoundException()
+    {
+        // Arrange
+        var annotation = new Annotation { Id = 1, DataItemId = 1, CreatedById = 5, Coordinates = "{}" };
+        var dataItem = MakeDataItem(1, datasetId: 99);
+
+        _mockUow.Annotations.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(annotation);
+        _mockUow.Labels.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(MakeLabel(1));
+        _mockUow.DataItems.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(dataItem);
+        _mockUow.Datasets.Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>())).ReturnsAsync((Dataset?)null);
+
+        var request = new UpdateAnnotationRequest { LabelId = 1 };
+
+        // Act
+        var act = () => _sut.UpdateAsync(1, request, userId: 5);
+
+        // Assert
+        await act.Should().ThrowAsync<NotFoundException>().WithMessage("*Dataset*");
+    }
+
     // ==================== SaveAllAsync - Validation (before transaction) ====================
 
     [Fact]

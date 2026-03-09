@@ -387,7 +387,7 @@ public class ReviewService : IReviewService
             dataItem.ReviewLockExpiry = DateTime.UtcNow.AddHours(ReviewLockHours);
             dataItem.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.DataItems.Update(dataItem);
-
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
             // Log activity

@@ -402,4 +402,80 @@ public class ReviewServiceTests
         // Assert - 2 saves: first for review.Id, second for status + error types
         _mockUow.Mock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
+
+    // ==================== AssignReviewerAsync - Transaction ====================
+
+    [Fact]
+    public async Task AssignReviewerAsync_HappyPath_SavesBeforeCommit()
+    {
+        // Arrange
+        var dataItem = MakeDataItem(1, DataItemStatus.Submitted);
+        var reviewer = MakeUser(10, UserRole.Reviewer);
+
+        _mockUow.DataItems.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(dataItem);
+        _mockUow.Users.Setup(r => r.GetByIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(reviewer);
+
+        var saveCallOrder = 0;
+        var commitCallOrder = 0;
+        var callCounter = 0;
+
+        _mockUow.Mock
+            .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Callback(() => saveCallOrder = ++callCounter)
+            .ReturnsAsync(1);
+        _mockUow.Mock
+            .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+            .Callback(() => commitCallOrder = ++callCounter)
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await _sut.AssignReviewerAsync(1, 10);
+
+        // Assert - SaveChangesAsync must be called before CommitTransactionAsync
+        saveCallOrder.Should().BeGreaterThan(0, "SaveChangesAsync should be called");
+        commitCallOrder.Should().BeGreaterThan(0, "CommitTransactionAsync should be called");
+        saveCallOrder.Should().BeLessThan(commitCallOrder, "SaveChangesAsync should be called before CommitTransactionAsync");
+    }
+
+    [Fact]
+    public async Task AssignReviewerAsync_HappyPath_BeginsAndCommitsTransaction()
+    {
+        // Arrange
+        var dataItem = MakeDataItem(1, DataItemStatus.Submitted);
+        var reviewer = MakeUser(10, UserRole.Reviewer);
+
+        _mockUow.DataItems.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(dataItem);
+        _mockUow.Users.Setup(r => r.GetByIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(reviewer);
+
+        // Act
+        await _sut.AssignReviewerAsync(1, 10);
+
+        // Assert
+        _mockUow.Mock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUow.Mock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUow.Mock.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AssignReviewerAsync_WhenSaveChangesFails_RollsBackTransaction()
+    {
+        // Arrange
+        var dataItem = MakeDataItem(1, DataItemStatus.Submitted);
+        var reviewer = MakeUser(10, UserRole.Reviewer);
+
+        _mockUow.DataItems.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(dataItem);
+        _mockUow.Users.Setup(r => r.GetByIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(reviewer);
+        _mockUow.Mock
+            .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("DB error"));
+
+        // Act
+        var act = () => _sut.AssignReviewerAsync(1, 10);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("DB error");
+        _mockUow.Mock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUow.Mock.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUow.Mock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

@@ -135,8 +135,12 @@ public class AnnotationService : IAnnotationService
 
             // Validate label belongs to same project
             var dataItem = await _unitOfWork.DataItems.GetByIdAsync(annotation.DataItemId, cancellationToken);
-            var dataset = await _unitOfWork.Datasets.GetByIdAsync(dataItem!.DatasetId, cancellationToken);
-            if (label.ProjectId != dataset!.ProjectId)
+            if (dataItem == null)
+                throw new NotFoundException("DataItem", annotation.DataItemId);
+            var dataset = await _unitOfWork.Datasets.GetByIdAsync(dataItem.DatasetId, cancellationToken);
+            if (dataset == null)
+                throw new NotFoundException("Dataset", dataItem.DatasetId);
+            if (label.ProjectId != dataset.ProjectId)
                 throw new ValidationException("Label does not belong to this project");
 
             annotation.LabelId = request.LabelId.Value;
