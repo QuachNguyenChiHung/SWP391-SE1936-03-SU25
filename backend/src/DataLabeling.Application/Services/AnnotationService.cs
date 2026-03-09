@@ -213,29 +213,39 @@ public class AnnotationService : IAnnotationService
                 throw new ValidationException($"Label {item.LabelId} does not belong to this project");
         }
 
-        // Delete existing annotations
-        await _unitOfWork.Annotations.DeleteByDataItemIdAsync(dataItemId, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        // Create new annotations
-        var newAnnotations = new List<Annotation>();
-        foreach (var item in request.Annotations)
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
         {
-            var annotation = new Annotation
+            // Delete existing annotations
+            await _unitOfWork.Annotations.DeleteByDataItemIdAsync(dataItemId, cancellationToken);
+
+            // Create new annotations
+            var newAnnotations = new List<Annotation>();
+            foreach (var item in request.Annotations)
             {
-                DataItemId = dataItemId,
-                LabelId = item.LabelId,
-                CreatedById = createdById,
-                Coordinates = item.Coordinates,
-                Attributes = item.Attributes
-            };
-            newAnnotations.Add(annotation);
-        }
+                var annotation = new Annotation
+                {
+                    DataItemId = dataItemId,
+                    LabelId = item.LabelId,
+                    CreatedById = createdById,
+                    Coordinates = item.Coordinates,
+                    Attributes = item.Attributes
+                };
+                newAnnotations.Add(annotation);
+            }
 
-        if (newAnnotations.Any())
-        {
-            await _unitOfWork.Annotations.AddRangeAsync(newAnnotations, cancellationToken);
+            if (newAnnotations.Any())
+            {
+                await _unitOfWork.Annotations.AddRangeAsync(newAnnotations, cancellationToken);
+            }
+
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
         }
 
         // Return saved annotations

@@ -71,55 +71,65 @@ public class ReviewService : IReviewService
                 throw new ValidationException("One or more error types are invalid");
         }
 
-        // Create review
-        var review = new Review
+        Review review;
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
         {
-            DataItemId = dataItemId,
-            ReviewerId = reviewerId,
-            Decision = request.Decision,
-            Feedback = request.Feedback
-        };
-
-        await _unitOfWork.Reviews.AddAsync(review, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        // Add error types if rejected
-        if (request.Decision == ReviewDecision.Rejected && request.ErrorTypeIds.Length > 0)
-        {
-            foreach (var errorTypeId in request.ErrorTypeIds)
+            // Create review
+            review = new Review
             {
-                var reviewErrorType = new ReviewErrorType
+                DataItemId = dataItemId,
+                ReviewerId = reviewerId,
+                Decision = request.Decision,
+                Feedback = request.Feedback
+            };
+
+            await _unitOfWork.Reviews.AddAsync(review, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken); // Need save to get review.Id
+
+            // Add error types if rejected
+            if (request.Decision == ReviewDecision.Rejected && request.ErrorTypeIds.Length > 0)
+            {
+                foreach (var errorTypeId in request.ErrorTypeIds)
                 {
-                    ReviewId = review.Id,
-                    ErrorTypeId = errorTypeId
-                };
-                review.ReviewErrorTypes.Add(reviewErrorType);
+                    var reviewErrorType = new ReviewErrorType
+                    {
+                        ReviewId = review.Id,
+                        ErrorTypeId = errorTypeId
+                    };
+                    review.ReviewErrorTypes.Add(reviewErrorType);
+                }
             }
+
+            // Update data item status and clear lock fields
+            dataItem.Status = request.Decision == ReviewDecision.Approved
+                ? DataItemStatus.Approved
+                : DataItemStatus.Rejected;
+            dataItem.AssignedReviewerId = null;
+            dataItem.ReviewAssignedAt = null;
+            dataItem.ReviewLockExpiry = null;
+            dataItem.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.DataItems.Update(dataItem);
+
+            // If approved, check if task is complete
+            if (request.Decision == ReviewDecision.Approved)
+            {
+                await CheckAndUpdateTaskCompletionAsync(dataItemId, cancellationToken);
+            }
+            // If rejected, reset TaskItem status so annotator can re-work
+            else
+            {
+                await ResetTaskItemForReAnnotationAsync(dataItemId, cancellationToken);
+            }
+
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
         }
-
-        // Update data item status and clear lock fields
-        dataItem.Status = request.Decision == ReviewDecision.Approved
-            ? DataItemStatus.Approved
-            : DataItemStatus.Rejected;
-        dataItem.AssignedReviewerId = null;
-        dataItem.ReviewAssignedAt = null;
-        dataItem.ReviewLockExpiry = null;
-        dataItem.UpdatedAt = DateTime.UtcNow;
-        _unitOfWork.DataItems.Update(dataItem);
-
-        // If approved, check if task is complete
-        if (request.Decision == ReviewDecision.Approved)
+        catch
         {
-            await CheckAndUpdateTaskCompletionAsync(dataItemId, cancellationToken);
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
         }
-        // If rejected, reset TaskItem status so annotator can re-work
-        else
-        {
-            await ResetTaskItemForReAnnotationAsync(dataItemId, cancellationToken);
-        }
-
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Log activity
         var action = request.Decision == ReviewDecision.Approved ? ActivityAction.Approve : ActivityAction.Reject;

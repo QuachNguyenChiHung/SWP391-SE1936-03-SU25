@@ -233,4 +233,173 @@ public class ReviewServiceTests
         await act.Should().ThrowAsync<ValidationException>()
             .WithMessage("*error type*");
     }
+
+    // ==================== CreateReviewAsync - Transaction ====================
+
+    [Fact]
+    public async Task CreateReviewAsync_WhenApproved_BeginsAndCommitsTransaction()
+    {
+        // Arrange
+        var dataItem = MakeDataItem(1, DataItemStatus.Submitted);
+        var reviewer = MakeUser(10, UserRole.Reviewer);
+        var reviewForReturn = new Review
+        {
+            Id = 1, DataItemId = 1, ReviewerId = 10, Decision = ReviewDecision.Approved,
+            ReviewErrorTypes = new List<ReviewErrorType>()
+        };
+
+        _mockUow.DataItems.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(dataItem);
+        _mockUow.Users.Setup(r => r.GetByIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(reviewer);
+        _mockUow.Reviews.Setup(r => r.AddAsync(It.IsAny<Review>(), It.IsAny<CancellationToken>())).ReturnsAsync((Review r, CancellationToken _) => r);
+        _mockUow.Reviews.Setup(r => r.GetWithErrorTypesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(reviewForReturn);
+        _mockUow.TaskItems.Setup(r => r.GetByDataItemIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(new List<TaskItem>());
+
+        var request = new CreateReviewRequest { Decision = ReviewDecision.Approved };
+
+        // Act
+        await _sut.CreateReviewAsync(1, request, reviewerId: 10);
+
+        // Assert
+        _mockUow.Mock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUow.Mock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUow.Mock.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateReviewAsync_WhenSaveChangesFails_RollsBackTransaction()
+    {
+        // Arrange
+        var dataItem = MakeDataItem(1, DataItemStatus.Submitted);
+        var reviewer = MakeUser(10, UserRole.Reviewer);
+
+        _mockUow.DataItems.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(dataItem);
+        _mockUow.Users.Setup(r => r.GetByIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(reviewer);
+        _mockUow.Reviews.Setup(r => r.AddAsync(It.IsAny<Review>(), It.IsAny<CancellationToken>())).ReturnsAsync((Review r, CancellationToken _) => r);
+        _mockUow.Mock
+            .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("DB error"));
+
+        var request = new CreateReviewRequest { Decision = ReviewDecision.Approved };
+
+        // Act
+        var act = () => _sut.CreateReviewAsync(1, request, reviewerId: 10);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("DB error");
+        _mockUow.Mock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUow.Mock.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUow.Mock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateReviewAsync_WhenRejected_CommitsTransactionWithErrorTypes()
+    {
+        // Arrange
+        var dataItem = MakeDataItem(1, DataItemStatus.Submitted);
+        var reviewer = MakeUser(10, UserRole.Reviewer);
+        var errorTypes = new List<ErrorType> { new() { Id = 1, Code = "E01", Name = "Bounding Box Error" } };
+        var reviewForReturn = new Review
+        {
+            Id = 1, DataItemId = 1, ReviewerId = 10, Decision = ReviewDecision.Rejected,
+            Feedback = "Wrong box.", ReviewErrorTypes = new List<ReviewErrorType>()
+        };
+
+        _mockUow.DataItems.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(dataItem);
+        _mockUow.Users.Setup(r => r.GetByIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(reviewer);
+        _mockUow.ErrorTypes.Setup(r => r.GetByIdsAsync(It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>())).ReturnsAsync(errorTypes);
+        _mockUow.Reviews.Setup(r => r.AddAsync(It.IsAny<Review>(), It.IsAny<CancellationToken>())).ReturnsAsync((Review r, CancellationToken _) => r);
+        _mockUow.Reviews.Setup(r => r.GetWithErrorTypesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(reviewForReturn);
+        _mockUow.TaskItems.Setup(r => r.GetByDataItemIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(new List<TaskItem>());
+
+        var request = new CreateReviewRequest
+        {
+            Decision = ReviewDecision.Rejected,
+            Feedback = "Wrong box.",
+            ErrorTypeIds = new[] { 1 }
+        };
+
+        // Act
+        await _sut.CreateReviewAsync(1, request, reviewerId: 10);
+
+        // Assert
+        _mockUow.Mock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUow.Mock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUow.Mock.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateReviewAsync_ValidationFailure_DoesNotStartTransaction()
+    {
+        // Arrange
+        _mockUow.DataItems.Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>())).ReturnsAsync((DataItem?)null);
+        var request = new CreateReviewRequest { Decision = ReviewDecision.Approved };
+
+        // Act
+        var act = () => _sut.CreateReviewAsync(99, request, reviewerId: 10);
+
+        // Assert
+        await act.Should().ThrowAsync<NotFoundException>();
+        _mockUow.Mock.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateReviewAsync_ClearsLockFields_WithinTransaction()
+    {
+        // Arrange
+        var dataItem = MakeDataItem(1, DataItemStatus.Submitted);
+        dataItem.AssignedReviewerId = 10;
+        dataItem.ReviewAssignedAt = DateTime.UtcNow.AddMinutes(-5);
+        dataItem.ReviewLockExpiry = DateTime.UtcNow.AddMinutes(25);
+
+        var reviewer = MakeUser(10, UserRole.Reviewer);
+        var reviewForReturn = new Review
+        {
+            Id = 1, DataItemId = 1, ReviewerId = 10, Decision = ReviewDecision.Approved,
+            ReviewErrorTypes = new List<ReviewErrorType>()
+        };
+
+        _mockUow.DataItems.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(dataItem);
+        _mockUow.Users.Setup(r => r.GetByIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(reviewer);
+        _mockUow.Reviews.Setup(r => r.AddAsync(It.IsAny<Review>(), It.IsAny<CancellationToken>())).ReturnsAsync((Review r, CancellationToken _) => r);
+        _mockUow.Reviews.Setup(r => r.GetWithErrorTypesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(reviewForReturn);
+        _mockUow.TaskItems.Setup(r => r.GetByDataItemIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(new List<TaskItem>());
+
+        var request = new CreateReviewRequest { Decision = ReviewDecision.Approved };
+
+        // Act
+        await _sut.CreateReviewAsync(1, request, reviewerId: 10);
+
+        // Assert - lock fields cleared within transaction
+        dataItem.AssignedReviewerId.Should().BeNull();
+        dataItem.ReviewAssignedAt.Should().BeNull();
+        dataItem.ReviewLockExpiry.Should().BeNull();
+        _mockUow.Mock.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateReviewAsync_Approved_SavesExactlyTwice()
+    {
+        // Arrange
+        var dataItem = MakeDataItem(1, DataItemStatus.Submitted);
+        var reviewer = MakeUser(10, UserRole.Reviewer);
+        var reviewForReturn = new Review
+        {
+            Id = 1, DataItemId = 1, ReviewerId = 10, Decision = ReviewDecision.Approved,
+            ReviewErrorTypes = new List<ReviewErrorType>()
+        };
+
+        _mockUow.DataItems.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(dataItem);
+        _mockUow.Users.Setup(r => r.GetByIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(reviewer);
+        _mockUow.Reviews.Setup(r => r.AddAsync(It.IsAny<Review>(), It.IsAny<CancellationToken>())).ReturnsAsync((Review r, CancellationToken _) => r);
+        _mockUow.Reviews.Setup(r => r.GetWithErrorTypesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(reviewForReturn);
+        _mockUow.TaskItems.Setup(r => r.GetByDataItemIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(new List<TaskItem>());
+
+        var request = new CreateReviewRequest { Decision = ReviewDecision.Approved };
+
+        // Act
+        await _sut.CreateReviewAsync(1, request, reviewerId: 10);
+
+        // Assert - 2 saves: first for review.Id, second for status + error types
+        _mockUow.Mock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
 }
