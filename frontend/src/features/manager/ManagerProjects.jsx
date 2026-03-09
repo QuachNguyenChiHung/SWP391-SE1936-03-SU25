@@ -19,6 +19,8 @@ export const ManagerProjects = ({ user }) => {
     const pageLength = 12;
     // State để xử lý hiệu ứng hover cho từng card
     const [hoveredProject, setHoveredProject] = useState(null);
+    const [statusFilter, setStatusFilter] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
 
     const handleProjectClick = (project) => {
         const convertProjectId = project.id + "";
@@ -29,14 +31,21 @@ export const ManagerProjects = ({ user }) => {
     useEffect(() => {
         (async () => {
             try {
-                const p = await api.get(`/Projects/?pageNumber=${page}&pageSize=${pageLength}`);
+                let url = `/Projects/?pageNumber=${page}&pageSize=${pageLength}`;
+                if (statusFilter) {
+                    url += `&status=${statusFilter}`;
+                }
+                if (searchTerm) {
+                    url += `&searchTerm=${encodeURIComponent(searchTerm)}`;
+                }
+                const p = await api.get(url);
                 setProjects(p.data.data.items);
                 console.log(p.data.data.items);
             } catch (e) {
                 console.log(e);
             }
         })();
-    }, [page]);
+    }, [page, statusFilter, searchTerm]);
 
     const handleCreateProject = async () => {
         try {
@@ -63,7 +72,14 @@ export const ManagerProjects = ({ user }) => {
                 }
             });
             alert("Project created successfully");
-            const p = await api.get(`/Projects/?pageNumber=${page}&pageSize=${pageLength}`);
+            let url = `/Projects/?pageNumber=${page}&pageSize=${pageLength}`;
+            if (statusFilter) {
+                url += `&status=${statusFilter}`;
+            }
+            if (searchTerm) {
+                url += `&searchTerm=${encodeURIComponent(searchTerm)}`;
+            }
+            const p = await api.get(url);
             setProjects(p.data.data.items);
         } catch (error) {
             if (error.response) {
@@ -128,11 +144,45 @@ export const ManagerProjects = ({ user }) => {
                 </button>
             </div>
 
+            {/* Filter Section */}
+            <div className="card border-0 shadow-sm mb-4" style={{ borderRadius: '12px' }}>
+                <div className="card-body p-4">
+                    <div className="row g-3">
+                        <div className="col-md-6">
+                            <label className="form-label fw-semibold small text-dark">Search Projects</label>
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="form-control"
+                                placeholder="Search by project name..."
+                                style={{ borderRadius: '8px', padding: '10px' }}
+                            />
+                        </div>
+                        <div className="col-md-6">
+                            <label className="form-label fw-semibold small text-dark">Filter by Status</label>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="form-select"
+                                style={{ borderRadius: '8px', padding: '10px' }}
+                            >
+                                <option value="">All Status</option>
+                                <option value="Draft">Draft</option>
+                                <option value="Active">Active</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Archived">Archived</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* Projects Grid */}
             <div className="row g-4">
                 {projects.map((project) => {
                     const isHovered = hoveredProject === project.id;
-                    const progress = project.totalItems > 0 ? Math.round((project.completedItems / project.totalItems) * 100) : 0;
+                    const progress = project.totalItems > 0 ? Math.round((project.finishedItems / project.totalItems) * 100) : 0;
 
                     return (
                         <div key={project.id} className="col-12 col-md-6 col-xl-4">
@@ -187,7 +237,7 @@ export const ManagerProjects = ({ user }) => {
                                         </div>
                                         <div className="d-flex justify-content-between text-muted small mb-1 fw-medium">
                                             <span>Progress</span>
-                                            <span className="text-dark">{progress}%</span>
+                                            <span className="text-dark">{progress}% ({project.finishedItems}/{project.totalItems})</span>
                                         </div>
                                         <div className="progress" style={{ height: '6px', backgroundColor: '#f1f5f9', borderRadius: '10px' }}>
                                             <div

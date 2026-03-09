@@ -24,7 +24,6 @@ export const KeyboardShortcutsHelp = ({ show, onClose }) => {
         {
             category: 'Actions',
             items: [
-                { keys: ['Space'], description: 'Complete current item' },
                 { keys: ['Delete'], description: 'Delete selected annotation' },
                 { keys: ['Ctrl', 'Z'], description: 'Undo' },
                 { keys: ['Ctrl', 'Y'], description: 'Redo' },
@@ -36,6 +35,9 @@ export const KeyboardShortcutsHelp = ({ show, onClose }) => {
         {
             category: 'View',
             items: [
+                { keys: ['Space', '+ Drag'], description: 'Pan canvas (move image)' },
+                { keys: ['Shift', '+ Drag'], description: 'Pan canvas (alternative)' },
+                { keys: ['Middle Mouse'], description: 'Pan canvas (drag)' },
                 { keys: ['+'], description: 'Zoom in' },
                 { keys: ['-'], description: 'Zoom out' },
                 { keys: ['0'], description: 'Reset zoom' },

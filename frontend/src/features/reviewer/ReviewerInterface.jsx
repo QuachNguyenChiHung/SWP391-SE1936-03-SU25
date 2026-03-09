@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Check,
     X,
@@ -10,7 +10,9 @@ import {
     FileText,
     ChevronLeft,
     ChevronRight,
-    Loader
+    Loader,
+    ZoomIn,
+    ZoomOut
 } from 'lucide-react';
 import getInforFromCookie from '../../shared/utils/getInfoFromCookie.js';
 import { UserRole } from '../../shared/types/types.js';
@@ -37,6 +39,15 @@ export const ReviewerInterface = ({ onTitleChange }) => {
     const [detailError, setDetailError] = useState(null);
 
     const [showQueuePanel, setShowQueuePanel] = useState(true);
+
+    // Zoom and Pan State
+    const [zoomLevel, setZoomLevel] = useState(1);
+    const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const [isSpacePressed, setIsSpacePressed] = useState(false);
+    const panStartRef = useRef(null);
+    const containerRef = useRef(null);
+    const imageRef = useRef(null);
 
     // Fetch review queue items
     const fetchReviewQueue = async (pageNumber = 1) => {
@@ -134,6 +145,54 @@ export const ReviewerInterface = ({ onTitleChange }) => {
     // Guidelines State
     const [guidelines, setGuidelines] = useState('');
 
+    // Pan functions
+    const handlePanStart = (e) => {
+        if (e.button === 1 || (e.button === 0 && e.shiftKey) || (e.button === 0 && isSpacePressed)) {
+            e.preventDefault();
+            setIsPanning(true);
+            panStartRef.current = {
+                x: e.clientX - panOffset.x,
+                y: e.clientY - panOffset.y
+            };
+        }
+    };
+
+    const handlePanMove = (e) => {
+        if (isPanning && panStartRef.current) {
+            setPanOffset({
+                x: e.clientX - panStartRef.current.x,
+                y: e.clientY - panStartRef.current.y
+            });
+        }
+    };
+
+    const handlePanEnd = () => {
+        setIsPanning(false);
+        panStartRef.current = null;
+    };
+
+    // Mouse wheel zoom
+    const handleWheel = (e) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            setZoomLevel(prev => Math.max(0.5, Math.min(3, prev + delta)));
+        }
+    };
+
+    const handleResetZoom = () => {
+        setZoomLevel(1);
+        setPanOffset({ x: 0, y: 0 });
+    };
+
+    const handleZoomIn = () => {
+        setZoomLevel(prev => Math.min(prev + 0.25, 3)); // Max 3x zoom
+    };
+
+    const handleZoomOut = () => {
+        setZoomLevel(prev => Math.max(prev - 0.25, 0.5)); // Min 0.5x zoom
+    };
+
     useEffect(() => {
         if (onTitleChange) {
             onTitleChange('Review Queue');
@@ -141,6 +200,34 @@ export const ReviewerInterface = ({ onTitleChange }) => {
         // Fetch review queue on component mount
         fetchReviewQueue();
     }, [onTitleChange]);
+
+    // Keyboard event listeners for spacebar panning
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.code === 'Space' && !isSpacePressed && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                setIsSpacePressed(true);
+            }
+        };
+        
+        const handleKeyUp = (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                setIsSpacePressed(false);
+                if (isPanning) {
+                    setIsPanning(false);
+                    panStartRef.current = null;
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [isSpacePressed, isPanning]);
 
     useEffect(() => {
         if (project?.guidelines) {
@@ -211,12 +298,31 @@ export const ReviewerInterface = ({ onTitleChange }) => {
             setActionState('IDLE');
             setRejectReason('');
 
-            // Move to next item if available
-            if (task.navigation?.hasNextPage || currentItemIndex < queueItems.length - 1) {
-                handleNextItem();
+            // Remove the reviewed item from the current queue
+            const updatedQueue = queueItems.filter((_, idx) => idx !== currentItemIndex);
+            
+            // Update the queue and pagination
+            if (updatedQueue.length > 0) {
+                setQueueItems(updatedQueue);
+                setPagination(prev => ({
+                    ...prev,
+                    totalCount: Math.max(0, prev.totalCount - 1)
+                }));
+                
+                // Load the next item (stay at same index or go to previous if at end)
+                const nextIndex = currentItemIndex >= updatedQueue.length 
+                    ? Math.max(0, updatedQueue.length - 1) 
+                    : currentItemIndex;
+                    
+                setCurrentItemIndex(nextIndex);
+                if (updatedQueue[nextIndex]) {
+                    fetchReviewDetail(updatedQueue[nextIndex].id);
+                }
             } else {
-                // Reload queue if no more items
-                fetchReviewQueue();
+                // No more items in current page, refetch to get new data
+                // If there are more pages, stay on current page; otherwise go to first page
+                const nextPage = pagination.hasNextPage ? pagination.pageNumber : 1;
+                fetchReviewQueue(nextPage);
             }
         } catch (error) {
             console.error('Failed to submit review:', error);
@@ -263,29 +369,78 @@ export const ReviewerInterface = ({ onTitleChange }) => {
                                         {showLabels ? 'Hide Labels' : 'Show Labels'}
                                     </button>
                                 </div>
-                                <button className="btn btn-link p-0 text-muted">
-                                    <Maximize2 size={16} />
-                                </button>
+                                <div className="d-flex align-items-center gap-2">
+                                    <button
+                                        className="btn btn-link p-0 text-muted"
+                                        onClick={handleZoomIn}
+                                        title="Zoom In (Ctrl + Scroll)"
+                                    >
+                                        <ZoomIn size={16} />
+                                    </button>
+                                    <button
+                                        className="btn btn-link p-0 text-muted"
+                                        onClick={handleZoomOut}
+                                        title="Zoom Out (Ctrl + Scroll)"
+                                    >
+                                        <ZoomOut size={16} />
+                                    </button>
+                                    <button
+                                        className="btn btn-link p-0 text-muted"
+                                        onClick={handleResetZoom}
+                                        title="Reset Zoom (1:1)"
+                                        style={{ fontSize: '0.7rem', fontWeight: 'bold' }}
+                                    >
+                                        1:1
+                                    </button>
+                                    <span className="vr" style={{ height: '1rem' }}></span>
+                                    <button className="btn btn-link p-0 text-muted">
+                                        <Maximize2 size={16} />
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Image Viewer */}
-                            <div className="flex-fill bg-dark d-flex align-items-center justify-content-center position-relative overflow-hidden">
+                            <div 
+                                ref={containerRef}
+                                className="flex-fill bg-dark d-flex align-items-center justify-content-center position-relative overflow-hidden"
+                                style={{
+                                    cursor: isPanning ? 'grabbing' : 
+                                            isSpacePressed ? 'grab' : 
+                                            'default'
+                                }}
+                                onMouseDown={handlePanStart}
+                                onMouseMove={handlePanMove}
+                                onMouseUp={handlePanEnd}
+                                onMouseLeave={handlePanEnd}
+                                onWheel={handleWheel}
+                            >
                                 {isLoadingDetail ? (
                                     <div className="d-flex flex-column align-items-center justify-content-center">
                                         <Loader className="spinner" size={40} style={{ color: '#fff' }} />
                                         <p className="text-white mt-2">Loading review...</p>
                                     </div>
                                 ) : (
-                                    <div className="position-relative" style={{}}>
-                                        <img
-                                            src={task.imageUrl ? (task.imageUrl.startsWith('http')
-                                                ? task.imageUrl
-                                                : (import.meta.env.VITE_URL_UPLOADS + '/' + task.imageUrl))
-                                                : 'https://via.placeholder.com/800x600?text=No+Image'}
-                                            alt="Review"
-                                            className="mw-100 mh-100 object-fit-contain d-block"
-                                            onError={(e) => { e.target.src = 'https://via.placeholder.com/800x600?text=Image+Error'; }}
-                                        />
+                                    <div 
+                                        style={{
+                                            transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                                            transformOrigin: 'center center',
+                                            transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+                                            position: 'relative',
+                                            display: 'inline-block'
+                                        }}
+                                    >
+                                        <div className="position-relative" style={{ display: 'inline-block' }}>
+                                            <img
+                                                ref={imageRef}
+                                                src={task.imageUrl ? (task.imageUrl.startsWith('http')
+                                                    ? task.imageUrl
+                                                    : (import.meta.env.VITE_URL_UPLOADS + '/' + task.imageUrl))
+                                                    : 'https://via.placeholder.com/800x600?text=No+Image'}
+                                                alt="Review"
+                                                className="mw-100 mh-100 object-fit-contain d-block"
+                                                draggable={false}
+                                                onError={(e) => { e.target.src = 'https://via.placeholder.com/800x600?text=Image+Error'; }}
+                                            />
 
                                         {showLabels && task.annotations.map((ann) => {
                                             const coords = ann.coordinates;
@@ -438,6 +593,7 @@ export const ReviewerInterface = ({ onTitleChange }) => {
 
                                             return null;
                                         })}
+                                        </div>
                                     </div>
                                 )}
                             </div>
