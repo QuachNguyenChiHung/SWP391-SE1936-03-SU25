@@ -10,6 +10,7 @@ using DataLabeling.Core.Exceptions;
 using DataLabeling.Core.Interfaces.Repositories;
 using DataLabeling.UnitTests.Helpers;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -26,6 +27,7 @@ public class AuthServiceTests
     private readonly Mock<IMapper> _mockMapper;
     private readonly Mock<IEmailService> _mockEmailService;
     private readonly Mock<IActivityLogService> _mockActivityLog;
+    private readonly Mock<ILogger<AuthService>> _mockLogger;
     private readonly IOptions<JwtSettings> _jwtOptions;
     private readonly IOptions<EmailSettings> _emailOptions;
     private readonly AuthService _sut;
@@ -37,6 +39,7 @@ public class AuthServiceTests
         _mockMapper = new Mock<IMapper>();
         _mockEmailService = new Mock<IEmailService>();
         _mockActivityLog = new Mock<IActivityLogService>();
+        _mockLogger = new Mock<ILogger<AuthService>>();
 
         _jwtOptions = Options.Create(new JwtSettings
         {
@@ -59,7 +62,8 @@ public class AuthServiceTests
             _jwtOptions,
             _emailOptions,
             _mockEmailService.Object,
-            _mockActivityLog.Object);
+            _mockActivityLog.Object,
+            _mockLogger.Object);
     }
 
     // ==================== Login Tests ====================
@@ -453,5 +457,96 @@ public class AuthServiceTests
         // Assert
         await act.Should().ThrowAsync<ValidationException>()
             .WithMessage("*do not match*");
+    }
+
+    // ==================== Forgot Password Tests ====================
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WithValidEmail_SavesTokenAndSendsEmail()
+    {
+        // Arrange
+        var user = new User
+        {
+            Id = 1,
+            Email = "test@example.com",
+            Name = "Test User",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
+            Role = UserRole.Annotator,
+            Status = UserStatus.Active
+        };
+
+        _mockUserRepo
+            .Setup(r => r.GetByEmailAsync("test@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _mockEmailService
+            .Setup(e => e.SendPasswordResetEmailAsync(It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var request = new ForgotPasswordRequest { Email = "test@example.com" };
+
+        // Act
+        await _sut.ForgotPasswordAsync(request);
+
+        // Assert
+        user.PasswordResetToken.Should().NotBeNullOrEmpty();
+        user.PasswordResetTokenExpiry.Should().NotBeNull();
+        _mockUow.Mock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockEmailService.Verify(e => e.SendPasswordResetEmailAsync(
+            "test@example.com", "Test User", It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WithNonExistentEmail_ReturnsSilently()
+    {
+        // Arrange
+        _mockUserRepo
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        var request = new ForgotPasswordRequest { Email = "notfound@example.com" };
+
+        // Act
+        await _sut.ForgotPasswordAsync(request);
+
+        // Assert - no exception, no email sent
+        _mockEmailService.Verify(e => e.SendPasswordResetEmailAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WhenEmailFails_StillReturnsSuccessfully()
+    {
+        // Arrange
+        var user = new User
+        {
+            Id = 1,
+            Email = "test@example.com",
+            Name = "Test User",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123!"),
+            Role = UserRole.Annotator,
+            Status = UserStatus.Active
+        };
+
+        _mockUserRepo
+            .Setup(r => r.GetByEmailAsync("test@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _mockEmailService
+            .Setup(e => e.SendPasswordResetEmailAsync(It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("SMTP connection failed"));
+
+        var request = new ForgotPasswordRequest { Email = "test@example.com" };
+
+        // Act - should NOT throw
+        await _sut.ForgotPasswordAsync(request);
+
+        // Assert - token was still saved
+        user.PasswordResetToken.Should().NotBeNullOrEmpty();
+        _mockUow.Mock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }
