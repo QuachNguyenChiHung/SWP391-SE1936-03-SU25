@@ -1098,14 +1098,14 @@ export const AnnotatorWorkspace = ({ user }) => {
                 e.preventDefault();
                 setIsSpacePressed(true);
             }
-            
+
             // Handle Escape to cancel polygon
             if (e.key === 'Escape' && isDrawingPolygon) {
                 setPolygonPoints([]);
                 setIsDrawingPolygon(false);
             }
         };
-        
+
         const handleKeyUp = (e) => {
             if (e.code === 'Space') {
                 e.preventDefault();
@@ -1636,12 +1636,12 @@ export const AnnotatorWorkspace = ({ user }) => {
                         ref={containerRef}
                         className="canvas-area"
                         style={{
-                            cursor: isPanning ? 'grabbing' : 
-                                    isSpacePressed ? 'grab' : 
-                                    selectedTool === 'PAN' ? 'grab' : 
-                                    selectedTool === 'BOX' ? 'crosshair' : 
-                                    selectedTool === 'POLYGON' ? 'crosshair' : 
-                                    'default',
+                            cursor: isPanning ? 'grabbing' :
+                                isSpacePressed ? 'grab' :
+                                    selectedTool === 'PAN' ? 'grab' :
+                                        selectedTool === 'BOX' ? 'crosshair' :
+                                            selectedTool === 'POLYGON' ? 'crosshair' :
+                                                'default',
                             flex: 1,
                             overflow: 'hidden'
                         }}

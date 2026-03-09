@@ -209,7 +209,7 @@ export const ReviewerInterface = ({ onTitleChange }) => {
                 setIsSpacePressed(true);
             }
         };
-        
+
         const handleKeyUp = (e) => {
             if (e.code === 'Space') {
                 e.preventDefault();
@@ -300,7 +300,7 @@ export const ReviewerInterface = ({ onTitleChange }) => {
 
             // Remove the reviewed item from the current queue
             const updatedQueue = queueItems.filter((_, idx) => idx !== currentItemIndex);
-            
+
             // Update the queue and pagination
             if (updatedQueue.length > 0) {
                 setQueueItems(updatedQueue);
@@ -308,12 +308,12 @@ export const ReviewerInterface = ({ onTitleChange }) => {
                     ...prev,
                     totalCount: Math.max(0, prev.totalCount - 1)
                 }));
-                
+
                 // Load the next item (stay at same index or go to previous if at end)
-                const nextIndex = currentItemIndex >= updatedQueue.length 
-                    ? Math.max(0, updatedQueue.length - 1) 
+                const nextIndex = currentItemIndex >= updatedQueue.length
+                    ? Math.max(0, updatedQueue.length - 1)
                     : currentItemIndex;
-                    
+
                 setCurrentItemIndex(nextIndex);
                 if (updatedQueue[nextIndex]) {
                     fetchReviewDetail(updatedQueue[nextIndex].id);
@@ -400,12 +400,12 @@ export const ReviewerInterface = ({ onTitleChange }) => {
                             </div>
 
                             {/* Image Viewer */}
-                            <div 
+                            <div
                                 ref={containerRef}
                                 className="flex-fill bg-dark d-flex align-items-center justify-content-center position-relative overflow-hidden"
                                 style={{
-                                    cursor: isPanning ? 'grabbing' : 
-                                            isSpacePressed ? 'grab' : 
+                                    cursor: isPanning ? 'grabbing' :
+                                        isSpacePressed ? 'grab' :
                                             'default'
                                 }}
                                 onMouseDown={handlePanStart}
@@ -420,7 +420,7 @@ export const ReviewerInterface = ({ onTitleChange }) => {
                                         <p className="text-white mt-2">Loading review...</p>
                                     </div>
                                 ) : (
-                                    <div 
+                                    <div
                                         style={{
                                             transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
                                             transformOrigin: 'center center',
@@ -442,157 +442,157 @@ export const ReviewerInterface = ({ onTitleChange }) => {
                                                 onError={(e) => { e.target.src = 'https://via.placeholder.com/800x600?text=Image+Error'; }}
                                             />
 
-                                        {showLabels && task.annotations.map((ann) => {
-                                            const coords = ann.coordinates;
-                                            const coordType = coords?.type || (coords?.points ? 'polygon' : 'bbox');
+                                            {showLabels && task.annotations.map((ann) => {
+                                                const coords = ann.coordinates;
+                                                const coordType = coords?.type || (coords?.points ? 'polygon' : 'bbox');
 
-                                            // Handle new bbox format: {type: 'bbox', points: [{x1, y1}, {x2, y2}]}
-                                            if (coordType === 'bbox' && coords?.points && coords.points.length === 2) {
-                                                const [p1, p2] = coords.points;
-                                                const x1 = Math.min(p1.x, p2.x);
-                                                const y1 = Math.min(p1.y, p2.y);
-                                                const x2 = Math.max(p1.x, p2.x);
-                                                const y2 = Math.max(p1.y, p2.y);
-                                                const width = x2 - x1;
-                                                const height = y2 - y1;
-                                                const labelAbove = y1 > 30;
+                                                // Handle new bbox format: {type: 'bbox', points: [{x1, y1}, {x2, y2}]}
+                                                if (coordType === 'bbox' && coords?.points && coords.points.length === 2) {
+                                                    const [p1, p2] = coords.points;
+                                                    const x1 = Math.min(p1.x, p2.x);
+                                                    const y1 = Math.min(p1.y, p2.y);
+                                                    const x2 = Math.max(p1.x, p2.x);
+                                                    const y2 = Math.max(p1.y, p2.y);
+                                                    const width = x2 - x1;
+                                                    const height = y2 - y1;
+                                                    const labelAbove = y1 > 30;
 
-                                                return (
-                                                    <div key={ann.id}>
-                                                        {/* Bbox outline */}
-                                                        <div
-                                                            className="position-absolute bg-white bg-opacity-10"
-                                                            style={{
-                                                                border: `2px solid ${ann.labelColor || '#000'}`,
-                                                                left: `${x1}px`,
-                                                                top: `${y1}px`,
-                                                                width: `${width}px`,
-                                                                height: `${height}px`,
-                                                                pointerEvents: 'none',
-                                                                boxSizing: 'border-box'
-                                                            }}
-                                                        />
-                                                        {/* Label tag */}
-                                                        <div
-                                                            className="position-absolute px-2 py-1 fw-bold text-white rounded-top shadow-sm d-flex align-items-center gap-1 text-nowrap"
-                                                            style={{
-                                                                backgroundColor: ann.labelColor || '#000',
-                                                                left: `${x1}px`,
-                                                                top: `${labelAbove ? y1 : y1 + height}px`,
-                                                                transform: labelAbove ? 'translateY(-100%)' : 'none',
-                                                                fontSize: '10px',
-                                                                pointerEvents: 'none',
-                                                                zIndex: 10
-                                                            }}
-                                                        >
-                                                            <span>{ann.labelName || 'Unknown'}</span>
-                                                            {ann.confidence && (
-                                                                <span className="opacity-75 fw-normal ms-1">{(ann.confidence * 100).toFixed(0)}%</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            }
-
-                                            // Handle polygon format: {type: 'polygon', points: [{x, y}, {x, y}, ...]}
-                                            if (coordType === 'polygon' && coords?.points && coords.points.length > 0) {
-                                                const points = coords.points.map((p, i) => `${p.x},${p.y}`).join(' ');
-                                                const xValues = coords.points.map(p => p.x);
-                                                const yValues = coords.points.map(p => p.y);
-                                                const minX = Math.min(...xValues);
-                                                const minY = Math.min(...yValues);
-                                                const maxX = Math.max(...xValues);
-                                                const maxY = Math.max(...yValues);
-
-                                                // Find the highest point (minimum Y)
-                                                const highestPoint = coords.points.reduce((min, p) => p.y < min.y ? p : min, coords.points[0]);
-
-                                                return (
-                                                    <div key={ann.id}>
-                                                        {/* Polygon outline using SVG */}
-                                                        <svg
-                                                            className="position-absolute"
-                                                            style={{
-                                                                left: 0,
-                                                                top: 0,
-                                                                pointerEvents: 'none',
-                                                                overflow: 'visible'
-                                                            }}
-                                                            width="100%"
-                                                            height="100%"
-                                                        >
-                                                            <polygon
-                                                                points={points}
-                                                                fill="rgba(255, 255, 255, 0.1)"
-                                                                stroke={ann.labelColor || '#000'}
-                                                                strokeWidth="2"
+                                                    return (
+                                                        <div key={ann.id}>
+                                                            {/* Bbox outline */}
+                                                            <div
+                                                                className="position-absolute bg-white bg-opacity-10"
+                                                                style={{
+                                                                    border: `2px solid ${ann.labelColor || '#000'}`,
+                                                                    left: `${x1}px`,
+                                                                    top: `${y1}px`,
+                                                                    width: `${width}px`,
+                                                                    height: `${height}px`,
+                                                                    pointerEvents: 'none',
+                                                                    boxSizing: 'border-box'
+                                                                }}
                                                             />
-                                                        </svg>
-                                                        {/* Label tag - bottom-left snapped to highest point */}
-                                                        <div
-                                                            className="position-absolute px-2 py-1 fw-bold text-white rounded-top shadow-sm d-flex align-items-center gap-1 text-nowrap"
-                                                            style={{
-                                                                backgroundColor: ann.labelColor || '#000',
-                                                                left: `${highestPoint.x}px`,
-                                                                top: `${highestPoint.y}px`,
-                                                                transform: 'translateY(-100%)',
-                                                                fontSize: '10px',
-                                                                pointerEvents: 'none',
-                                                                zIndex: 10
-                                                            }}
-                                                        >
-                                                            <span>{ann.labelName || 'Unknown'}</span>
-                                                            {ann.confidence && (
-                                                                <span className="opacity-75 fw-normal ms-1">{(ann.confidence * 100).toFixed(0)}%</span>
-                                                            )}
+                                                            {/* Label tag */}
+                                                            <div
+                                                                className="position-absolute px-2 py-1 fw-bold text-white rounded-top shadow-sm d-flex align-items-center gap-1 text-nowrap"
+                                                                style={{
+                                                                    backgroundColor: ann.labelColor || '#000',
+                                                                    left: `${x1}px`,
+                                                                    top: `${labelAbove ? y1 : y1 + height}px`,
+                                                                    transform: labelAbove ? 'translateY(-100%)' : 'none',
+                                                                    fontSize: '10px',
+                                                                    pointerEvents: 'none',
+                                                                    zIndex: 10
+                                                                }}
+                                                            >
+                                                                <span>{ann.labelName || 'Unknown'}</span>
+                                                                {ann.confidence && (
+                                                                    <span className="opacity-75 fw-normal ms-1">{(ann.confidence * 100).toFixed(0)}%</span>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            }
+                                                    );
+                                                }
 
-                                            // Handle old bbox format: {x, y, width, height}
-                                            if (coords?.x !== undefined && coords?.y !== undefined && coords?.width !== undefined && coords?.height !== undefined) {
-                                                const labelAbove = coords.y > 30;
+                                                // Handle polygon format: {type: 'polygon', points: [{x, y}, {x, y}, ...]}
+                                                if (coordType === 'polygon' && coords?.points && coords.points.length > 0) {
+                                                    const points = coords.points.map((p, i) => `${p.x},${p.y}`).join(' ');
+                                                    const xValues = coords.points.map(p => p.x);
+                                                    const yValues = coords.points.map(p => p.y);
+                                                    const minX = Math.min(...xValues);
+                                                    const minY = Math.min(...yValues);
+                                                    const maxX = Math.max(...xValues);
+                                                    const maxY = Math.max(...yValues);
 
-                                                return (
-                                                    <div key={ann.id}>
-                                                        {/* Bbox outline */}
-                                                        <div
-                                                            className="position-absolute bg-white bg-opacity-10"
-                                                            style={{
-                                                                border: `2px solid ${ann.labelColor || '#000'}`,
-                                                                left: `${coords.x}px`,
-                                                                top: `${coords.y}px`,
-                                                                width: `${coords.width}px`,
-                                                                height: `${coords.height}px`,
-                                                                pointerEvents: 'none',
-                                                                boxSizing: 'border-box'
-                                                            }}
-                                                        />
-                                                        {/* Label tag */}
-                                                        <div
-                                                            className="position-absolute px-2 py-1 fw-bold text-white rounded-top shadow-sm d-flex align-items-center gap-1 text-nowrap"
-                                                            style={{
-                                                                backgroundColor: ann.labelColor || '#000',
-                                                                left: `${coords.x}px`,
-                                                                top: `${labelAbove ? coords.y : coords.y + coords.height}px`,
-                                                                transform: labelAbove ? 'translateY(-100%)' : 'none',
-                                                                fontSize: '10px',
-                                                                pointerEvents: 'none',
-                                                                zIndex: 10
-                                                            }}
-                                                        >
-                                                            <span>{ann.labelName || 'Unknown'}</span>
-                                                            {ann.confidence && (
-                                                                <span className="opacity-75 fw-normal ms-1">{(ann.confidence * 100).toFixed(0)}%</span>
-                                                            )}
+                                                    // Find the highest point (minimum Y)
+                                                    const highestPoint = coords.points.reduce((min, p) => p.y < min.y ? p : min, coords.points[0]);
+
+                                                    return (
+                                                        <div key={ann.id}>
+                                                            {/* Polygon outline using SVG */}
+                                                            <svg
+                                                                className="position-absolute"
+                                                                style={{
+                                                                    left: 0,
+                                                                    top: 0,
+                                                                    pointerEvents: 'none',
+                                                                    overflow: 'visible'
+                                                                }}
+                                                                width="100%"
+                                                                height="100%"
+                                                            >
+                                                                <polygon
+                                                                    points={points}
+                                                                    fill="rgba(255, 255, 255, 0.1)"
+                                                                    stroke={ann.labelColor || '#000'}
+                                                                    strokeWidth="2"
+                                                                />
+                                                            </svg>
+                                                            {/* Label tag - bottom-left snapped to highest point */}
+                                                            <div
+                                                                className="position-absolute px-2 py-1 fw-bold text-white rounded-top shadow-sm d-flex align-items-center gap-1 text-nowrap"
+                                                                style={{
+                                                                    backgroundColor: ann.labelColor || '#000',
+                                                                    left: `${highestPoint.x}px`,
+                                                                    top: `${highestPoint.y}px`,
+                                                                    transform: 'translateY(-100%)',
+                                                                    fontSize: '10px',
+                                                                    pointerEvents: 'none',
+                                                                    zIndex: 10
+                                                                }}
+                                                            >
+                                                                <span>{ann.labelName || 'Unknown'}</span>
+                                                                {ann.confidence && (
+                                                                    <span className="opacity-75 fw-normal ms-1">{(ann.confidence * 100).toFixed(0)}%</span>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            }
+                                                    );
+                                                }
 
-                                            return null;
-                                        })}
+                                                // Handle old bbox format: {x, y, width, height}
+                                                if (coords?.x !== undefined && coords?.y !== undefined && coords?.width !== undefined && coords?.height !== undefined) {
+                                                    const labelAbove = coords.y > 30;
+
+                                                    return (
+                                                        <div key={ann.id}>
+                                                            {/* Bbox outline */}
+                                                            <div
+                                                                className="position-absolute bg-white bg-opacity-10"
+                                                                style={{
+                                                                    border: `2px solid ${ann.labelColor || '#000'}`,
+                                                                    left: `${coords.x}px`,
+                                                                    top: `${coords.y}px`,
+                                                                    width: `${coords.width}px`,
+                                                                    height: `${coords.height}px`,
+                                                                    pointerEvents: 'none',
+                                                                    boxSizing: 'border-box'
+                                                                }}
+                                                            />
+                                                            {/* Label tag */}
+                                                            <div
+                                                                className="position-absolute px-2 py-1 fw-bold text-white rounded-top shadow-sm d-flex align-items-center gap-1 text-nowrap"
+                                                                style={{
+                                                                    backgroundColor: ann.labelColor || '#000',
+                                                                    left: `${coords.x}px`,
+                                                                    top: `${labelAbove ? coords.y : coords.y + coords.height}px`,
+                                                                    transform: labelAbove ? 'translateY(-100%)' : 'none',
+                                                                    fontSize: '10px',
+                                                                    pointerEvents: 'none',
+                                                                    zIndex: 10
+                                                                }}
+                                                            >
+                                                                <span>{ann.labelName || 'Unknown'}</span>
+                                                                {ann.confidence && (
+                                                                    <span className="opacity-75 fw-normal ms-1">{(ann.confidence * 100).toFixed(0)}%</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return null;
+                                            })}
                                         </div>
                                     </div>
                                 )}
