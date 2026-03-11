@@ -376,6 +376,20 @@ public class TasksController : ControllerBase
     }
 
     /// <summary>
+    /// Get available reviewers for review assignment.
+    /// Returns reviewers sorted by active review count (least busy first).
+    /// </summary>
+    [HttpGet("reviewers")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(typeof(IEnumerable<ReviewerDto>), 200)]
+    public async Task<ActionResult<IEnumerable<ReviewerDto>>> GetAvailableReviewers(
+        CancellationToken cancellationToken = default)
+    {
+        var reviewers = await _taskService.GetAvailableReviewersAsync(cancellationToken);
+        return Ok(reviewers);
+    }
+
+    /// <summary>
     /// Get paginated work history for the current annotator across all tasks and projects.
     /// Optionally filter by data item status.
     /// </summary>

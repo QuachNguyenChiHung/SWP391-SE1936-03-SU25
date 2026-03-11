@@ -67,6 +67,11 @@ public interface ITaskService
     /// Gets available annotators for task assignment.
     /// </summary>
     Task<IEnumerable<AnnotatorDto>> GetAvailableAnnotatorsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets available reviewers for review assignment.
+    /// </summary>
+    Task<IEnumerable<ReviewerDto>> GetAvailableReviewersAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -90,4 +95,15 @@ public class AnnotatorDto
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public int ActiveTaskCount { get; set; }
+}
+
+/// <summary>
+/// DTO for reviewer selection.
+/// </summary>
+public class ReviewerDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public int ActiveReviewCount { get; set; }
 }

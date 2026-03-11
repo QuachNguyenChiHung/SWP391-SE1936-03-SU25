@@ -147,7 +147,10 @@ app.UseStaticFiles(new StaticFileOptions
 
 app.UseCors("AllowAll");
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -159,11 +162,8 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-    // Apply migrations automatically in development
-    if (app.Environment.IsDevelopment())
-    {
-        dbContext.Database.Migrate();
-    }
+    // Apply migrations automatically
+    dbContext.Database.Migrate();
 }
 
 app.Run();

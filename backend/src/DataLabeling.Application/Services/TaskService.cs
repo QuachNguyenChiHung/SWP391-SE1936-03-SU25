@@ -444,6 +444,31 @@ public class TaskService : ITaskService
         return result.OrderBy(a => a.ActiveTaskCount).ThenBy(a => a.Name);
     }
 
+    public async Task<IEnumerable<ReviewerDto>> GetAvailableReviewersAsync(CancellationToken cancellationToken = default)
+    {
+        var reviewers = await _unitOfWork.Users.GetByRoleAsync(UserRole.Reviewer, cancellationToken);
+        var activeReviewers = reviewers.Where(r => r.Status == UserStatus.Active);
+
+        var result = new List<ReviewerDto>();
+
+        foreach (var reviewer in activeReviewers)
+        {
+            // Count active review items (locked and not expired)
+            var activeReviewCount = reviewer.ReviewLockedDataItems?
+                .Count(d => d.ReviewLockExpiry != null && d.ReviewLockExpiry > DateTime.UtcNow) ?? 0;
+
+            result.Add(new ReviewerDto
+            {
+                Id = reviewer.Id,
+                Name = reviewer.Name,
+                Email = reviewer.Email,
+                ActiveReviewCount = activeReviewCount
+            });
+        }
+
+        return result.OrderBy(r => r.ActiveReviewCount).ThenBy(r => r.Name);
+    }
+
     private static TaskDto MapToTaskDto(AnnotationTask task)
     {
         return new TaskDto

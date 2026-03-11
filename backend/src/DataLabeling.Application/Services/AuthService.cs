@@ -307,19 +307,12 @@ public class AuthService : IAuthService
         _userRepository.Update(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Send password reset email
-        try
-        {
-            await _emailService.SendPasswordResetEmailAsync(
-                user.Email,
-                user.Name,
-                resetToken,
-                cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to send password reset email to {Email}. Token was saved successfully.", user.Email);
-        }
+        // Send password reset email - let exception propagate so client knows email failed
+        await _emailService.SendPasswordResetEmailAsync(
+            user.Email,
+            user.Name,
+            resetToken,
+            cancellationToken);
     }
 
     /// <inheritdoc/>
