@@ -72,6 +72,11 @@ public interface ITaskService
     /// Gets available reviewers for review assignment.
     /// </summary>
     Task<IEnumerable<ReviewerDto>> GetAvailableReviewersAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Assigns or changes the reviewer for a task.
+    /// </summary>
+    Task AssignReviewerAsync(int taskId, int reviewerId, int assignedById, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

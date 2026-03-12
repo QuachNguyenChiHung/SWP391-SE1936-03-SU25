@@ -118,6 +118,11 @@ public class User : BaseEntity
     public virtual ICollection<AnnotationTask> TasksAssignedByMe { get; set; } = new List<AnnotationTask>();
 
     /// <summary>
+    /// Tasks assigned to this user for review (as Reviewer).
+    /// </summary>
+    public virtual ICollection<AnnotationTask> TasksAssignedForReview { get; set; } = new List<AnnotationTask>();
+
+    /// <summary>
     /// Annotations created by this user.
     /// </summary>
     public virtual ICollection<Annotation> Annotations { get; set; } = new List<Annotation>();

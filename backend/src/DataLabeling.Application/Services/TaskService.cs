@@ -47,12 +47,25 @@ public class TaskService : ITaskService
         if (annotator.Status != UserStatus.Active)
             throw new ValidationException("Selected annotator is not active");
 
+        // Validate reviewer if provided
+        if (request.ReviewerId.HasValue)
+        {
+            var reviewer = await _unitOfWork.Users.GetByIdAsync(request.ReviewerId.Value, cancellationToken);
+            if (reviewer == null)
+                throw new NotFoundException("Reviewer", request.ReviewerId.Value);
+            if (reviewer.Role != UserRole.Reviewer)
+                throw new ValidationException("Selected user is not a reviewer");
+            if (reviewer.Status != UserStatus.Active)
+                throw new ValidationException("Selected reviewer is not active");
+        }
+
         // Create the task
         var task = new AnnotationTask
         {
             ProjectId = request.ProjectId,
             AnnotatorId = request.AnnotatorId,
             AssignedById = assignedById,
+            ReviewerId = request.ReviewerId,
             Status = AnnotationTaskStatus.Assigned,
             TotalItems = 0,
             CompletedItems = 0,
@@ -332,6 +345,8 @@ public class TaskService : ITaskService
             AnnotatorName = task.Annotator?.Name ?? "Unknown",
             AssignedById = task.AssignedById,
             AssignedByName = task.AssignedBy?.Name ?? "Unknown",
+            ReviewerId = task.ReviewerId,
+            ReviewerName = task.Reviewer?.Name,
             Status = task.Status,
             TotalItems = task.TotalItems,
             CompletedItems = task.CompletedItems,
@@ -469,6 +484,34 @@ public class TaskService : ITaskService
         return result.OrderBy(r => r.ActiveReviewCount).ThenBy(r => r.Name);
     }
 
+    public async Task AssignReviewerAsync(int taskId, int reviewerId, int assignedById, CancellationToken cancellationToken = default)
+    {
+        var task = await _unitOfWork.AnnotationTasks.GetByIdAsync(taskId, cancellationToken);
+        if (task == null)
+            throw new NotFoundException("Task", taskId);
+
+        var reviewer = await _unitOfWork.Users.GetByIdAsync(reviewerId, cancellationToken);
+        if (reviewer == null)
+            throw new NotFoundException("Reviewer", reviewerId);
+        if (reviewer.Role != UserRole.Reviewer)
+            throw new ValidationException("Selected user is not a reviewer");
+        if (reviewer.Status != UserStatus.Active)
+            throw new ValidationException("Selected reviewer is not active");
+
+        task.ReviewerId = reviewerId;
+        task.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.AnnotationTasks.Update(task);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await _activityLogService.LogAsync(
+            assignedById,
+            ActivityAction.Update,
+            "AnnotationTask",
+            taskId,
+            JsonSerializer.Serialize(new { reviewerId }),
+            cancellationToken: cancellationToken);
+    }
+
     private static TaskDto MapToTaskDto(AnnotationTask task)
     {
         return new TaskDto
@@ -478,6 +521,8 @@ public class TaskService : ITaskService
             ProjectName = task.Project?.Name ?? "Unknown",
             AnnotatorId = task.AnnotatorId,
             AnnotatorName = task.Annotator?.Name ?? "Unknown",
+            ReviewerId = task.ReviewerId,
+            ReviewerName = task.Reviewer?.Name,
             Status = task.Status,
             TotalItems = task.TotalItems,
             CompletedItems = task.CompletedItems,

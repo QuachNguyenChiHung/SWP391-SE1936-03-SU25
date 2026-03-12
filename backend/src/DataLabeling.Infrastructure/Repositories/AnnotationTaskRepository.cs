@@ -30,6 +30,7 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
             .Where(t => t.ProjectId == projectId)
             .Include(t => t.Annotator)
             .Include(t => t.AssignedBy)
+            .Include(t => t.Reviewer)
             .OrderByDescending(t => t.AssignedAt)
             .ToListAsync(cancellationToken);
     }
@@ -49,6 +50,7 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
             .Include(t => t.Project)
             .Include(t => t.Annotator)
             .Include(t => t.AssignedBy)
+            .Include(t => t.Reviewer)
             .Include(t => t.TaskItems)
                 .ThenInclude(ti => ti.DataItem)
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
@@ -86,6 +88,7 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
         var items = await query
             .Include(t => t.Project)
             .Include(t => t.Annotator)
+            .Include(t => t.Reviewer)
             .OrderByDescending(t => t.AssignedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)

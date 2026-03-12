@@ -92,6 +92,8 @@ public class TasksController : ControllerBase
             ProjectName = t.Project?.Name ?? "Unknown",
             AnnotatorId = t.AnnotatorId,
             AnnotatorName = t.Annotator?.Name ?? "Unknown",
+            ReviewerId = t.ReviewerId,
+            ReviewerName = t.Reviewer?.Name,
             Status = t.Status,
             TotalItems = t.TotalItems,
             CompletedItems = t.CompletedItems,
@@ -141,6 +143,8 @@ public class TasksController : ControllerBase
             AnnotatorName = task.Annotator?.Name ?? "Unknown",
             AssignedById = task.AssignedById,
             AssignedByName = task.AssignedBy?.Name ?? "Unknown",
+            ReviewerId = task.ReviewerId,
+            ReviewerName = task.Reviewer?.Name,
             Status = task.Status,
             TotalItems = task.TotalItems,
             CompletedItems = task.CompletedItems,
@@ -387,6 +391,38 @@ public class TasksController : ControllerBase
     {
         var reviewers = await _taskService.GetAvailableReviewersAsync(cancellationToken);
         return Ok(reviewers);
+    }
+
+    /// <summary>
+    /// Assign or change the reviewer for a task (Admin/Manager only).
+    /// </summary>
+    [HttpPut("{id:int}/reviewer")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> AssignReviewer(
+        int id,
+        [FromBody] AssignReviewerRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
+        try
+        {
+            await _taskService.AssignReviewerAsync(id, request.ReviewerId, userId, cancellationToken);
+            return Ok(new { success = true, message = "Reviewer assigned successfully" });
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
     }
 
     /// <summary>

@@ -135,7 +135,13 @@ public class AnnotationTaskConfiguration : IEntityTypeConfiguration<AnnotationTa
             .HasForeignKey(t => t.AssignedById)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(t => t.Reviewer)
+            .WithMany(u => u.TasksAssignedForReview)
+            .HasForeignKey(t => t.ReviewerId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.HasIndex(t => t.ProjectId);
+        builder.HasIndex(t => t.ReviewerId);
         builder.HasIndex(t => t.AnnotatorId);
         builder.HasIndex(t => t.Status);
     }
