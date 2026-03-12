@@ -244,7 +244,7 @@ export const Layout = ({ children, user, onLogout }) => {
           <div className="d-flex align-items-center gap-2 gap-sm-3">
             {/* Search Bar */}
             <div className="d-none d-sm-block">
-              <SearchBar />
+
             </div>
 
             {/* Notification Dropdown */}

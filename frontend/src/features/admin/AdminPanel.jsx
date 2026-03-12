@@ -1,23 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../shared/utils/api.js';
 import getInforFromCookie from '../../shared/utils/getInfoFromCookie.js';
-import { UserRole } from '../../shared/types/types.js';
-import {
-    Activity, UserPlus, Search, X, Check, Mail, Shield, User,
-    UserIcon, Filter, RefreshCw, Trash2, AlertTriangle,
-    Calendar, CheckCircle2, XCircle
-} from 'lucide-react';
-import { Modal, Button, Form, InputGroup, Spinner, Row, Col } from 'react-bootstrap';
+import { UserPlus, RefreshCw, X } from 'lucide-react';
+import { Button } from 'react-bootstrap';
+import { UserTable } from './components/UserTable';
+import { FiltersBar } from './components/FiltersBar';
+import { PaginationControls } from './components/PaginationControls';
+import { CreateUserModal } from './components/CreateUserModal';
+import { EditUserModal } from './components/EditUserModal';
+import { DeleteUserModal } from './components/DeleteUserModal';
+import { ActivityFeed } from './components/ActivityFeed';
 
 export const AdminPanel = ({ user }) => {
     const [users, setUsers] = useState([]);
     const [editingUser, setEditingUser] = useState(null);
     const [creatingUser, setCreatingUser] = useState(false);
     const [deletingUser, setDeletingUser] = useState(null);
-    const [newUser, setNewUser] = useState({ username: '', password: '', email: '', role: UserRole.ANNOTATOR });
     const [searchQuery, setSearchQuery] = useState('');
     const [loadingUsers, setLoadingUsers] = useState(false);
     const [usersError, setUsersError] = useState(null);
+    const [pageNumber, setPageNumber] = useState(1);
+    const [pageSize] = useState(12);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const [roleFilter, setRoleFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [activityLogs, setActivityLogs] = useState([]);
+    const [loadingLogs, setLoadingLogs] = useState(false);
+
+    const fetchActivityLogs = async () => {
+        setLoadingLogs(true);
+        try {
+            const userInfo = getInforFromCookie();
+            const token = userInfo?.token;
+
+            const res = await api.get('/activity-logs?pageNumber=1&pageSize=10', {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+
+            console.log('Activity logs response:', res?.data);
+
+            // Handle both response structures
+            const items = res?.data?.data?.items || res?.data?.items || [];
+            console.log('Activity logs items:', items);
+            setActivityLogs(items);
+        } catch (err) {
+            console.error('Failed to load activity logs', err);
+            console.error('Error details:', err?.response);
+        } finally {
+            setLoadingLogs(false);
+        }
+    };
 
     const fetchUsers = async () => {
         setLoadingUsers(true);
@@ -25,7 +58,16 @@ export const AdminPanel = ({ user }) => {
         try {
             const userInfo = getInforFromCookie();
             const token = userInfo?.token;
-            const res = await api.get('/Users', {
+
+            // Build query parameters
+            const params = new URLSearchParams();
+            params.append('pageNumber', pageNumber);
+            params.append('pageSize', pageSize);
+            if (searchQuery) params.append('search', searchQuery);
+            if (roleFilter) params.append('role', roleFilter);
+            if (statusFilter) params.append('status', statusFilter);
+
+            const res = await api.get(`/Users?${params.toString()}`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
 
@@ -34,16 +76,17 @@ export const AdminPanel = ({ user }) => {
                 id: it.id,
                 name: it.name,
                 email: it.email,
-                role: it.roleName || it.role,
-                roleId: it.role,
-                status: it.statusName || it.status,
-                active: it.status === 1,
+                role: it.role,
+                status: it.status,
+                active: it.status === "Active",
                 createdAt: it.createdAt,
                 lastLoginAt: it.lastLoginAt,
                 avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(it.email || it.name)}`
             }));
 
             setUsers(mapped);
+            setTotalPages(res?.data?.data?.totalPages || 1);
+            setTotalItems(res?.data?.data?.totalCount || items.length);
         } catch (err) {
             console.error('Failed to load users', err?.response || err.message || err);
             const apiErr = err?.response?.data || err?.message || 'Failed to load users';
@@ -55,7 +98,8 @@ export const AdminPanel = ({ user }) => {
 
     useEffect(() => {
         fetchUsers();
-    }, []);
+        fetchActivityLogs();
+    }, [pageNumber, roleFilter, statusFilter]);
 
     const handleEditClick = async (user) => {
         try {
@@ -69,8 +113,9 @@ export const AdminPanel = ({ user }) => {
                     id: it.id,
                     name: it.name,
                     email: it.email,
-                    role: it.roleName || it.role,
-                    active: it.status === 1,
+                    role: it.role,
+                    status: it.status,
+                    active: it.status === "Active",
                     createdAt: it.createdAt,
                     avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(it.email || it.name)}`
                 });
@@ -79,104 +124,10 @@ export const AdminPanel = ({ user }) => {
         } catch (err) {
             console.warn('Fetching detail failed, falling back to list data', err);
         }
-        setEditingUser({ ...user });
-    };
-
-    const handleSave = async (e) => {
-        e.preventDefault();
-        if (!editingUser) return;
-
-        // Convert role name to role ID
-        const roleMap = {
-            'Admin': 1,
-            'Manager': 2,
-            'Annotator': 3,
-            'Reviewer': 4
-        };
-
-        const payload = {
-            name: editingUser.name,
-            role: roleMap[editingUser.role] || 3, // Convert to number
-            status: editingUser.active ? 1 : 2 // 1=Active, 2=Inactive
-        };
-
-        try {
-            const token = JSON.parse(localStorage.getItem('user'))?.token;
-            await api.put(`/Users/${editingUser.id}`, payload, {
-                headers: token ? { Authorization: `Bearer ${token}` } : {}
-            });
-
-            await fetchUsers();
-            setEditingUser(null);
-        } catch (err) {
-            console.error('Failed to update user', err);
-            alert('Failed to update user: ' + (err?.response?.data?.message || err.message));
-        }
-    };
-
-    const handleCreate = async (e) => {
-        e.preventDefault();
-        setUsersError(null);
-
-        // Convert role name to role ID
-        const roleMap = {
-            'Admin': 1,
-            'Manager': 2,
-            'Annotator': 3,
-            'Reviewer': 4
-        };
-
-        const payload = {
-            email: newUser.email,
-            password: newUser.password,
-            name: newUser.username,
-            role: roleMap[newUser.role] || 3 // Default to Annotator if not found
-        };
-
-        console.log('Creating user with payload:', payload);
-
-        try {
-            const token = JSON.parse(localStorage.getItem('user'))?.token;
-            const response = await api.post('/Users', payload, {
-                headers: token ? { Authorization: `Bearer ${token}` } : {}
-            });
-
-            console.log('User created successfully:', response.data);
-            await fetchUsers();
-            setCreatingUser(false);
-            setNewUser({ username: '', password: '', email: '', role: UserRole.ANNOTATOR });
-        } catch (err) {
-            console.error('Failed to create user', err);
-            console.error('Error response:', err?.response?.data);
-
-            let errorMessage = 'Unknown error';
-
-            if (err?.response?.data) {
-                const data = err.response.data;
-                // Handle different error formats
-                if (data.message) {
-                    errorMessage = data.message;
-                } else if (data.errors) {
-                    // errors could be array or object
-                    if (Array.isArray(data.errors)) {
-                        errorMessage = data.errors.join(', ');
-                    } else if (typeof data.errors === 'object') {
-                        errorMessage = Object.values(data.errors).flat().join(', ');
-                    } else {
-                        errorMessage = String(data.errors);
-                    }
-                } else if (typeof data === 'string') {
-                    errorMessage = data;
-                } else {
-                    errorMessage = JSON.stringify(data);
-                }
-            } else if (err.message) {
-                errorMessage = err.message;
-            }
-
-            setUsersError('Failed to create user: ' + errorMessage);
-            alert('Failed to create user: ' + errorMessage);
-        }
+        setEditingUser({
+            ...user,
+            status: user.status || 'Active'
+        });
     };
 
     const handleDelete = async () => {
@@ -194,36 +145,6 @@ export const AdminPanel = ({ user }) => {
         }
     };
 
-    const filteredUsers = users.filter(u =>
-        u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-
-    const RoleBadge = ({ role }) => {
-        const styles = {
-            ADMIN: 'bg-danger-subtle text-danger-emphasis border-danger-subtle',
-            MANAGER: 'bg-primary-subtle text-primary-emphasis border-primary-subtle',
-            ANNOTATOR: 'bg-secondary-subtle text-secondary-emphasis border-secondary-subtle',
-            REVIEWER: 'bg-warning-subtle text-warning-emphasis border-warning-subtle',
-        };
-        const roleKey = role ? role.toUpperCase() : 'ANNOTATOR';
-        const className = styles[roleKey] || styles.ANNOTATOR;
-        return (
-            <span className={`px-2 py-1 rounded-pill text-xs fw-bold border ${className}`} style={{ fontSize: '0.7rem' }}>
-                {role}
-            </span>
-        );
-    };
-
-    const StatusBadge = ({ active }) => (
-        <span className={`d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill text-xs fw-medium border ${active == "Active" ? 'bg-success-subtle text-success-emphasis border-success-subtle' : 'bg-light text-muted border-light-subtle'
-            }`} style={{ fontSize: '0.75rem' }}>
-            <span className={`rounded-circle ${active == "Active" ? 'bg-success' : 'bg-secondary'}`} style={{ width: '6px', height: '6px' }}></span>
-            {active}
-        </span>
-    );
-
     return (
         <div className="container-fluid py-4 animate-in fade-in">
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
@@ -232,7 +153,7 @@ export const AdminPanel = ({ user }) => {
                     <p className="text-muted small mb-0">Manage access, roles, and user activity.</p>
                 </div>
                 <div className="d-flex gap-2">
-                    <Button variant="light" className="border shadow-sm d-flex align-items-center gap-2 bg-white" onClick={fetchUsers}>
+                    <Button variant="primary" className="border shadow-sm d-flex align-items-center gap-2 bg-white" onClick={() => { fetchUsers(); fetchActivityLogs(); }}>
                         <RefreshCw size={16} className={loadingUsers ? "spin-animation" : ""} /> Refresh
                     </Button>
                     <Button variant="primary" className="shadow-sm d-flex align-items-center gap-2" onClick={() => setCreatingUser(true)}>
@@ -244,22 +165,21 @@ export const AdminPanel = ({ user }) => {
             <div className="row g-4">
                 <div className="col-12 col-lg-8">
                     <div className="card border shadow-sm h-100 overflow-hidden">
-                        <div className="card-header bg-white border-bottom py-3">
-                            <InputGroup>
-                                <InputGroup.Text className="bg-light border-end-0">
-                                    <Search size={16} className="text-muted" />
-                                </InputGroup.Text>
-                                <Form.Control
-                                    placeholder="Search users by name or email..."
-                                    className="bg-light border-start-0 ps-0 shadow-none"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                />
-                                <Button variant="outline-secondary" className="border-start-0 d-flex align-items-center gap-2">
-                                    <Filter size={16} /> Filter
-                                </Button>
-                            </InputGroup>
-                        </div>
+                        <FiltersBar
+                            searchQuery={searchQuery}
+                            setSearchQuery={setSearchQuery}
+                            roleFilter={roleFilter}
+                            setRoleFilter={setRoleFilter}
+                            statusFilter={statusFilter}
+                            setStatusFilter={setStatusFilter}
+                            onSearch={fetchUsers}
+                            onClearFilters={() => {
+                                setRoleFilter('');
+                                setStatusFilter('');
+                                setSearchQuery('');
+                                setPageNumber(1);
+                            }}
+                        />
 
                         {usersError && (
                             <div className="alert alert-danger m-3 d-flex align-items-center gap-2">
@@ -267,324 +187,61 @@ export const AdminPanel = ({ user }) => {
                             </div>
                         )}
 
-                        <div className="table-responsive">
-                            <table className="table table-hover align-middle mb-0">
-                                <thead className="bg-light">
-                                    <tr>
-                                        <th className="ps-4 py-3 text-muted small text-uppercase fw-bold border">User Profile</th>
-                                        <th className="py-3 text-muted small text-uppercase fw-bold border">Role</th>
-                                        <th className="py-3 text-muted small text-uppercase fw-bold border">Status</th>
-                                        <th className="py-3 text-muted small text-uppercase fw-bold border">Joined</th>
-                                        <th className="pe-4 py-3 text-end text-muted small text-uppercase fw-bold border">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {loadingUsers ? (
-                                        <tr>
-                                            <td colSpan="5" className="text-center py-5">
-                                                <Spinner animation="border" variant="primary" size="sm" /> Loading users...
-                                            </td>
-                                        </tr>
-                                    ) : filteredUsers.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="5" className="text-center py-5 text-muted">
-                                                No users found matching your search.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        filteredUsers.map((user) => (
-                                            <tr key={user.id} className="border-bottom border-light group">
-                                                <td className="ps-4 py-3">
-                                                    <div className="d-flex align-items-center gap-3">
-                                                        <div className="position-relative">
-                                                            <img src={user.avatarUrl} alt="" className="rounded-circle border" width="40" height="40" />
-                                                            {user.active && <span className="position-absolute bottom-0 end-0 bg-success border border-white rounded-circle p-1" style={{ width: 10, height: 10 }}></span>}
-                                                        </div>
-                                                        <div>
-                                                            <div className="fw-semibold text-dark mb-0">{user.name}</div>
-                                                            <div className="small text-muted">{user.email}</div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td><RoleBadge role={user.role} /></td>
-                                                <td><StatusBadge active={user.status} /></td>
-                                                <td className="text-muted small">
-                                                    <div className="d-flex align-items-center gap-2">
-                                                        <Calendar size={14} />
-                                                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
-                                                    </div>
-                                                </td>
-                                                <td className="text-end pe-4">
-                                                    <div className="d-flex justify-content-end gap-2">
-                                                        <button
-                                                            className="btn border fw-medium px-3 py-1 rounded"
-                                                            style={{
-                                                                backgroundColor: '#eff6ff', // Xanh nhạt
-                                                                color: '#3b82f6',           // Xanh đậm
-                                                                fontSize: '0.85rem'
-                                                            }}
-                                                            onClick={(e) => { e.stopPropagation(); handleEditClick(user); }}
-                                                        >
-                                                            Edit
-                                                        </button>
+                        <UserTable
+                            users={users}
+                            isLoading={loadingUsers}
+                            onEdit={handleEditClick}
+                            onDelete={setDeletingUser}
+                        />
 
-                                                        <button
-                                                            className="btn border p-1 rounded d-flex align-items-center justify-content-center"
-                                                            style={{
-                                                                backgroundColor: '#fef2f2', // Đỏ nhạt
-                                                                color: '#ef4444',           // Đỏ đậm
-                                                                width: '34px',
-                                                                height: '34px'
-                                                            }}
-                                                            onClick={(e) => { e.stopPropagation(); setDeletingUser(user); }}
-                                                            title="Delete User"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="card-footer bg-white border-top py-3 text-muted small">
-                            Showing {filteredUsers.length} users
-                        </div>
+                        <PaginationControls
+                            pageNumber={pageNumber}
+                            pageSize={pageSize}
+                            totalItems={totalItems}
+                            totalPages={totalPages}
+                            onPageChange={setPageNumber}
+                        />
                     </div>
                 </div>
 
                 <div className="col-12 col-lg-4">
-                    <div className="card border shadow-sm h-100">
-                        <div className="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-                            <h6 className="fw-bold mb-0 d-flex align-items-center gap-2">
-                                <Activity size={18} className="text-primary" /> Recent Activity
-                            </h6>
-                            <Button variant="link" size="sm" className="text-muted p-0 text-decoration-none">View All</Button>
-                        </div>
-                        <div className="card-body p-0">
-                            <div className="list-group list-group-flush">
-                                <div className="text-center text-muted py-4">
-                                    <Activity size={32} className="mb-2 opacity-50" />
-                                    <p className="mb-0">No activity logs available</p>
-                                    {/* TODO: Fetch activity logs from API */}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <ActivityFeed
+                        activities={activityLogs}
+                        isLoading={loadingLogs}
+                        onRefresh={fetchActivityLogs}
+                    />
                 </div>
             </div>
 
+            <CreateUserModal
+                show={creatingUser}
+                onHide={() => setCreatingUser(false)}
+                onSuccess={() => {
+                    setCreatingUser(false);
+                    fetchUsers();
+                }}
+                onError={(message) => {
+                    setUsersError(message);
+                    alert(message);
+                }}
+            />
 
-            <Modal show={creatingUser} onHide={() => setCreatingUser(false)} centered backdrop="static">
-                <Modal.Header closeButton className="border-bottom-0 pb-0">
-                    <Modal.Title className="fw-bold h5">Create New User</Modal.Title>
-                </Modal.Header>
-                <Form onSubmit={handleCreate}>
-                    <Modal.Body className="d-flex flex-column gap-3 pt-3">
-                        <Form.Group>
-                            <Form.Label className="small fw-bold text-muted">USERNAME</Form.Label>
-                            <InputGroup>
-                                <InputGroup.Text className="bg-light border-end-0"><UserIcon size={16} /></InputGroup.Text>
-                                <Form.Control
-                                    className="border-start-0 ps-0 bg-light shadow-none"
-                                    placeholder="Enter username"
-                                    value={newUser.username}
-                                    onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                                    required
-                                />
-                            </InputGroup>
-                        </Form.Group>
-                        <Form.Group>
-                            <Form.Label className="small fw-bold text-muted">EMAIL</Form.Label>
-                            <InputGroup>
-                                <InputGroup.Text className="bg-light border-end-0"><Mail size={16} /></InputGroup.Text>
-                                <Form.Control
-                                    type="email"
-                                    className="border-start-0 ps-0 bg-light shadow-none"
-                                    placeholder="Enter email"
-                                    value={newUser.email}
-                                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                                    required
-                                />
-                            </InputGroup>
-                        </Form.Group>
-                        <Form.Group>
-                            <Form.Label className="small fw-bold text-muted">PASSWORD</Form.Label>
-                            <InputGroup>
-                                <InputGroup.Text className="bg-light border-end-0"><Shield size={16} /></InputGroup.Text>
-                                <Form.Control
-                                    type="password"
-                                    className="border-start-0 ps-0 bg-light shadow-none"
-                                    placeholder="Enter password"
-                                    value={newUser.password}
-                                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                                    required
-                                />
-                            </InputGroup>
-                        </Form.Group>
-                        <Form.Group>
-                            <Form.Label className="small fw-bold text-muted">ROLE</Form.Label>
-                            <Form.Select
-                                className="bg-light shadow-none cursor-pointer"
-                                value={newUser.role}
-                                onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                            >
-                                {Object.values(UserRole).map(role => (
-                                    <option key={role} value={role}>{role}</option>
-                                ))}
-                            </Form.Select>
-                        </Form.Group>
-                    </Modal.Body>
-                    <Modal.Footer className="border-top-0 pt-0">
-                        <Button variant="light" onClick={() => setCreatingUser(false)}>Cancel</Button>
-                        <Button variant="primary" type="submit" className="d-flex align-items-center gap-2">
-                            <UserPlus size={16} /> Create User
-                        </Button>
-                    </Modal.Footer>
-                </Form>
-            </Modal>
+            <EditUserModal
+                show={!!editingUser}
+                user={editingUser}
+                onHide={() => setEditingUser(null)}
+                onSuccess={() => {
+                    setEditingUser(null);
+                    fetchUsers();
+                }}
+            />
 
-            <Modal show={!!deletingUser} onHide={() => setDeletingUser(null)} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title className="fw-bold h5">Delete User</Modal.Title>
-                </Modal.Header>
-                <Modal.Body className="d-flex gap-3 align-items-start">
-                    <AlertTriangle size={36} className="text-warning" />
-                    <div>
-                        <p className="mb-1 fw-bold">Are you sure you want to delete this user?</p>
-                        <p className="small text-muted mb-0">This action cannot be undone. User: <strong>{deletingUser?.name}</strong> ({deletingUser?.email})</p>
-                    </div>
-                </Modal.Body>
-                <Modal.Footer className="bg-light">
-                    <Button variant="light" onClick={() => setDeletingUser(null)}>Cancel</Button>
-                    <Button variant="danger" onClick={async () => { await handleDelete(); }}>
-                        Delete
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-
-            <Modal show={!!editingUser} onHide={() => setEditingUser(null)} centered size="lg">
-                <Modal.Header closeButton className="border-bottom-0 pb-0 pt-4 px-4">
-                    <div>
-                        <Modal.Title className="fw-bold h5">Edit User Profile</Modal.Title>
-                        <p className="text-muted small mb-0">Update personal details and permissions.</p>
-                    </div>
-                </Modal.Header>
-                <Form onSubmit={handleSave}>
-                    <Modal.Body className="p-4">
-                        {editingUser && (
-                            <div className="row g-4">
-                                {/* Avatar Header */}
-                                <div className="col-12 d-flex align-items-center gap-3 p-3 bg-light rounded-3 border border-dashed">
-                                    <img src={editingUser.avatarUrl} className="rounded-circle bg-white shadow-sm" width="64" height="64" alt="" />
-                                    <div>
-                                        <div className="fw-bold fs-5">{editingUser.name}</div>
-                                        <div className="text-muted small">{editingUser.email}</div>
-                                    </div>
-                                </div>
-
-                                <Col md={6}>
-                                    <Form.Label className="small fw-bold text-muted text-uppercase mb-1">Full Name</Form.Label>
-                                    <InputGroup>
-                                        <InputGroup.Text className="bg-white border-end-0 text-muted"><User size={16} /></InputGroup.Text>
-                                        <Form.Control
-                                            className="border-start-0 ps-0 shadow-none"
-                                            value={editingUser.name}
-                                            onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
-                                            required
-                                        />
-                                    </InputGroup>
-                                </Col>
-
-                                <Col md={6}>
-                                    <Form.Label className="small fw-bold text-muted text-uppercase mb-1">Email</Form.Label>
-                                    <InputGroup>
-                                        <InputGroup.Text className="bg-light border-end-0 text-muted"><Mail size={16} /></InputGroup.Text>
-                                        <Form.Control
-                                            className="border-start-0 ps-0 bg-light shadow-none"
-                                            type="email"
-                                            value={editingUser.email}
-                                            onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-                                            required
-                                        />
-                                    </InputGroup>
-                                </Col>
-
-                                <Col md={6}>
-                                    <Form.Label className="small fw-bold text-muted text-uppercase mb-1">Role</Form.Label>
-                                    <Form.Select
-                                        className="shadow-none cursor-pointer"
-                                        value={editingUser.role}
-                                        onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
-                                    >
-                                        {Object.values(UserRole).map(role => (
-                                            <option key={role} value={role}>{role}</option>
-                                        ))}
-                                    </Form.Select>
-                                </Col>
-
-                                <Col md={6}>
-                                    <Form.Label className="small fw-bold text-muted text-uppercase mb-1">Account Status</Form.Label>
-                                    <div className="d-flex gap-2 h-100 align-items-center">
-                                        <div
-                                            className={`flex-fill border rounded p-2 d-flex align-items-center gap-2 cursor-pointer transition-all ${editingUser.active ? 'border-success bg-success-subtle' : 'border-light bg-light'}`}
-                                            onClick={() => setEditingUser({ ...editingUser, active: true })}
-                                        >
-                                            <div className={`rounded-circle p-1 ${editingUser.status ? 'bg-success text-white' : 'bg-secondary text-white'}`}>
-                                                <CheckCircle2 size={12} />
-                                            </div>
-                                            <span className={`small fw-medium ${editingUser.active ? 'text-success-emphasis' : 'text-muted'}`}>Active</span>
-                                        </div>
-
-                                        <div
-                                            className={`flex-fill border rounded p-2 d-flex align-items-center gap-2 cursor-pointer transition-all ${!editingUser.active ? 'border-danger bg-danger-subtle' : 'border-light bg-light'}`}
-                                            onClick={() => setEditingUser({ ...editingUser, active: false })}
-                                        >
-                                            <div className={`rounded-circle p-1 ${!editingUser.active ? 'bg-danger text-white' : 'bg-secondary text-white'}`}>
-                                                <XCircle size={12} />
-                                            </div>
-                                            <span className={`small fw-medium ${!editingUser.active ? 'text-danger-emphasis' : 'text-muted'}`}>Inactive</span>
-                                        </div>
-                                    </div>
-                                </Col>
-                            </div>
-                        )}
-                    </Modal.Body>
-                    <Modal.Footer className="border px-4 pb-4 pt-0">
-                        <Button variant="light" onClick={() => setEditingUser(null)} className="px-4">Cancel</Button>
-                        <Button variant="primary" type="submit" className="px-4">Save Changes</Button>
-                    </Modal.Footer>
-                </Form>
-            </Modal>
-
-            {/* 3. Delete Confirmation Modal */}
-            <Modal show={!!deletingUser} onHide={() => setDeletingUser(null)} centered>
-                <Modal.Header closeButton className="border-bottom-0">
-                    <Modal.Title className="fw-bold h5 text-danger d-flex align-items-center gap-2">
-                        <AlertTriangle size={24} /> Delete User
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body className="pt-0">
-                    {deletingUser && (
-                        <div>
-                            <p className="mb-3">Are you sure you want to delete this user? This action cannot be undone.</p>
-                            <div className="d-flex align-items-center gap-3 p-3 bg-danger-subtle rounded border border-danger-subtle">
-                                <img src={deletingUser.avatarUrl} className="rounded-circle bg-white" width="48" height="48" alt="" />
-                                <div>
-                                    <div className="fw-bold text-danger-emphasis">{deletingUser.name}</div>
-                                    <div className="small text-danger-emphasis opacity-75">{deletingUser.email}</div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </Modal.Body>
-                <Modal.Footer className="border-top-0">
-                    <Button variant="light" onClick={() => setDeletingUser(null)}>Cancel</Button>
-                    <Button variant="danger" onClick={handleDelete}>Delete User</Button>
-                </Modal.Footer>
-            </Modal>
+            <DeleteUserModal
+                show={!!deletingUser}
+                user={deletingUser}
+                onHide={() => setDeletingUser(null)}
+                onConfirm={handleDelete}
+            />
         </div>
     );
 };

@@ -261,7 +261,7 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                 </div>
                             ) : (
                                 <div className="d-flex flex-column gap-2">
-                                    {tasks.map(t => {
+                                    {tasks.map((t, index) => {
                                         const isTaskExpanded = !!expandedTasks[t.id];
                                         const detail = taskDetailsMap[t.id];
                                         return (
@@ -270,7 +270,7 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                                     <div className="d-flex gap-3 align-items-center">
                                                         <div style={{ width: 56, height: 42 }} className="rounded bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center text-secondary small">#{t.id}</div>
                                                         <div>
-                                                            <div className="small fw-bold text-dark">{t.projectName || `Project ${t.projectId || ''}`}</div>
+                                                            <div className="small fw-bold text-dark">{`Task ${index + 1}`}</div>
                                                             <div className="d-flex gap-2 align-items-center text-muted" style={{ fontSize: '11px' }}>
                                                                 <span>ID: {t.id}</span>
                                                                 <span>•</span>

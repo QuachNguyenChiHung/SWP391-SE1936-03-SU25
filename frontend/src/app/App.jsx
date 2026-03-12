@@ -13,7 +13,7 @@ import { AnnotatorWorkspace } from '../features/annotator/AnnotatorWorkspace.jsx
 import { NotificationsPage } from '../features/annotator/NotificationsPage.jsx';
 import { Settings } from '../features/annotator/Settings.jsx';
 import { ReviewerDashboard } from '../features/reviewer/ReviewerDashboard.jsx';
-import { ReviewerInterface } from '../features/reviewer/ReviewerInterface.jsx';
+import { ReviewerContainer } from '../features/reviewer/ReviewerContainer.jsx';
 import { AdminDashboard } from '../features/admin/AdminDashboard.jsx';
 import { AdminPanel } from '../features/admin/AdminPanel.jsx';
 import { Profile } from '../features/profile/Profile.jsx';
@@ -153,7 +153,7 @@ const AppRoutes = ({ user, onLogout }) => {
         } />
         <Route path="/reviewer/reviews" element={
           <ProtectedRoute user={user} allowedRoles={[UserRole.REVIEWER]}>
-            <ReviewerInterface user={user} />
+            <ReviewerContainer user={user} />
           </ProtectedRoute>
         } />
 

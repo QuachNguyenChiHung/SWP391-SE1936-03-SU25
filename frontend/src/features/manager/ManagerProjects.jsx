@@ -6,6 +6,7 @@ import axios from 'axios';
 import api from '../../shared/utils/api.js';
 import getInforFromCookie from '../../shared/utils/getInfoFromCookie.js';
 import StatusBadge from '../../shared/components/StatusBadge.jsx';
+import ProjectList from './components/ProjectList';
 
 export const ManagerProjects = ({ user }) => {
     const navigate = useNavigate();
@@ -19,6 +20,8 @@ export const ManagerProjects = ({ user }) => {
     const pageLength = 12;
     // State để xử lý hiệu ứng hover cho từng card
     const [hoveredProject, setHoveredProject] = useState(null);
+    const [statusFilter, setStatusFilter] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
 
     const handleProjectClick = (project) => {
         const convertProjectId = project.id + "";
@@ -29,14 +32,21 @@ export const ManagerProjects = ({ user }) => {
     useEffect(() => {
         (async () => {
             try {
-                const p = await api.get(`/Projects/?pageNumber=${page}&pageSize=${pageLength}`);
+                let url = `/Projects/?pageNumber=${page}&pageSize=${pageLength}`;
+                if (statusFilter) {
+                    url += `&status=${statusFilter}`;
+                }
+                if (searchTerm) {
+                    url += `&searchTerm=${encodeURIComponent(searchTerm)}`;
+                }
+                const p = await api.get(url);
                 setProjects(p.data.data.items);
                 console.log(p.data.data.items);
             } catch (e) {
                 console.log(e);
             }
         })();
-    }, [page]);
+    }, [page, statusFilter, searchTerm]);
 
     const handleCreateProject = async () => {
         try {
@@ -63,7 +73,14 @@ export const ManagerProjects = ({ user }) => {
                 }
             });
             alert("Project created successfully");
-            const p = await api.get(`/Projects/?pageNumber=${page}&pageSize=${pageLength}`);
+            let url = `/Projects/?pageNumber=${page}&pageSize=${pageLength}`;
+            if (statusFilter) {
+                url += `&status=${statusFilter}`;
+            }
+            if (searchTerm) {
+                url += `&searchTerm=${encodeURIComponent(searchTerm)}`;
+            }
+            const p = await api.get(url);
             setProjects(p.data.data.items);
         } catch (error) {
             if (error.response) {
@@ -128,111 +145,42 @@ export const ManagerProjects = ({ user }) => {
                 </button>
             </div>
 
-            {/* Projects Grid */}
-            <div className="row g-4">
-                {projects.map((project) => {
-                    const isHovered = hoveredProject === project.id;
-                    const progress = project.totalItems > 0 ? Math.round((project.completedItems / project.totalItems) * 100) : 0;
-
-                    return (
-                        <div key={project.id} className="col-12 col-md-6 col-xl-4">
-                            <div
-                                onClick={() => handleProjectClick(project)}
-                                onMouseEnter={() => setHoveredProject(project.id)}
-                                onMouseLeave={() => setHoveredProject(null)}
-                                className="card h-100 border-0 bg-white"
-                                style={{
-                                    borderRadius: '16px',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s ease',
-                                    transform: isHovered ? 'translateY(-5px)' : 'translateY(0)',
-                                    boxShadow: isHovered
-                                        ? '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
-                                        : '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)'
-                                }}
-                            >
-                                <div className="card-body p-4 d-flex flex-column">
-                                    {/* Card Header */}
-                                    <div className="d-flex justify-content-between align-items-start mb-3">
-                                        <div className="p-2 rounded-3"
-                                            style={{
-                                                backgroundColor: project.type === 'IMAGE_BOUNDING_BOX' ? '#eff6ff' : '#f5f3ff', // Blue-50 or Violet-50
-                                                color: project.type === 'IMAGE_BOUNDING_BOX' ? '#2563eb' : '#7c3aed'
-                                            }}>
-                                            <Layers size={22} />
-                                        </div>
-                                        <StatusBadge status={project.status} />
-                                    </div>
-
-                                    {/* Card Content */}
-                                    <div className="mb-3">
-                                        <h3 className="h6 fw-bold text-dark mb-2 text-truncate">{project.name}</h3>
-                                        <h3 className="text-muted small mb-2">Id: {project.id}</h3>
-                                        <p className="text-muted small mb-0" style={{
-                                            display: '-webkit-box',
-                                            WebkitLineClamp: 2,
-                                            WebkitBoxOrient: 'vertical',
-                                            overflow: 'hidden',
-                                            height: '2.6em',
-                                            lineHeight: '1.3em'
-                                        }}>
-                                            {project.description}
-                                        </p>
-                                    </div>
-
-                                    {/* Progress Section */}
-                                    <div className="mt-auto">
-                                        <div className='text-muted small mb-1 fw-medium'>
-                                            <span>Type: {project.type === 'ObjectDetection' ? 'Object Detection' : project.type}</span>
-                                        </div>
-                                        <div className="d-flex justify-content-between text-muted small mb-1 fw-medium">
-                                            <span>Progress</span>
-                                            <span className="text-dark">{progress}%</span>
-                                        </div>
-                                        <div className="progress" style={{ height: '6px', backgroundColor: '#f1f5f9', borderRadius: '10px' }}>
-                                            <div
-                                                className="progress-bar"
-                                                role="progressbar"
-                                                style={{
-                                                    width: `${progress}%`,
-                                                    backgroundColor: progress === 100 ? '#10b981' : '#4f46e5',
-                                                    borderRadius: '10px',
-                                                    transition: 'width 0.5s ease'
-                                                }}
-                                            ></div>
-                                        </div>
-                                    </div>
-
-                                    {/* Card Footer */}
-                                    <div className="pt-3 mt-3 border-top d-flex justify-content-between text-muted" style={{ fontSize: '0.8rem', flexDirection: 'column' }}>
-                                        <div className="d-flex align-items-center gap-1">
-                                            <Calendar size={14} />
-                                            <span>{new Date(project.createdAt).toLocaleDateString()}</span>
-                                        </div>
-                                        <div className="d-flex gap-3">
-                                            <div className="d-flex align-items-center gap-1">
-                                                <Calendar size={14} />
-                                                <span>Deadline:{new Date(project.deadline).toLocaleDateString()}</span>
-                                            </div>
-                                            <div className="d-flex align-items-center gap-1 bg-light px-2 py-1 rounded">
-                                                <Tag size={13} />
-                                                <span className="fw-medium">{project.classes?.length || 0} Labels</span>
-                                            </div>
-                                        </div>
-
-                                    </div>
-                                    <div className="d-flex justify-content-end mt-2">
-                                        <button onClick={(e) => handleDeleteProject(project.id, e)} className="btn btn-sm btn-danger d-flex align-items-center gap-2">
-                                            <Trash2 size={14} />
-                                            <span className="d-none d-sm-inline">Delete</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+            {/* Filter Section */}
+            <div className="card border-0 shadow-sm mb-4" style={{ borderRadius: '12px' }}>
+                <div className="card-body p-4">
+                    <div className="row g-3">
+                        <div className="col-md-6">
+                            <label className="form-label fw-semibold small text-dark">Search Projects</label>
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="form-control"
+                                placeholder="Search by project name..."
+                                style={{ borderRadius: '8px', padding: '10px' }}
+                            />
                         </div>
-                    );
-                })}
+                        <div className="col-md-6">
+                            <label className="form-label fw-semibold small text-dark">Filter by Status</label>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="form-select"
+                                style={{ borderRadius: '8px', padding: '10px' }}
+                            >
+                                <option value="">All Status</option>
+                                <option value="Draft">Draft</option>
+                                <option value="Active">Active</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Archived">Archived</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            {/* Projects Grid */}
+            <ProjectList projects={projects} onProjectClick={handleProjectClick} onDelete={handleDeleteProject} />
 
             {/* Create Project Modal */}
             {isCreateProjectModalOpen && (

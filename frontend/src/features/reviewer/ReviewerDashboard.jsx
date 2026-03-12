@@ -4,6 +4,8 @@ import { DataItemStatus, UserRole } from '../../shared/types/types.js';
 import { Eye, ThumbsUp, ThumbsDown, PieChart, Plus, CheckCircle2, AlertCircle, ArrowRight, Activity, Clock, X } from 'lucide-react';
 import getInforFromCookie from '../../shared/utils/getInfoFromCookie.js';
 import api from '../../shared/utils/api.js';
+import ActivityItem from './components/ActivityItem.jsx';
+import StatsCard from './components/StatsCard.jsx';
 
 export const ReviewerDashboard = ({ user }) => {
     const navigate = useNavigate();
@@ -93,18 +95,7 @@ export const ReviewerDashboard = ({ user }) => {
             <div className="row g-4 mb-5">
                 {stats.map((stat) => (
                     <div key={stat.label} className="col-12 col-md-6 col-lg-3">
-                        <div className="card border-0 shadow-sm rounded-4 overflow-hidden transition-all hover-up" style={{ transition: 'transform 0.2s' }}>
-                            <div className="card-body p-4">
-                                <div className="d-flex align-items-center justify-content-between mb-3">
-                                    <div className="rounded-3 p-3" style={{ backgroundColor: stat.bg, color: stat.color }}>
-                                        <stat.icon size={24} strokeWidth={2.5} />
-                                    </div>
-                                    <Activity size={16} className="text-light-emphasis" />
-                                </div>
-                                <h6 className="text-secondary fw-medium mb-1">{stat.label}</h6>
-                                <h3 className="fw-bold mb-0">{stat.value}</h3>
-                            </div>
-                        </div>
+                        <StatsCard label={stat.label} value={stat.value} Icon={stat.icon} color={stat.color} bg={stat.bg} />
                     </div>
                 ))}
             </div>
@@ -187,26 +178,4 @@ export const ReviewerDashboard = ({ user }) => {
     );
 };
 
-// Component con để code sạch hơn
-const ActivityItem = ({ icon, title, time, user, type }) => {
-    const colors = {
-        blue: 'bg-primary-subtle text-primary',
-        green: 'bg-success-subtle text-success',
-        red: 'bg-danger-subtle text-danger'
-    };
-
-    return (
-        <div className="d-flex align-items-start gap-3">
-            <div className={`p-2 rounded-circle ${colors[type]}`}>
-                {icon}
-            </div>
-            <div className="flex-grow-1 border-bottom pb-3">
-                <p className="small fw-bold text-dark mb-0">{title}</p>
-                <div className="d-flex justify-content-between">
-                    <span className="text-muted" style={{ fontSize: '0.75rem' }}>By {user}</span>
-                    <span className="text-muted" style={{ fontSize: '0.75rem' }}>{time}</span>
-                </div>
-            </div>
-        </div>
-    );
-};
+// ActivityItem moved to components/ActivityItem.jsx

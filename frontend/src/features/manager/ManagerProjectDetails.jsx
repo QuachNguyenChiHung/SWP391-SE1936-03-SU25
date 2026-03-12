@@ -1,24 +1,7 @@
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-    Plus, MoreHorizontal, Tag, FileText,
-    ChevronRight, Filter, ArrowLeft, Pencil, Trash2, ChevronDown, ChevronUp,
-    Upload, X, Image as ImageIcon, Save, PieChart as PieChartIcon,
-    LayoutDashboard, Database, Layers, Users
-} from 'lucide-react'; // Đã thêm LayoutDashboard, Database, Layers
-import TabsNav from './TabsNav.jsx';
-import OverviewPanel from './OverviewPanel.jsx';
-import DatasetPanel from './DatasetPanel.jsx';
-import LabelsPanel from './LabelsPanel.jsx';
-import TasksPanel from './TasksPanel.jsx';
-import { ProjectStatus, DataItemStatus } from '../../shared/types/types.js';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import Modal from 'react-bootstrap/Modal';
-import Button from 'react-bootstrap/Button';
-import ProgressBar from 'react-bootstrap/ProgressBar';
-import Form from 'react-bootstrap/Form';
 import api from '../../shared/utils/api.js';
-import DataItemsPanel from './DatasetPanel.jsx';
+import ManagerProjectDetailsUI from './components/ManagerProjectDetails';
 
 export const ManagerProjectDetails = ({ user }) => {
     const { pid } = useParams();
@@ -64,8 +47,9 @@ export const ManagerProjectDetails = ({ user }) => {
     const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
     const [editName, setEditName] = useState('');
     const [editDescription, setEditDescription] = useState('');
-    const [editStatus, setEditStatus] = useState(ProjectStatus.NOT_STARTED);
+    const [editStatus, setEditStatus] = useState(null);
     const [editDeadline, setEditDeadline] = useState('');
+
     // --- LOGIC: Load Project ---
     useEffect(() => {
         if (!pid) {
@@ -224,9 +208,8 @@ export const ManagerProjectDetails = ({ user }) => {
         if (!project) return;
         setEditName(project.name || '');
         setEditDescription(project.description || '');
-        setEditStatus(project.status || ProjectStatus.NOT_STARTED);
+        setEditStatus(project.status || null);
         // Normalize backend deadline which may be null, DateOnly (yyyy-MM-dd) or ISO datetime
-        console.log(project);
         if (project.deadline) {
             const d = String(project.deadline).slice(0, 10); // yyyy-MM-dd
             setEditDeadline(d);
@@ -337,7 +320,15 @@ export const ManagerProjectDetails = ({ user }) => {
         }
     };
 
-    // --- Component: Status Badge ---
+    // TODO: Fetch project tasks from API
+    const projectTasks = [];
+    const tasksByAssignee = projectTasks.reduce((acc, task) => {
+        const key = task.assignedTo || 'Unassigned';
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(task);
+        return acc;
+    }, {});
+
     const StatusBadge = ({ status }) => {
         const styles = {
             [ProjectStatus.PENDING]: 'bg-warning-subtle text-warning-emphasis border-warning-subtle',
@@ -359,283 +350,81 @@ export const ManagerProjectDetails = ({ user }) => {
 
     if (!project) return <div className="text-center py-5"><div className="spinner-border text-primary" /></div>;
 
-    const tabs = [
-        { id: 'Overview', icon: LayoutDashboard },
-        { id: 'Data Items', icon: Database },
-        { id: 'Labels', icon: Tag },
-        { id: 'Tasks', icon: Layers },
-    ];
-
-    // TODO: Fetch project tasks from API
-    const projectTasks = [];
-    const tasksByAssignee = projectTasks.reduce((acc, task) => {
-        const key = task.assignedTo || 'Unassigned';
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(task);
-        return acc;
-    }, {});
+    // Tabs are defined in the presentational component.
 
     return (
-        <div className="d-flex flex-column gap-4 container-fluid p-0">
-            {/* Header */}
-            <div className="d-flex align-items-center gap-3 mb-2">
-                <Button variant="light" className="border shadow-sm bg-white" onClick={handleBackToProjects}>
-                    <ArrowLeft size={20} />
-                </Button>
-                <div>
-                    <h2 className="h4 fw-bold text-dark mb-1">{project.name}</h2>
-                    <div className="d-flex align-items-center gap-2">
-                        <span className="text-muted small border-end pe-2 me-1">{project.type}</span>
-                        {project.deadline && (
-                            <span className="text-muted small ms-2">Deadline: {`${project.deadline.slice(8, 2 + 8)}/${project.deadline.slice(5, 7)}/${project.deadline.slice(0, 4)}`}</span>
-                        )}
-                    </div>
-                </div>
-            </div>
+        <ManagerProjectDetailsUI
+            project={project}
+            onBack={handleBackToProjects}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            dataSet={dataSet}
+            dataLoading={dataLoading}
+            dataPage={dataPage}
+            setDataPage={setDataPage}
+            handleDeleteDataItem={handleDeleteDataItem}
 
-            {/* Tabs navigation */}
-            <TabsNav tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
+            // Import modal handlers
+            isImportModalOpen={isImportModalOpen}
+            openImportModal={() => setIsImportModalOpen(true)}
+            closeImportModal={() => setIsImportModalOpen(false)}
+            uploadProgress={uploadProgress}
+            selectedFiles={selectedFiles}
+            onFileSelect={handleFileSelect}
+            removeSelectedFile={removeSelectedFile}
+            handleImport={handleImport}
+            clearSelectedFiles={() => setSelectedFiles([])}
 
-            <div className="bg-transparent animate-in fade-in" style={{ minHeight: '400px' }}>
-                {activeTab === 'Overview' && (
-                    <OverviewPanel project={project} openImportModal={() => setIsImportModalOpen(true)} openGuidelines={openGuidelines} openEditProject={openEditProject} />
-                )}
-                {activeTab === 'Data Items' && (
-                    <DataItemsPanel dataSet={dataSet} dataLoading={dataLoading} dataPage={dataPage} setDataPage={setDataPage} onDeleteItem={handleDeleteDataItem} />
-                )}
-                {activeTab === 'Labels' && (
-                    <LabelsPanel listLabels={listLabels} openAddLabel={openAddLabel} openEditLabelModal={openEditLabelModal} openDeleteLabelModal={openDeleteLabelModal} />
-                )}
-                {activeTab === 'Tasks' && (
-                    <TasksPanel tasksByAssignee={tasksByAssignee} expandedTaskGroups={expandedTaskGroups} toggleGroup={toggleGroup} StatusBadge={StatusBadge} externalAssignTarget={externalAssignTarget} />
-                )}
-                {/* {activeTab === 'Annotators' && (
-                    <div className="p-3">
-                        <h5 className="mb-3">Annotators</h5>
-                        {annotatorsLoading ? (
-                            <div className="text-center py-4"><div className="spinner-border text-primary" /></div>
-                        ) : (
-                            (annotators && annotators.length > 0) ? (
-                                <div className="row g-3">
-                                    {annotators.map((a) => (
-                                        <div key={a.id} className="col-12 col-md-6 col-lg-4">
-                                            <div className="border rounded p-3 d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <div className="fw-bold">{a.name}</div>
-                                                    <div className="small text-muted">{a.email}</div>
-                                                </div>
-                                                <div className="text-center d-flex flex-column align-items-end gap-2">
-                                                    <div className="small text-muted">Active</div>
-                                                    <div className="h5 mb-0">{a.activeTaskCount ?? 0}</div>
-                                                    <Button size="sm" className="mt-2" onClick={() => {
-                                                        // ensure group expanded in Tasks tab and instruct TasksPanel to open assign modal
-                                                        setExpandedTaskGroups(prev => ({ ...prev, [a.id]: true }));
-                                                        setExternalAssignTarget({ ...a, __ts: Date.now() });
-                                                        setActiveTab('Tasks');
-                                                    }}>Assign</Button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-muted">No annotators found.</div>
-                            )
-                        )}
-                    </div>
-                )} */}
-            </div>
+            // Guidelines
+            isGuidelinesModalOpen={isGuidelinesModalOpen}
+            openGuidelines={openGuidelines}
+            closeGuidelines={() => setIsGuidelinesModalOpen(false)}
+            isEditingGuidelines={isEditingGuidelines}
+            guidelinesText={guidelinesText}
+            setGuidelinesText={setGuidelinesText}
+            handleSaveGuidelines={handleSaveGuidelines}
 
-            {/* 2. Import Modal */}
-            <Modal show={isImportModalOpen} onHide={() => !uploadProgress && setIsImportModalOpen(false)} centered size="lg">
-                <Modal.Header closeButton={!uploadProgress}>
-                    <Modal.Title className="d-flex align-items-center gap-2">
-                        <Upload size={20} className="text-primary" /> Import Dataset
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    {uploadProgress > 0 ? (
-                        <div className="text-center py-4">
-                            <h5 className="mb-3">Uploading Files...</h5>
-                            <p className="text-muted small">{uploadProgress}% Complete</p>
-                            <ProgressBar now={uploadProgress} striped variant="primary" animated className="mx-auto" style={{ maxWidth: '300px' }} />
-                        </div>
-                    ) : (
-                        <div className="d-flex flex-column gap-3">
-                            <div className="border border-2 border-dashed rounded p-5 text-center bg-light position-relative">
-                                <input type="file" multiple accept="image/*" onChange={handleFileSelect} className="position-absolute top-0 start-0 w-100 h-100 opacity-0 cursor-pointer" />
-                                <div className="rounded-circle bg-primary bg-opacity-10 d-inline-flex p-3 mb-2 text-primary">
-                                    <ImageIcon size={24} />
-                                </div>
-                                <p className="mb-0 fw-medium">Drag & Drop or Click to Upload</p>
-                                <small className="text-muted">Support JPG, PNG, JPEG (Max 10MB)</small>
-                            </div>
-                            {selectedFiles.length > 0 && (
-                                <div className="border rounded">
-                                    <div className="p-2 bg-light border-bottom d-flex justify-content-between align-items-center">
-                                        <small className="fw-bold">Selected Files ({selectedFiles.length})</small>
-                                        <Button variant="link" className="text-danger p-0 text-decoration-none small" onClick={() => setSelectedFiles([])}>Clear All</Button>
-                                    </div>
-                                    <div className="p-2" style={{ maxHeight: '150px', overflowY: 'auto' }}>
-                                        {selectedFiles.map((f, i) => (
-                                            <div key={i} className="d-flex justify-content-between align-items-center p-2 border-bottom last-border-0">
-                                                <div className="d-flex align-items-center gap-2 text-truncate">
-                                                    <img src={URL.createObjectURL(f)} width="30" height="30" className="rounded object-fit-cover" />
-                                                    <div>
-                                                        <div className="small fw-medium text-truncate" style={{ maxWidth: '200px' }}>{f.name}</div>
-                                                        <div className="small text-muted" style={{ fontSize: '10px' }}>{(f.size / 1024).toFixed(1)} KB</div>
-                                                    </div>
-                                                </div>
-                                                <Button variant="link" className="text-muted p-0" onClick={() => removeSelectedFile(i)}><X size={16} /></Button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="light" onClick={() => setIsImportModalOpen(false)} disabled={uploadProgress > 0}>Cancel</Button>
-                    <Button variant="primary" onClick={handleImport} disabled={selectedFiles.length === 0 || uploadProgress > 0}>
-                        {uploadProgress > 0 ? 'Uploading...' : `Upload ${selectedFiles.length} Images`}
-                    </Button>
-                </Modal.Footer>
-            </Modal>
+            // Edit project
+            isEditProjectOpen={isEditProjectOpen}
+            openEditProject={openEditProject}
+            closeEditProject={() => setIsEditProjectOpen(false)}
+            editName={editName}
+            setEditName={setEditName}
+            editDescription={editDescription}
+            setEditDescription={setEditDescription}
+            editStatus={editStatus}
+            setEditStatus={setEditStatus}
+            editDeadline={editDeadline}
+            setEditDeadline={setEditDeadline}
+            handleSaveProjectUpdate={handleSaveProjectUpdate}
 
-            {/* 3. Guidelines Modal */}
-            <Modal show={isGuidelinesModalOpen} onHide={() => setIsGuidelinesModalOpen(false)} centered size="lg">
-                <Modal.Header closeButton>
-                    <Modal.Title className="d-flex align-items-center gap-2"><FileText size={20} className="text-primary" /> Project Guidelines</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    {isEditingGuidelines ? (
-                        <div className="d-flex flex-column gap-2">
-                            <label className="small fw-bold text-muted">EDIT CONTENT</label>
-                            <Form.Control as="textarea" rows={10} value={guidelinesText} onChange={(e) => setGuidelinesText(e.target.value)} placeholder="Enter detailed instructions..." />
-                        </div>
-                    ) : (
-                        <div className="d-flex flex-column gap-2">
-                            <label className="small fw-bold text-muted">CURRENT GUIDELINES</label>
-                            <div className="p-3 bg-light rounded border" style={{ minHeight: '200px', whiteSpace: 'pre-line' }}>
-                                {guidelinesText || "No guidelines set for this project."}
-                            </div>
-                        </div>
-                    )}
-                </Modal.Body>
-                <Modal.Footer>
-                    {isEditingGuidelines ? (
-                        <>
-                            <Button variant="light" onClick={() => setIsEditingGuidelines(false)}>Cancel</Button>
-                            <Button variant="primary" onClick={handleSaveGuidelines} className="d-flex align-items-center gap-2"><Save size={16} /> Save Changes</Button>
-                        </>
-                    ) : (
-                        <Button variant="primary" onClick={() => setIsEditingGuidelines(true)} className="w-100 d-flex align-items-center justify-content-center gap-2"><Pencil size={16} /> Edit Guidelines</Button>
-                    )}
-                </Modal.Footer>
-            </Modal>
+            // Labels
+            listLabels={listLabels}
+            isAddLabelOpen={isAddLabelOpen}
+            openAddLabel={openAddLabel}
+            setIsAddLabelOpen={setIsAddLabelOpen}
+            newLabelName={newLabelName}
+            setNewLabelName={setNewLabelName}
+            newLabelColor={newLabelColor}
+            setNewLabelColor={setNewLabelColor}
+            addLabelError={addLabelError}
+            handleSaveLabel={handleSaveLabel}
 
-            {/* 4. Edit Project Modal */}
-            <Modal show={isEditProjectOpen} onHide={() => setIsEditProjectOpen(false)} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title className="d-flex align-items-center gap-2">
-                        <div className="p-1 bg-primary bg-opacity-10 rounded text-primary"><Pencil size={20} /></div>
-                        Edit Project
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body className="d-flex flex-column gap-3">
-                    <Form.Group>
-                        <Form.Label className="fw-semibold">Project Name</Form.Label>
-                        <Form.Control value={editName} onChange={(e) => setEditName(e.target.value)} />
-                    </Form.Group>
-                    <Form.Group>
-                        <Form.Label className="fw-semibold">Description</Form.Label>
-                        <Form.Control as="textarea" rows={3} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
-                    </Form.Group>
-                    <Form.Group>
-                        <Form.Label className="fw-semibold">Status</Form.Label>
-                        <Form.Select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
-                            {Object.keys(ProjectStatus).map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
-                        </Form.Select>
-                    </Form.Group>
-                    <Form.Group>
-                        <Form.Label className="fw-semibold">Deadline</Form.Label>
-                        <Form.Control type="date" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)} />
-                    </Form.Group>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="light" onClick={() => setIsEditProjectOpen(false)}>Cancel</Button>
-                    <Button variant="primary" onClick={handleSaveProjectUpdate} className="d-flex align-items-center gap-2"><Save size={16} /> Save Changes</Button>
-                </Modal.Footer>
-            </Modal>
-
-            {/* 5. Add Label Modal */}
-            <Modal show={isAddLabelOpen} onHide={() => setIsAddLabelOpen(false)} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title className="d-flex align-items-center gap-2">
-                        <div className="p-1 bg-primary bg-opacity-10 rounded text-primary"><Plus size={20} /></div>
-                        Create New Label
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body className="d-flex flex-column gap-3">
-                    <Form.Group>
-                        <Form.Label className="small fw-bold text-muted">LABEL NAME</Form.Label>
-                        <Form.Control required placeholder="Enter label name" value={newLabelName} onChange={(e) => setNewLabelName(e.target.value)} />
-                    </Form.Group>
-                    <Form.Group>
-                        <Form.Label className="small fw-bold text-muted">COLOR</Form.Label>
-                        <div className="d-flex gap-2">
-                            <Form.Control required type="color" value={newLabelColor} onChange={(e) => setNewLabelColor(e.target.value)} className="form-control-color" style={{ width: '3rem' }} title="Choose your color" />
-                        </div>
-                    </Form.Group>
-                    {addLabelError && <div className="text-danger small">{addLabelError}</div>}
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="light" onClick={() => setIsAddLabelOpen(false)}>Cancel</Button>
-                    <Button variant="primary" onClick={handleSaveLabel}>Create Label</Button>
-                </Modal.Footer>
-            </Modal>
-            {/* Edit Label Modal */}
-            <Modal show={isEditLabelOpen} onHide={() => { setIsEditLabelOpen(false); setCurrentEditingLabel(null); }} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title className="d-flex align-items-center gap-2">
-                        <div className="p-1 bg-primary bg-opacity-10 rounded text-primary"><Pencil size={20} /></div>
-                        Edit Label
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body className="d-flex flex-column gap-3">
-                    <Form.Group>
-                        <Form.Label className="small fw-bold text-muted">LABEL NAME</Form.Label>
-                        <Form.Control value={editLabelName} onChange={(e) => setEditLabelName(e.target.value)} />
-                    </Form.Group>
-                    <Form.Group>
-                        <Form.Label className="small fw-bold text-muted">COLOR</Form.Label>
-                        <div className="d-flex gap-2">
-                            <Form.Control type="color" value={editLabelColor} onChange={(e) => setEditLabelColor(e.target.value)} className="form-control-color" style={{ width: '3rem' }} title="Choose your color" />
-                            <Form.Control value={editLabelColor} onChange={(e) => setEditLabelColor(e.target.value)} />
-                        </div>
-                    </Form.Group>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="light" onClick={() => { setIsEditLabelOpen(false); setCurrentEditingLabel(null); }}>Cancel</Button>
-                    <Button variant="primary" onClick={handleEditLabelSubmit}>Save</Button>
-                </Modal.Footer>
-            </Modal>
-
-            {/* Delete Label Confirmation Modal */}
-            <Modal show={isDeleteLabelOpen} onHide={() => { setIsDeleteLabelOpen(false); setLabelToDelete(null); }} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>Confirm Delete</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    Are you sure you want to delete label "{labelToDelete?.name}"? This action cannot be undone.
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="light" onClick={() => { setIsDeleteLabelOpen(false); setLabelToDelete(null); }}>Cancel</Button>
-                    <Button variant="danger" onClick={handleDeleteLabelConfirm}>Delete</Button>
-                </Modal.Footer>
-            </Modal>
-        </div>
-
+            isEditLabelOpen={isEditLabelOpen}
+            editLabelName={editLabelName}
+            setEditLabelName={setEditLabelName}
+            editLabelColor={editLabelColor}
+            setEditLabelColor={setEditLabelColor}
+            handleEditLabelSubmit={handleEditLabelSubmit}
+            isDeleteLabelOpen={isDeleteLabelOpen}
+            labelToDelete={labelToDelete}
+            openDeleteLabelModal={openDeleteLabelModal}
+            handleDeleteLabelConfirm={handleDeleteLabelConfirm}
+            // Tasks
+            tasksByAssignee={tasksByAssignee}
+            expandedTaskGroups={expandedTaskGroups}
+            toggleGroup={toggleGroup}
+            externalAssignTarget={externalAssignTarget}
+        />
     );
 };

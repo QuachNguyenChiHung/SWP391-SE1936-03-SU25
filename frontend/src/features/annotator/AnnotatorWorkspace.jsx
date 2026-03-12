@@ -51,6 +51,7 @@ export const AnnotatorWorkspace = ({ user }) => {
     const [zoomLevel, setZoomLevel] = useState(1);
     const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
     const [isPanning, setIsPanning] = useState(false);
+    const [isSpacePressed, setIsSpacePressed] = useState(false);
     const panStartRef = useRef(null);
 
     // Toast notification state
@@ -727,7 +728,7 @@ export const AnnotatorWorkspace = ({ user }) => {
 
     // Pan functions
     const handlePanStart = (e) => {
-        if (selectedTool === 'PAN' || e.button === 1 || (e.button === 0 && e.shiftKey)) {
+        if (selectedTool === 'PAN' || e.button === 1 || (e.button === 0 && e.shiftKey) || (e.button === 0 && isSpacePressed)) {
             e.preventDefault();
             setIsPanning(true);
             panStartRef.current = {
@@ -1016,8 +1017,8 @@ export const AnnotatorWorkspace = ({ user }) => {
     };
 
     const handleContainerMouseDown = (e) => {
-        // Handle Pan mode
-        if (selectedTool === 'PAN' || e.button === 1 || (e.button === 0 && e.shiftKey)) {
+        // Handle Pan mode (PAN tool, middle mouse, Shift+Click, or Space+Click)
+        if (selectedTool === 'PAN' || e.button === 1 || (e.button === 0 && e.shiftKey) || (e.button === 0 && isSpacePressed)) {
             handlePanStart(e);
             return;
         }
@@ -1089,18 +1090,41 @@ export const AnnotatorWorkspace = ({ user }) => {
         }
     };
 
-    // Handle Escape key to cancel polygon
+    // Handle Escape key to cancel polygon and Space key for panning
     useEffect(() => {
         const handleKeyDown = (e) => {
+            // Handle spacebar for panning
+            if (e.code === 'Space' && !isSpacePressed && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                setIsSpacePressed(true);
+            }
+
+            // Handle Escape to cancel polygon
             if (e.key === 'Escape' && isDrawingPolygon) {
                 setPolygonPoints([]);
                 setIsDrawingPolygon(false);
             }
         };
 
+        const handleKeyUp = (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                setIsSpacePressed(false);
+                // End panning if space is released while panning
+                if (isPanning) {
+                    setIsPanning(false);
+                    panStartRef.current = null;
+                }
+            }
+        };
+
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isDrawingPolygon]);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [isDrawingPolygon, isSpacePressed, isPanning]);
 
     // Close context menu when clicking outside
     useEffect(() => {
@@ -1612,7 +1636,12 @@ export const AnnotatorWorkspace = ({ user }) => {
                         ref={containerRef}
                         className="canvas-area"
                         style={{
-                            cursor: isPanning ? 'grabbing' : selectedTool === 'PAN' ? 'grab' : selectedTool === 'BOX' ? 'crosshair' : selectedTool === 'POLYGON' ? 'crosshair' : 'default',
+                            cursor: isPanning ? 'grabbing' :
+                                isSpacePressed ? 'grab' :
+                                    selectedTool === 'PAN' ? 'grab' :
+                                        selectedTool === 'BOX' ? 'crosshair' :
+                                            selectedTool === 'POLYGON' ? 'crosshair' :
+                                                'default',
                             flex: 1,
                             overflow: 'hidden'
                         }}

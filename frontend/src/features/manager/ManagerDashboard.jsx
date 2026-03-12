@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Layers, CheckCircle2, FileText, Users, Plus, ArrowUpRight, Calendar } from 'lucide-react';
+import { StatsCard } from './components';
 import api from '../../shared/utils/api.js';
 import { useEffect, useState } from 'react';
 
@@ -35,7 +36,7 @@ export const ManagerDashboard = ({ user }) => {
         { label: 'Total Projects', value: totalProjects, icon: Layers, color: '#2563eb', bg: '#eff6ff' },
         { label: 'Active Projects', value: dashboard?.stats?.activeProjects ?? 0, icon: CheckCircle2, color: '#059669', bg: '#ecfdf5' },
         { label: 'Total Items', value: totalTasks.toLocaleString(), icon: FileText, color: '#4f46e5', bg: '#eef2ff' },
-        { label: 'Completion Rate', value: `${overallProgress}%`, icon: Users, color: '#ea580c', bg: '#fff7ed' },
+        { label: 'Completion Rate', value: `${Math.floor(overallProgress)}%`, icon: Users, color: '#ea580c', bg: '#fff7ed' },
     ];
 
     const CustomTooltip = ({ active, payload, label }) => {
@@ -79,23 +80,12 @@ export const ManagerDashboard = ({ user }) => {
             <div className="row g-4 mb-4">
                 {stats.map((stat, index) => (
                     <div key={index} className="col-12 col-md-6 col-lg-3">
-                        <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px', transition: 'transform 0.2s' }}>
-                            <div className="card-body p-4">
-                                <div className="d-flex justify-content-between align-items-start mb-3">
-                                    <div>
-                                        <p className="text-muted small fw-bold text-uppercase mb-1">{stat.label}</p>
-                                        <h3 className="fw-bold mb-0 text-dark">{stat.value}</h3>
-                                    </div>
-                                    <div className="p-3 rounded-3" style={{ backgroundColor: stat.bg, color: stat.color }}>
-                                        <stat.icon size={22} />
-                                    </div>
-                                </div>
-                                <div className="d-flex align-items-center gap-1 small">
-                                    <ArrowUpRight size={14} className="text-success" />
-                                    <span className="text-success fw-bold">Updated just now</span>
-                                </div>
-                            </div>
-                        </div>
+                        <StatsCard
+                            title={stat.label}
+                            value={stat.value}
+                            icon={<stat.icon size={22} />}
+                            color={{ bg: stat.bg, color: stat.color }}
+                        />
                     </div>
                 ))}
             </div>
@@ -140,7 +130,7 @@ export const ManagerDashboard = ({ user }) => {
                                                     <td className="text-muted">{p.status}</td>
                                                     <td className="text-muted">{p.totalItems}</td>
                                                     <td className="text-muted">{p.completedItems}</td>
-                                                    <td className="text-dark fw-semibold">{p.progressPercent}%</td>
+                                                    <td className="text-dark fw-semibold">{Math.floor(p.progressPercent)}%</td>
                                                     <td className="text-muted">{p.deadline ? new Date(p.deadline).toLocaleDateString() : '—'}</td>
                                                 </tr>
                                             ))}
@@ -149,68 +139,6 @@ export const ManagerDashboard = ({ user }) => {
                                 </div>
                             )}
                         </div>
-                    </div>
-                </div>
-
-                {/* Recent Activity Section */}
-                <div className="col-12 col-lg-4">
-                    <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
-                        <div className="card-body p-4 d-flex flex-column">
-                            <h5 className="fw-bold mb-4">Recent Activity</h5>
-
-                            <div className="flex-grow-1 overflow-auto pe-2">
-                                {/* Activity Items - Dùng border-start để tạo đường kẻ timeline */}
-                                <div className="position-relative ps-4 pb-4 border-start">
-                                    <div className="position-absolute bg-white p-1" style={{ left: '-6px', top: '0' }}>
-                                        <div className="rounded-circle bg-primary" style={{ width: '10px', height: '10px' }}></div>
-                                    </div>
-                                    <p className="fw-bold text-dark small mb-0">New Project Created</p>
-                                    <p className="text-muted small mb-1">"Lidar Scan 04" by Morgan</p>
-                                    <small className="text-secondary" style={{ fontSize: '0.75rem' }}>2 hours ago</small>
-                                </div>
-
-                                <div className="position-relative ps-4 pb-4 border-start">
-                                    <div className="position-absolute bg-white p-1" style={{ left: '-6px', top: '0' }}>
-                                        <div className="rounded-circle bg-success" style={{ width: '10px', height: '10px' }}></div>
-                                    </div>
-                                    <p className="fw-bold text-dark small mb-0">Batch #203 Completed</p>
-                                    <p className="text-muted small mb-1">Approved by System</p>
-                                    <small className="text-secondary" style={{ fontSize: '0.75rem' }}>5 hours ago</small>
-                                </div>
-
-                                <div className="position-relative ps-4 border-start border-0">
-                                    <div className="position-absolute bg-white p-1" style={{ left: '-6px', top: '0' }}>
-                                        <div className="rounded-circle bg-danger" style={{ width: '10px', height: '10px' }}></div>
-                                    </div>
-                                    <p className="fw-bold text-dark small mb-0">Alert: Rejection Rate</p>
-                                    <p className="text-muted small mb-1">Spike detected in Project Alpha</p>
-                                    <small className="text-secondary" style={{ fontSize: '0.75rem' }}>Yesterday</small>
-                                </div>
-                            </div>
-
-                            <button className="btn btn-light w-100 mt-3 text-muted fw-bold small border">
-                                View All History
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* 4. Quick Actions Banner */}
-            <div className="card border-0 shadow mt-4 text-white"
-                style={{ borderRadius: '16px', background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' }}>
-                <div className="card-body p-4 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
-                    <div>
-                        <h5 className="fw-bold mb-1">Ready to scale up?</h5>
-                        <p className="mb-0 small text-white-50">Manage your projects or invite new labelers to the workspace.</p>
-                    </div>
-                    <div className="d-flex gap-2">
-                        <button onClick={() => navigate('/projects')} className="btn btn-light btn-sm px-3 fw-bold" style={{ borderRadius: '8px' }}>
-                            View Projects
-                        </button>
-                        <button className="btn btn-light btn-sm px-3 fw-bold text-dark" style={{ borderRadius: '8px' }}>
-                            Invite Members
-                        </button>
                     </div>
                 </div>
             </div>

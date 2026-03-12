@@ -6,6 +6,13 @@ import {
 } from 'lucide-react';
 import api from '../../shared/utils/api.js';
 import './Profile.css';
+import ProfileHeader from './components/ProfileHeader';
+import ProfileAvatar from './components/ProfileAvatar';
+import ProfileDetails from './components/ProfileDetails';
+import ProfileStats from './components/ProfileStats';
+import ProfileActions from './components/ProfileActions';
+import ProfileEditForm from './components/ProfileEditForm';
+import PasswordModal from './components/PasswordModal';
 
 export const Profile = () => {
     const navigate = useNavigate();
@@ -63,7 +70,7 @@ export const Profile = () => {
 
         setIsUpdating(true);
         try {
-            const res = await api.put('/api/profile', { name: newName });
+            const res = await api.put('/profile', { name: newName });
             if (res.data.success) {
                 setProfile({ ...profile, name: newName });
                 setIsEditing(false);
@@ -85,7 +92,7 @@ export const Profile = () => {
 
         setIsChangingPassword(true);
         try {
-            const res = await api.post('/api/profile/change-password', {
+            const res = await api.post('/profile/change-password', {
                 currentPassword: passwordData.currentPassword,
                 newPassword: passwordData.newPassword,
                 confirmNewPassword: passwordData.confirmNewPassword
@@ -114,6 +121,23 @@ export const Profile = () => {
         }
     };
 
+    // Avatar upload handler (UI -> API)
+    const handleAvatarUpload = async (file) => {
+        if (!file) return;
+        const form = new FormData();
+        form.append('avatar', file);
+        try {
+            const res = await api.post('/profile/avatar', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+            if (res?.data?.success && res.data.data) {
+                // refresh profile or update avatar field
+                fetchProfile();
+            }
+        } catch (e) {
+            console.error('Avatar upload failed', e);
+            alert(e?.response?.data?.message || 'Failed to upload avatar');
+        }
+    };
+
     if (isLoading) return (
         <div className="container py-5 text-center">
             <div className="spinner-border text-primary" role="status"></div>
@@ -137,183 +161,67 @@ export const Profile = () => {
                 {/* Header Area */}
                 <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
                     <h2 className="fw-bold mb-0">Profile</h2>
-                    <button
-                        className="btn btn-white border shadow-sm d-flex align-items-center gap-2"
-                        onClick={() => setShowPasswordModal(true)}
-                    >
-                        <KeyRound size={16} className="text-primary" />
-                        <span className="fw-semibold">Security</span>
-                    </button>
+                    <ProfileActions onChangePassword={() => setShowPasswordModal(true)} />
                 </div>
 
                 <div className="row g-4">
                     {/* Profile Card */}
                     <div className="col-lg-4">
                         <div className="card-custom p-4 text-center h-100">
-                            <div className="avatar-circle mb-3 mx-auto shadow-sm">
-                                {profile.name?.charAt(0).toUpperCase()}
-                            </div>
+                            <ProfileHeader
+                                profile={profile}
+                                isEditing={isEditing}
+                                newName={newName}
+                                setNewName={setNewName}
+                                isUpdating={isUpdating}
+                                onEditToggle={() => setIsEditing(!isEditing)}
+                                onUpdateName={handleUpdateName}
+                                getRoleBadgeColor={getRoleBadgeColor}
+                                onAvatarUpload={handleAvatarUpload}
+                            />
 
-                            {isEditing ? (
-                                <div className="d-flex gap-2 justify-content-center mb-1">
-                                    <input
-                                        className="form-control form-control-sm w-75 fw-bold"
-                                        value={newName}
-                                        onChange={e => setNewName(e.target.value)}
-                                        autoFocus
-                                    />
-                                    <button className="btn btn-sm btn-success" onClick={handleUpdateName} disabled={isUpdating}>
-                                        {isUpdating ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                                    </button>
-                                    <button className="btn btn-sm btn-light border" onClick={() => setIsEditing(false)} disabled={isUpdating}><X size={14} /></button>
-                                </div>
-                            ) : (
-                                <div className="d-flex align-items-center justify-content-center gap-2 mb-1">
-                                    <h2 className="fs-4 fw-bold text-slate-900 mb-0">{profile.name}</h2>
-                                    <button className="btn btn-edit-icon" onClick={() => setIsEditing(true)}><Edit2 size={16} /></button>
-                                </div>
-                            )}
-                            <p className="text-muted small mb-3">{profile.email}</p>
-
-                            <div className="d-flex justify-content-center gap-2 mb-4">
-                                <span className={`badge ${getRoleBadgeColor(profile.role)} px-3 py-2 rounded-pill`}>
-                                    <Shield size={12} className="me-1" /> {profile.roleName || profile.role}
-                                </span>
-                            </div>
-
-                            <div className="border-top pt-4 text-start">
-                                <h6 className="text-uppercase text-muted fw-bold small mb-3" style={{ letterSpacing: '0.05em' }}>System Info</h6>
-                                <div className="d-flex align-items-center gap-3 mb-3">
-                                    <div className="icon-rounded"><User size={18} /></div>
-                                    <div>
-                                        <p className="info-label">Account ID</p>
-                                        <p className="info-value">#{profile.id}</p>
-                                    </div>
-                                </div>
-                                <div className="d-flex align-items-center gap-3">
-                                    <div className="icon-rounded"><Mail size={18} /></div>
-                                    <div className="min-w-0">
-                                        <p className="info-label">Primary Email</p>
-                                        <p className="info-value text-truncate">{profile.email}</p>
-                                    </div>
-                                </div>
-                            </div>
+                            <ProfileDetails profile={profile} />
                         </div>
                     </div>
 
                     {/* Details Card */}
                     <div className="col-lg-8">
                         <div className="card-custom p-4 h-100">
-                            <h3 className="fs-5 fw-bold mb-4">Activity & Logs</h3>
-                            <div className="row g-4">
-                                <div className="col-md-6">
-                                    <div className="stat-box">
-                                        <div className="d-flex align-items-center gap-3 mb-3">
-                                            <div className="icon-box-bg bg-indigo-50 text-indigo-600"><Calendar size={20} /></div>
-                                            <h4 className="h6 fw-bold mb-0 text-slate-900">Registration</h4>
-                                        </div>
-                                        <p className="fs-5 fw-bold text-slate-700 mb-0">{new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-                                        <p className="text-muted small">{new Date(profile.createdAt).toLocaleTimeString()}</p>
-                                    </div>
-                                </div>
-                                <div className="col-md-6">
-                                    <div className="stat-box">
-                                        <div className="d-flex align-items-center gap-3 mb-3">
-                                            <div className="icon-box-bg bg-success-subtle text-green-600"><Clock size={20} /></div>
-                                            <h4 className="h6 fw-bold mb-0 text-slate-900">Last Login</h4>
-                                        </div>
-                                        <p className="fs-5 fw-bold text-slate-700 mb-0">{profile.lastLoginAt ? new Date(profile.lastLoginAt).toLocaleDateString() : 'Initial Session'}</p>
-                                        <p className="text-muted small">{profile.lastLoginAt ? new Date(profile.lastLoginAt).toLocaleTimeString() : '-'}</p>
-                                    </div>
-                                </div>
-                                <div className="col-12">
-                                    <div className="info-banner bg-slate-50 border">
-                                        <h6 className="fw-bold mb-1">Permissions</h6>
-                                        <p className="text-muted small mb-0">
-                                            You are logged in as a <strong>{profile.role}</strong>.
-                                            {profile.role === 'Annotator' && ' You have access to label data and submit tasks assigned to your queue.'}
-                                            {profile.role === 'Admin' && ' Full system administrative privileges granted.'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                            <ProfileStats profile={profile} />
                         </div>
                     </div>
                 </div>
 
-                {/* Change Password Modal */}
-                {showPasswordModal && (
-                    <div className="modal-overlay">
-                        <div className="modal-content-custom animate-slide-up shadow-lg">
-                            <div className="d-flex justify-content-between align-items-center mb-4">
-                                <div className="d-flex align-items-center gap-2">
-                                    <div className="bg-primary bg-opacity-10 p-2 rounded-3 text-primary">
-                                        <KeyRound size={20} />
-                                    </div>
-                                    <h5 className="fw-bold mb-0">Update Password</h5>
-                                </div>
-                                <button className="btn-close-custom" onClick={() => setShowPasswordModal(false)}><X size={20} /></button>
-                            </div>
+                <PasswordModal
+                    isOpen={showPasswordModal}
+                    onSubmit={async (pwd) => {
+                        // reuse previous password change logic adapted for modal
+                        if (pwd.newPassword !== pwd.confirmNewPassword) {
+                            alert("New passwords do not match!");
+                            return;
+                        }
+                        setIsChangingPassword(true);
+                        try {
+                            const res = await api.post('/profile/change-password', {
+                                currentPassword: pwd.currentPassword,
+                                newPassword: pwd.newPassword,
+                                confirmNewPassword: pwd.confirmNewPassword
+                            });
 
-                            <form onSubmit={handleChangePassword}>
-                                <div className="mb-3">
-                                    <label className="form-label small fw-bold text-slate-600">Current Password</label>
-                                    <div className="position-relative">
-                                        <input
-                                            type={showPass.current ? "text" : "password"}
-                                            className="form-control pe-5"
-                                            required
-                                            value={passwordData.currentPassword}
-                                            onChange={e => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                                        />
-                                        <button type="button" className="btn-toggle-pass" onClick={() => setShowPass({ ...showPass, current: !showPass.current })}>
-                                            {showPass.current ? <EyeOff size={16} /> : <Eye size={16} />}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="mb-3">
-                                    <label className="form-label small fw-bold text-slate-600">New Password</label>
-                                    <div className="position-relative">
-                                        <input
-                                            type={showPass.new ? "text" : "password"}
-                                            className="form-control pe-5"
-                                            required
-                                            value={passwordData.newPassword}
-                                            onChange={e => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                                        />
-                                        <button type="button" className="btn-toggle-pass" onClick={() => setShowPass({ ...showPass, new: !showPass.new })}>
-                                            {showPass.new ? <EyeOff size={16} /> : <Eye size={16} />}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="mb-4">
-                                    <label className="form-label small fw-bold text-slate-600">Confirm New Password</label>
-                                    <div className="position-relative">
-                                        <input
-                                            type={showPass.confirm ? "text" : "password"}
-                                            className="form-control pe-5"
-                                            required
-                                            value={passwordData.confirmNewPassword}
-                                            onChange={e => setPasswordData({ ...passwordData, confirmNewPassword: e.target.value })}
-                                        />
-                                        <button type="button" className="btn-toggle-pass" onClick={() => setShowPass({ ...showPass, confirm: !showPass.confirm })}>
-                                            {showPass.confirm ? <EyeOff size={16} /> : <Eye size={16} />}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="d-grid gap-2">
-                                    <button type="submit" className="btn btn-primary py-2 fw-bold" disabled={isChangingPassword}>
-                                        {isChangingPassword ? <Loader2 className="animate-spin mx-auto" size={20} /> : "Save Changes"}
-                                    </button>
-                                    <button type="button" className="btn btn-light" onClick={() => setShowPasswordModal(false)}>Cancel</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
+                            if (res.status === 200 || res.data?.success) {
+                                alert("Password changed successfully!");
+                                setShowPasswordModal(false);
+                                setPasswordData({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
+                            }
+                        } catch (e) {
+                            alert(e?.response?.data?.message || "Failed to change password. Please check your current password.");
+                        } finally {
+                            setIsChangingPassword(false);
+                        }
+                    }}
+                    onClose={() => setShowPasswordModal(false)}
+                    isSubmitting={isChangingPassword}
+                />
             </div>
         </div>
 
