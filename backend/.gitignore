@@ -69,6 +69,7 @@ Desktop.ini
 *.sln.iml
 
 # Application specific
+appsettings.json
 appsettings.Production.json
 appsettings.Development.json
 appsettings.Local.json
