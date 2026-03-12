@@ -41,8 +41,8 @@ export default function OverviewPanel({ project, openImportModal, openGuidelines
                                 <PieChart>
                                     <Pie
                                         data={[
-                                            { name: 'Completed', value: project.completedItems },
-                                            { name: 'Remaining', value: project.totalItems - project.completedItems }
+                                            { name: 'Completed', value: project.finishedItems || 0 },
+                                            { name: 'Remaining', value: (project.totalItems || 0) - (project.finishedItems || 0) }
                                         ]}
                                         innerRadius={80}
                                         outerRadius={100}
@@ -58,11 +58,11 @@ export default function OverviewPanel({ project, openImportModal, openGuidelines
                         </div>
                         <div className="d-flex justify-content-center gap-5 mt-3">
                             <div className="text-center">
-                                <h3 className="fw-bold mb-0 text-primary">{project.completedItems}</h3>
+                                <h3 className="fw-bold mb-0 text-primary">{project.finishedItems || 0}</h3>
                                 <small className="text-muted text-uppercase fw-bold">Done</small>
                             </div>
                             <div className="text-center">
-                                <h3 className="fw-bold mb-0 text-secondary">{project.totalItems}</h3>
+                                <h3 className="fw-bold mb-0 text-secondary">{project.totalItems || 0}</h3>
                                 <small className="text-muted text-uppercase fw-bold">Total</small>
                             </div>
                         </div>

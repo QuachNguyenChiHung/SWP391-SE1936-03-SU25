@@ -9,6 +9,26 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.input-group {
+  border-radius: 5px;
+  border: 1px solid black;
+}
+
+.card-custom,
+.info-banner,
+.sys-info {
+  border: 1px solid black !important;
+}
+
+.sys-info {
+  border-radius: 8px;
+}
+
+.card {
+  border: 2px solid black !important;
+}
+
+
 body {
   margin: 0;
   padding: 0;
@@ -115,7 +135,7 @@ body {
 }
 
 /* Ensure consistent width for all sidebar items */
-.layout-container aside .d-flex.flex-column.gap-1 > * {
+.layout-container aside .d-flex.flex-column.gap-1>* {
   width: 100%;
   box-sizing: border-box;
 }
