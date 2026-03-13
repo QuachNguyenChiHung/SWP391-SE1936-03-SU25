@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # SQL Server
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: dls-sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong!Password123
+      - MSSQL_MEMORY_LIMIT_MB=512
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    restart: unless-stopped
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dls-backend
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=DataLabelingSupportSystem;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True
+      - JwtSettings__SecretKey=YourSuperSecretProductionKeyMustBeAtLeast32Chars!!
+      - JwtSettings__Issuer=DataLabelingSystem
+      - JwtSettings__Audience=DataLabelingSystem
+      - JwtSettings__ExpiryMinutes=60
+      - EmailSettings__SmtpHost=smtp.gmail.com
+      - EmailSettings__SmtpPort=587
+      - EmailSettings__SenderEmail=your-real-email@gmail.com
+      - EmailSettings__SenderName=Data Labeling System
+      - EmailSettings__SmtpUsername=your-real-email@gmail.com
+      - EmailSettings__SmtpPassword=your-app-password
+      - EmailSettings__UseSsl=true
+      - EmailSettings__BaseUrl=http://IP_CUA_VPS:3000
+      - EmailSettings__VerificationTokenExpiryHours=24
+      - EmailSettings__PasswordResetTokenExpiryHours=1
+    ports:
+      - "5000:8080"
+    volumes:
+      - uploads-data:/app/uploads
+    depends_on:
+      - sqlserver
+    restart: unless-stopped
+
+volumes:
+  sqlserver-data:
+  uploads-data:
