@@ -459,7 +459,7 @@ public class TaskService : ITaskService
         return result.OrderBy(a => a.ActiveTaskCount).ThenBy(a => a.Name);
     }
 
-    public async Task<IEnumerable<ReviewerDto>> GetAvailableReviewersAsync(CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<ReviewerDto>> GetAvailableReviewersAsync(int? projectId = null, CancellationToken cancellationToken = default)
     {
         var reviewers = await _unitOfWork.Users.GetByRoleAsync(UserRole.Reviewer, cancellationToken);
         var activeReviewers = reviewers.Where(r => r.Status == UserStatus.Active);
@@ -494,7 +494,16 @@ public class TaskService : ITaskService
             var activeReviewCount = reviewer.ReviewLockedDataItems?
                 .Count(d => d.ReviewLockExpiry != null && d.ReviewLockExpiry > DateTime.UtcNow) ?? 0;
 
-            annotatorsByReviewer.TryGetValue(reviewer.Id, out var assignedAnnotators);
+            // Count assigned tasks in other projects if projectId provided
+            int otherProjectAssignedCount = 0;
+            try
+            {
+                otherProjectAssignedCount = await _unitOfWork.AnnotationTasks.CountByReviewerExcludingProjectAsync(reviewer.Id, projectId, cancellationToken);
+            }
+            catch
+            {
+                // ignore and leave count as 0
+            }
 
             result.Add(new ReviewerDto
             {
@@ -502,7 +511,7 @@ public class TaskService : ITaskService
                 Name = reviewer.Name,
                 Email = reviewer.Email,
                 ActiveReviewCount = activeReviewCount,
-                AssignedAnnotators = assignedAnnotators ?? new List<AssignedAnnotatorDto>()
+                OtherProjectAssignedTaskCount = otherProjectAssignedCount
             });
         }
 

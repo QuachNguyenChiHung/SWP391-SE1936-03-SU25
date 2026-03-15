@@ -387,9 +387,10 @@ public class TasksController : ControllerBase
     [Authorize(Roles = "Admin,Manager")]
     [ProducesResponseType(typeof(IEnumerable<ReviewerDto>), 200)]
     public async Task<ActionResult<IEnumerable<ReviewerDto>>> GetAvailableReviewers(
+        [FromQuery] int? projectId = null,
         CancellationToken cancellationToken = default)
     {
-        var reviewers = await _taskService.GetAvailableReviewersAsync(cancellationToken);
+        var reviewers = await _taskService.GetAvailableReviewersAsync(projectId, cancellationToken);
         return Ok(reviewers);
     }
 

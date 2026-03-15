@@ -76,6 +76,7 @@ public class User : BaseEntity
     /// <summary>
     /// When the password reset token expires.
     /// </summary>
+    
     public DateTime? PasswordResetTokenExpiry { get; set; }
 
     // ==================== Approval Properties ====================

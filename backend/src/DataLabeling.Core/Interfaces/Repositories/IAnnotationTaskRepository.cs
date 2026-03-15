@@ -50,9 +50,9 @@ public interface IAnnotationTaskRepository : IRepository<AnnotationTask>
     Task UpdateProgressAsync(int taskId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets all tasks assigned to the specified reviewer IDs, including annotator details.
+    /// Counts tasks assigned to a reviewer, optionally excluding a specific project.
     /// </summary>
-    Task<IEnumerable<AnnotationTask>> GetByReviewerIdsAsync(IEnumerable<int> reviewerIds, CancellationToken cancellationToken = default);
+    Task<int> CountByReviewerExcludingProjectAsync(int reviewerId, int? excludeProjectId = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets annotator performance statistics grouped by annotator at DB level.

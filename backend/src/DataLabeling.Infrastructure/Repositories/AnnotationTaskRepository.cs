@@ -135,4 +135,13 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
             await _context.SaveChangesAsync(cancellationToken);
         }
     }
+
+    public async Task<int> CountByReviewerExcludingProjectAsync(int reviewerId, int? excludeProjectId = null, CancellationToken cancellationToken = default)
+    {
+        var query = _dbSet.Where(t => t.ReviewerId == reviewerId && t.Status != AnnotationTaskStatus.Completed);
+        if (excludeProjectId.HasValue)
+            query = query.Where(t => t.ProjectId != excludeProjectId.Value);
+
+        return await query.CountAsync(cancellationToken);
+    }
 }
