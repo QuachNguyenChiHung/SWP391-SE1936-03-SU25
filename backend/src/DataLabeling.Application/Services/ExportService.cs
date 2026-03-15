@@ -42,8 +42,8 @@ public class ExportService : IExportService
         if (project == null)
             throw new NotFoundException("Project", projectId);
 
-        // Get dataset and data items
-        var dataset = await _unitOfWork.Datasets.GetByProjectIdAsync(projectId, cancellationToken);
+        // Use dataset attached to project if available, otherwise fall back to repository lookup
+        var dataset = project.Dataset ?? await _unitOfWork.Datasets.GetByProjectIdAsync(projectId, cancellationToken);
         if (dataset == null)
             throw new NotFoundException("Dataset for project", projectId);
 
@@ -64,6 +64,9 @@ public class ExportService : IExportService
 
         int annotationCount = 0;
 
+        // Load labels for the project (ensure we use labels that belong to this project)
+        var labels = (await _unitOfWork.Labels.GetByProjectIdOrderedAsync(projectId, cancellationToken)).ToList();
+
         // Create ZIP archive
         using (var zipArchive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
         {
@@ -71,17 +74,17 @@ public class ExportService : IExportService
             {
                 case ExportFormat.COCO:
                     annotationCount = await GenerateCocoExportAsync(
-                        zipArchive, project, dataItems, request.IncludeImages, cancellationToken);
+                        zipArchive, project, dataItems, labels, request.IncludeImages, cancellationToken);
                     break;
 
                 case ExportFormat.YOLO:
                     annotationCount = await GenerateYoloExportAsync(
-                        zipArchive, project, dataItems, request.IncludeImages, cancellationToken);
+                        zipArchive, project, dataItems, labels, request.IncludeImages, cancellationToken);
                     break;
 
                 case ExportFormat.PascalVOC:
                     annotationCount = await GeneratePascalVocExportAsync(
-                        zipArchive, project, dataItems, request.IncludeImages, cancellationToken);
+                        zipArchive, project, dataItems, labels, request.IncludeImages, cancellationToken);
                     break;
             }
         }
@@ -162,6 +165,7 @@ public class ExportService : IExportService
         ZipArchive zipArchive,
         Project project,
         List<DataItem> dataItems,
+        List<Label> labels,
         bool includeImages,
         CancellationToken cancellationToken)
     {
@@ -183,10 +187,10 @@ public class ExportService : IExportService
             Annotations = new List<CocoAnnotation>()
         };
 
-        // Build categories from project labels
+        // Build categories from project labels (use explicit label list)
         var labelIdToCategory = new Dictionary<int, int>();
         int categoryId = 1;
-        foreach (var label in project.Labels.OrderBy(l => l.DisplayOrder))
+        foreach (var label in labels.OrderBy(l => l.DisplayOrder))
         {
             cocoData.Categories.Add(new CocoCategory
             {
@@ -275,6 +279,7 @@ public class ExportService : IExportService
         ZipArchive zipArchive,
         Project project,
         List<DataItem> dataItems,
+        List<Label> labels,
         bool includeImages,
         CancellationToken cancellationToken)
     {
@@ -282,7 +287,7 @@ public class ExportService : IExportService
         var labelIdToIndex = new Dictionary<int, int>();
         var labelNames = new List<string>();
         int index = 0;
-        foreach (var label in project.Labels.OrderBy(l => l.DisplayOrder))
+        foreach (var label in labels.OrderBy(l => l.DisplayOrder))
         {
             labelIdToIndex[label.Id] = index;
             labelNames.Add(label.Name);
@@ -366,11 +371,12 @@ public class ExportService : IExportService
         ZipArchive zipArchive,
         Project project,
         List<DataItem> dataItems,
+        List<Label> labels,
         bool includeImages,
         CancellationToken cancellationToken)
     {
-        // Build label lookup
-        var labelIdToName = project.Labels.ToDictionary(l => l.Id, l => l.Name);
+        // Build label lookup using explicit labels list
+        var labelIdToName = labels.ToDictionary(l => l.Id, l => l.Name);
 
         int totalAnnotations = 0;
 
@@ -502,31 +508,100 @@ public class ExportService : IExportService
             using var doc = JsonDocument.Parse(coordinates);
             var root = doc.RootElement;
 
-            // Check if it's a bbox type
+            if (root.ValueKind == JsonValueKind.String)
+            {
+                var nested = root.GetString();
+                if (!string.IsNullOrWhiteSpace(nested))
+                {
+                    using var nestedDoc = JsonDocument.Parse(nested);
+                    root = nestedDoc.RootElement.Clone();
+                }
+            }
+
             if (root.TryGetProperty("type", out var typeElement))
             {
                 var type = typeElement.GetString();
-                if (type != "bbox")
+                if (string.Equals(type, "polygon", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ParsePolygonBoundingBox(root);
+                }
+
+                if (!string.Equals(type, "bbox", StringComparison.OrdinalIgnoreCase))
                     return null;
             }
 
-            double x = 0, y = 0, width = 0, height = 0;
+            var x = GetDouble(root, "x") ?? GetDouble(root, "left") ?? GetDouble(root, "x1") ?? 0;
+            var y = GetDouble(root, "y") ?? GetDouble(root, "top") ?? GetDouble(root, "y1") ?? 0;
+            var width = GetDouble(root, "width") ?? GetDouble(root, "w");
+            var height = GetDouble(root, "height") ?? GetDouble(root, "h");
 
-            if (root.TryGetProperty("x", out var xEl))
-                x = xEl.GetDouble();
-            if (root.TryGetProperty("y", out var yEl))
-                y = yEl.GetDouble();
-            if (root.TryGetProperty("width", out var wEl))
-                width = wEl.GetDouble();
-            if (root.TryGetProperty("height", out var hEl))
-                height = hEl.GetDouble();
+            if (width == null || height == null)
+            {
+                var right = GetDouble(root, "right") ?? GetDouble(root, "x2");
+                var bottom = GetDouble(root, "bottom") ?? GetDouble(root, "y2");
+                if (right.HasValue && bottom.HasValue)
+                {
+                    width = right.Value - x;
+                    height = bottom.Value - y;
+                }
+            }
 
-            return new BoundingBox { X = x, Y = y, Width = width, Height = height };
+            return new BoundingBox
+            {
+                X = x,
+                Y = y,
+                Width = width ?? 0,
+                Height = height ?? 0
+            };
         }
         catch
         {
             return null;
         }
+    }
+
+    private static double? GetDouble(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var value))
+            return null;
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.Number => value.GetDouble(),
+            JsonValueKind.String when double.TryParse(value.GetString(), out var parsed) => parsed,
+            _ => null
+        };
+    }
+
+    private BoundingBox? ParsePolygonBoundingBox(JsonElement root)
+    {
+        if (!root.TryGetProperty("points", out var points) || points.ValueKind != JsonValueKind.Array)
+            return null;
+
+        double? minX = null, minY = null, maxX = null, maxY = null;
+        foreach (var point in points.EnumerateArray())
+        {
+            var x = GetDouble(point, "x");
+            var y = GetDouble(point, "y");
+            if (!x.HasValue || !y.HasValue)
+                continue;
+
+            minX = !minX.HasValue ? x : Math.Min(minX.Value, x.Value);
+            minY = !minY.HasValue ? y : Math.Min(minY.Value, y.Value);
+            maxX = !maxX.HasValue ? x : Math.Max(maxX.Value, x.Value);
+            maxY = !maxY.HasValue ? y : Math.Max(maxY.Value, y.Value);
+        }
+
+        if (!minX.HasValue || !minY.HasValue || !maxX.HasValue || !maxY.HasValue)
+            return null;
+
+        return new BoundingBox
+        {
+            X = minX.Value,
+            Y = minY.Value,
+            Width = maxX.Value - minX.Value,
+            Height = maxY.Value - minY.Value
+        };
     }
 
     private class BoundingBox

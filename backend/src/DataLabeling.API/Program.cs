@@ -145,6 +145,19 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads"
 });
 
+// Serve static files from exports folder (publicly accessible)
+var exportsPath = Path.Combine(builder.Environment.ContentRootPath, "exports");
+if (!Directory.Exists(exportsPath))
+{
+    Directory.CreateDirectory(exportsPath);
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(exportsPath),
+    RequestPath = "/exports"
+});
+
 app.UseCors("AllowAll");
 
 if (!app.Environment.IsProduction())

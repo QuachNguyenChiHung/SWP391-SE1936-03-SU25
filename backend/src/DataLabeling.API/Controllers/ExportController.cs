@@ -74,8 +74,8 @@ public class ExportController : ControllerBase
         var userId = GetUserId();
         var role = GetUserRole();
 
-        // Check project exists
-        var project = await _uow.Projects.GetByIdAsync(projectId, cancellationToken);
+        // Check project exists (include dataset, labels and related details)
+        var project = await _uow.Projects.GetWithDetailsAsync(projectId, cancellationToken);
         if (project == null)
             return NotFound(ApiResponse<ExportResultDto>.FailureResponse("Project not found"));
 
