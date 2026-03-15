@@ -97,6 +97,14 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
         return (items, totalCount);
     }
 
+    public async Task<IEnumerable<AnnotationTask>> GetByReviewerIdsAsync(IEnumerable<int> reviewerIds, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Where(t => t.ReviewerId.HasValue && reviewerIds.Contains(t.ReviewerId.Value))
+            .Include(t => t.Annotator)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<AnnotatorPerformance>> GetAnnotatorPerformanceAsync(int limit = 10, CancellationToken cancellationToken = default)
     {
         return await _dbSet

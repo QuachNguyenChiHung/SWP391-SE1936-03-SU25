@@ -465,19 +465,44 @@ public class TaskService : ITaskService
         var activeReviewers = reviewers.Where(r => r.Status == UserStatus.Active);
 
         var result = new List<ReviewerDto>();
+        var reviewerList = activeReviewers.ToList();
 
-        foreach (var reviewer in activeReviewers)
+        // Query all tasks for these reviewers in one call to avoid N+1
+        var reviewerIds = reviewerList.Select(r => r.Id).ToList();
+        var allTasks = await _unitOfWork.AnnotationTasks.GetByReviewerIdsAsync(reviewerIds, cancellationToken);
+
+        // Group by ReviewerId and get distinct annotators
+        var annotatorsByReviewer = allTasks
+            .GroupBy(t => t.ReviewerId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(t => t.Annotator)
+                    .Where(a => a != null)
+                    .DistinctBy(a => a!.Id)
+                    .Select(a => new AssignedAnnotatorDto
+                    {
+                        Id = a!.Id,
+                        Name = a.Name,
+                        Email = a.Email
+                    })
+                    .ToList()
+            );
+
+        foreach (var reviewer in reviewerList)
         {
             // Count active review items (locked and not expired)
             var activeReviewCount = reviewer.ReviewLockedDataItems?
                 .Count(d => d.ReviewLockExpiry != null && d.ReviewLockExpiry > DateTime.UtcNow) ?? 0;
+
+            annotatorsByReviewer.TryGetValue(reviewer.Id, out var assignedAnnotators);
 
             result.Add(new ReviewerDto
             {
                 Id = reviewer.Id,
                 Name = reviewer.Name,
                 Email = reviewer.Email,
-                ActiveReviewCount = activeReviewCount
+                ActiveReviewCount = activeReviewCount,
+                AssignedAnnotators = assignedAnnotators ?? new List<AssignedAnnotatorDto>()
             });
         }
 

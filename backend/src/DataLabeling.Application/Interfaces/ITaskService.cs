@@ -111,4 +111,15 @@ public class ReviewerDto
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public int ActiveReviewCount { get; set; }
+    public List<AssignedAnnotatorDto> AssignedAnnotators { get; set; } = new();
+}
+
+/// <summary>
+/// DTO for annotators assigned to a reviewer.
+/// </summary>
+public class AssignedAnnotatorDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
 }
