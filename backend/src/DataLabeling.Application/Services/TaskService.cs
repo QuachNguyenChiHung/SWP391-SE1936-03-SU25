@@ -467,26 +467,11 @@ public class TaskService : ITaskService
         var result = new List<ReviewerDto>();
         var reviewerList = activeReviewers.ToList();
 
-        // Query all tasks for these reviewers in one call to avoid N+1
-        var reviewerIds = reviewerList.Select(r => r.Id).ToList();
-        var allTasks = await _unitOfWork.AnnotationTasks.GetByReviewerIdsAsync(reviewerIds, cancellationToken);
-
-        // Group by ReviewerId and get distinct annotators
-        var annotatorsByReviewer = allTasks
-            .GroupBy(t => t.ReviewerId!.Value)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Select(t => t.Annotator)
-                    .Where(a => a != null)
-                    .DistinctBy(a => a!.Id)
-                    .Select(a => new AssignedAnnotatorDto
-                    {
-                        Id = a!.Id,
-                        Name = a.Name,
-                        Email = a.Email
-                    })
-                    .ToList()
-            );
+        // NOTE: intentionally avoiding a prefetch of tasks by reviewer ids because
+        // the repository does not expose a GetByReviewerIdsAsync method. The
+        // remaining logic only needs per-reviewer counts which are obtained
+        // below without an extra repository method to prevent N+1 in larger
+        // refactors where such a repository method may be added.
 
         foreach (var reviewer in reviewerList)
         {
