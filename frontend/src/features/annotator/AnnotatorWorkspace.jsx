@@ -43,6 +43,9 @@ export const AnnotatorWorkspace = ({ user }) => {
     const [showGuidelines, setShowGuidelines] = useState(true);
     const [projectLabels, setProjectLabels] = useState([]);
 
+    // Rejected items map: taskId -> count
+    const [rejectedMap, setRejectedMap] = useState({});
+
     // New Features State
     const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
     const [copiedAnnotation, setCopiedAnnotation] = useState(null);
@@ -182,6 +185,34 @@ export const AnnotatorWorkspace = ({ user }) => {
 
         fetchProjectLabels();
     }, [selectedBatch?.projectId]);
+
+    // Fetch rejected-items for displayed batches to show "Rejected" section
+    useEffect(() => {
+        let mounted = true;
+        const fetchRejectedForBatches = async () => {
+            if (!taskBatches || taskBatches.length === 0) {
+                if (mounted) setRejectedMap({});
+                return;
+            }
+
+            const map = {};
+            await Promise.all(taskBatches.map(async (b) => {
+                try {
+                    const res = await api.get(`/Tasks/${b.id}/rejected-items`);
+                    const items = res?.data || [];
+                    if (items && items.length > 0) map[b.id] = items.length;
+                } catch (e) {
+                    // ignore individual errors
+                    // console.debug('No rejected items or failed for task', b.id, e?.message || e);
+                }
+            }));
+
+            if (mounted) setRejectedMap(map);
+        };
+
+        fetchRejectedForBatches();
+        return () => { mounted = false; };
+    }, [taskBatches]);
 
     // Auto-fetch items when batch is selected (from URL or manual selection)
     useEffect(() => {
@@ -643,10 +674,18 @@ export const AnnotatorWorkspace = ({ user }) => {
         try {
             await api.post(`/tasks/${taskId}/submit`);
 
+            // Determine approval summary for task items
+            const totalItems = batchItems.length;
+            const approvedCount = batchItems.filter(it => it.dataItemStatus === 'Approved').length;
+
+            // If all items are approved, mark task as Completed; otherwise mark as Submitted
+            const newStatus = (totalItems > 0 && approvedCount === totalItems) ? 'Completed' : 'Submitted';
+            const nowIso = new Date().toISOString();
+
             // Update task status in local state
             setTaskBatches(prev => prev.map(t =>
                 t.id === taskId
-                    ? { ...t, status: 'Submitted', submittedAt: new Date().toISOString() }
+                    ? { ...t, status: newStatus, submittedAt: nowIso, completedAt: newStatus === 'Completed' ? nowIso : t.completedAt }
                     : t
             ));
 
@@ -654,12 +693,13 @@ export const AnnotatorWorkspace = ({ user }) => {
             if (selectedBatch?.id === taskId) {
                 setSelectedBatch(prev => ({
                     ...prev,
-                    status: 'Submitted',
-                    submittedAt: new Date().toISOString()
+                    status: newStatus,
+                    submittedAt: nowIso,
+                    completedAt: newStatus === 'Completed' ? nowIso : prev.completedAt
                 }));
             }
 
-            showToast('Task submitted for review successfully', 'success');
+            showToast(newStatus === 'Completed' ? 'Task completed (all items approved)' : 'Task submitted for review successfully', 'success');
         } catch (e) {
             console.error('Failed to submit task:', e);
             showToast('Failed to submit task: ' + (e?.response?.data?.message || e?.message), 'error');
@@ -705,11 +745,29 @@ export const AnnotatorWorkspace = ({ user }) => {
         setBatchItems([]);
     };
 
-    const handleBackToItemList = () => {
-        setSelectedItem(null);
+    const handleBackToItemList = async () => {
         // Reset zoom and pan
         setZoomLevel(1);
         setPanOffset({ x: 0, y: 0 });
+
+        // If we have a selected batch, refresh its items to pick up any status changes
+        if (selectedBatch?.id) {
+            setIsLoadingItems(true);
+            try {
+                const res = await api.get(`/Tasks/${selectedBatch.id}`);
+                const taskData = res?.data;
+                const items = taskData?.items || [];
+                setBatchItems(items);
+            } catch (e) {
+                console.error('Failed to refresh batch items:', e?.message || e);
+                showToast('Failed to refresh items', 'error');
+            } finally {
+                setIsLoadingItems(false);
+            }
+        }
+
+        // Finally clear selected item to show list
+        setSelectedItem(null);
     };
 
     // Zoom functions
@@ -1379,10 +1437,25 @@ export const AnnotatorWorkspace = ({ user }) => {
                 ) : (
                     <div>
                         {console.log('All task statuses:', taskBatches.map(b => b.status))}
+                        {/* Rejected Section */}
+                        {Object.keys(rejectedMap).length > 0 && (
+                            <div className="mb-5">
+                                <h3 className="fs-5 fw-bold text-slate-900 mb-3 d-flex align-items-center gap-2">
+                                    <span className="badge bg-danger text-white">Rejected</span>
+                                    <span className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
+                                        {Object.keys(rejectedMap).length} task{Object.keys(rejectedMap).length !== 1 ? 's' : ''}
+                                    </span>
+                                </h3>
+                                <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                                    {taskBatches.filter(b => rejectedMap[b.id]).map((batch) => renderBatchCard(batch))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Assigned Section */}
                         {taskBatches.filter(b => {
                             const status = b.status?.toLowerCase();
-                            return status === 'assigned' || status === 'new' || status === 'pending';
+                            return (status === 'assigned' || status === 'new' || status === 'pending') && !rejectedMap[b.id];
                         }).length > 0 && (
                                 <div className="mb-5">
                                     <h3 className="fs-5 fw-bold text-slate-900 mb-3 d-flex align-items-center gap-2">
@@ -1390,17 +1463,17 @@ export const AnnotatorWorkspace = ({ user }) => {
                                         <span className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
                                             {taskBatches.filter(b => {
                                                 const status = b.status?.toLowerCase();
-                                                return status === 'assigned' || status === 'new' || status === 'pending';
+                                                return (status === 'assigned' || status === 'new' || status === 'pending') && !rejectedMap[b.id];
                                             }).length} task{taskBatches.filter(b => {
                                                 const status = b.status?.toLowerCase();
-                                                return status === 'assigned' || status === 'new' || status === 'pending';
+                                                return (status === 'assigned' || status === 'new' || status === 'pending') && !rejectedMap[b.id];
                                             }).length !== 1 ? 's' : ''}
                                         </span>
                                     </h3>
                                     <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
                                         {taskBatches.filter(b => {
                                             const status = b.status?.toLowerCase();
-                                            return status === 'assigned' || status === 'new' || status === 'pending';
+                                            return (status === 'assigned' || status === 'new' || status === 'pending') && !rejectedMap[b.id];
                                         }).map((batch) => renderBatchCard(batch))}
                                     </div>
                                 </div>
@@ -1409,7 +1482,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                         {/* In Progress Section */}
                         {taskBatches.filter(b => {
                             const status = b.status?.toLowerCase();
-                            return status === 'inprogress' || status === 'in progress' || status === 'in_progress';
+                            return (status === 'inprogress' || status === 'in progress' || status === 'in_progress') && !rejectedMap[b.id];
                         }).length > 0 && (
                                 <div className="mb-5">
                                     <h3 className="fs-5 fw-bold text-slate-900 mb-3 d-flex align-items-center gap-2">
@@ -1417,17 +1490,44 @@ export const AnnotatorWorkspace = ({ user }) => {
                                         <span className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
                                             {taskBatches.filter(b => {
                                                 const status = b.status?.toLowerCase();
-                                                return status === 'inprogress' || status === 'in progress' || status === 'in_progress';
+                                                return (status === 'inprogress' || status === 'in progress' || status === 'in_progress') && !rejectedMap[b.id];
                                             }).length} task{taskBatches.filter(b => {
                                                 const status = b.status?.toLowerCase();
-                                                return status === 'inprogress' || status === 'in progress' || status === 'in_progress';
+                                                return (status === 'inprogress' || status === 'in progress' || status === 'in_progress') && !rejectedMap[b.id];
                                             }).length !== 1 ? 's' : ''}
                                         </span>
                                     </h3>
                                     <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
                                         {taskBatches.filter(b => {
                                             const status = b.status?.toLowerCase();
-                                            return status === 'inprogress' || status === 'in progress' || status === 'in_progress';
+                                            return (status === 'inprogress' || status === 'in progress' || status === 'in_progress') && !rejectedMap[b.id];
+                                        }).map((batch) => renderBatchCard(batch))}
+                                    </div>
+                                </div>
+                            )}
+
+                        {/* Submitted Section */}
+                        {taskBatches.filter(b => {
+                            const status = b.status?.toLowerCase();
+                            return status === 'submitted' && !rejectedMap[b.id];
+                        }).length > 0 && (
+                                <div className="mb-5">
+                                    <h3 className="fs-5 fw-bold text-slate-900 mb-3 d-flex align-items-center gap-2">
+                                        <span className="badge bg-primary">Submitted</span>
+                                        <span className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
+                                            {taskBatches.filter(b => {
+                                                const status = b.status?.toLowerCase();
+                                                return status === 'submitted' && !rejectedMap[b.id];
+                                            }).length} task{taskBatches.filter(b => {
+                                                const status = b.status?.toLowerCase();
+                                                return status === 'submitted' && !rejectedMap[b.id];
+                                            }).length !== 1 ? 's' : ''}
+                                        </span>
+                                    </h3>
+                                    <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                                        {taskBatches.filter(b => {
+                                            const status = b.status?.toLowerCase();
+                                            return status === 'submitted' && !rejectedMap[b.id];
                                         }).map((batch) => renderBatchCard(batch))}
                                     </div>
                                 </div>
@@ -1436,7 +1536,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                         {/* Completed Section */}
                         {taskBatches.filter(b => {
                             const status = b.status?.toLowerCase();
-                            return status === 'completed' || status === 'done' || status === 'finished' || status === 'submitted';
+                            return (status === 'completed' || status === 'done' || status === 'finished') && !rejectedMap[b.id];
                         }).length > 0 && (
                                 <div className="mb-5">
                                     <h3 className="fs-5 fw-bold text-slate-900 mb-3 d-flex align-items-center gap-2">
@@ -1444,17 +1544,17 @@ export const AnnotatorWorkspace = ({ user }) => {
                                         <span className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
                                             {taskBatches.filter(b => {
                                                 const status = b.status?.toLowerCase();
-                                                return status === 'completed' || status === 'done' || status === 'finished' || status === 'submitted';
+                                                return (status === 'completed' || status === 'done' || status === 'finished') && !rejectedMap[b.id];
                                             }).length} task{taskBatches.filter(b => {
                                                 const status = b.status?.toLowerCase();
-                                                return status === 'completed' || status === 'done' || status === 'finished' || status === 'submitted';
+                                                return (status === 'completed' || status === 'done' || status === 'finished') && !rejectedMap[b.id];
                                             }).length !== 1 ? 's' : ''}
                                         </span>
                                     </h3>
                                     <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
                                         {taskBatches.filter(b => {
                                             const status = b.status?.toLowerCase();
-                                            return status === 'completed' || status === 'done' || status === 'finished' || status === 'submitted';
+                                            return (status === 'completed' || status === 'done' || status === 'finished') && !rejectedMap[b.id];
                                         }).map((batch) => renderBatchCard(batch))}
                                     </div>
                                 </div>

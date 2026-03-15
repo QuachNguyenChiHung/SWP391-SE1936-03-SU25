@@ -2,6 +2,21 @@ import React from 'react';
 import Button from 'react-bootstrap/Button';
 
 export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setDataPage, onDeleteItem }) {
+    const getStatusClass = (status) => {
+        if (!status) return 'bg-light text-muted';
+        switch (String(status).toLowerCase()) {
+            case 'pending': return 'bg-warning text-dark';
+            case 'assigned': return 'bg-primary text-white';
+            case 'completed': return 'bg-success text-white';
+            case 'in_progress':
+            case 'in progress':
+            case 'inprogress': return 'bg-info text-white';
+            case 'accepted': return 'bg-success text-white';
+            case 'rejected': return 'bg-danger text-white';
+            default: return 'bg-light text-muted';
+        }
+    };
+
     return (
         <div className="card border-0 shadow-sm">
             <div className="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
@@ -42,11 +57,16 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                         <div className="small text-muted">Size: {item.fileSizeKB} KB</div>
                                         <div className="small text-muted">Dim: {item.width} x {item.height}</div>
                                         <div className="small text-muted">Added: {new Date(item.createdAt).toLocaleString()}</div>
+                                        <div className="small text-muted">Assigned: {item.assignedAnnotatorName ? `${item.assignedAnnotatorName} (ID: ${item.assignedAnnotatorId})` : '-'}</div>
                                     </td>
-                                    <td><span className="px-2 py-1 rounded-pill text-uppercase fw-bold border bg-light text-muted">{item.status}</span></td>
-                                    <td className="text-end pe-4">
-                                        <Button variant="link" size="sm" className="text-decoration-none" onClick={() => window.open(full, '_blank')}>View</Button>
-                                        <Button variant="link" size="sm" className="text-decoration-none" onClick={() => onDeleteItem ? onDeleteItem(item.id) : null}>Delete</Button>
+                                    <td>
+                                        <span className={`px-2 py-1 rounded-pill text-uppercase fw-bold border ${getStatusClass(item.status)}`} style={{ fontSize: '0.75rem' }}>
+                                            {item.status}
+                                        </span>
+                                    </td>
+                                    <td className="text-end pe-4 ">
+                                        <Button variant="primary" size="sm" className="mx-2 text-decoration-none" onClick={() => window.open(full, '_blank')}>View</Button>
+                                        <Button variant="danger" size="sm" className="text-decoration-none" onClick={() => onDeleteItem ? onDeleteItem(item.id) : null}>Delete</Button>
                                     </td>
                                 </tr>
                             )

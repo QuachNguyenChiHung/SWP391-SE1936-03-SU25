@@ -28,6 +28,17 @@ export const Layout = ({ children, user, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const getInitial = () => (user?.user?.name?.charAt(0) || '?').toUpperCase();
+  const stringToBackground = (str) => {
+    if (!str) return 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)';
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    return `linear-gradient(135deg, hsl(${hue} 70% 45%) 0%, hsl(${(hue + 40) % 360} 65% 55%) 100%)`;
+  };
+
   // Helper function to check if a path is active
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 
@@ -158,12 +169,18 @@ export const Layout = ({ children, user, onLogout }) => {
               title="View Profile"
             >
               <div className="position-relative" style={{ flexShrink: 0 }}>
-                <img
-                  src={user.avatarUrl}
-                  alt="User"
-                  style={{ width: '34px', height: '34px', display: 'block' }}
-                  className="rounded-circle border border-2 border-slate-700 bg-slate-800"
-                />
+                {user?.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt="User"
+                    style={{ width: '34px', height: '34px', display: 'block' }}
+                    className="rounded-circle border border-2 border-slate-700 bg-slate-800"
+                  />
+                ) : (
+                  <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: stringToBackground(user?.user?.name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontWeight: 700, fontSize: '14px' }}>
+                    {getInitial()}
+                  </div>
+                )}
                 <span className="position-absolute bottom-0 end-0 rounded-circle border border-2 border-slate-800" style={{ width: '10px', height: '10px', background: '#10b981' }}></span>
               </div>
               <div className="flex-fill text-start" style={{ minWidth: 0 }}>

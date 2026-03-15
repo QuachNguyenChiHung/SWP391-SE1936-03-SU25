@@ -83,6 +83,7 @@ export default function ManagerProjectDetails(props) {
         handleEditLabelSubmit,
         isDeleteLabelOpen,
         labelToDelete,
+        openEditLabelModal,
         openDeleteLabelModal,
         handleDeleteLabelConfirm,
         // Tasks
@@ -135,7 +136,7 @@ export default function ManagerProjectDetails(props) {
                     <DataItemsPanel dataSet={dataSet} dataLoading={dataLoading} dataPage={dataPage} setDataPage={setDataPage} onDeleteItem={handleDeleteDataItem} />
                 )}
                 {activeTab === 'Labels' && (
-                    <LabelsPanel listLabels={listLabels} openAddLabel={openAddLabel} openEditLabelModal={openDeleteLabelModal} openDeleteLabelModal={openDeleteLabelModal} />
+                    <LabelsPanel listLabels={listLabels} openAddLabel={openAddLabel} openEditLabelModal={openEditLabelModal} openDeleteLabelModal={openDeleteLabelModal} />
                 )}
                 {activeTab === 'Tasks' && (
                     <TasksPanel
@@ -236,13 +237,7 @@ export default function ManagerProjectDetails(props) {
                 </Modal.Footer>
             </Modal>
 
-            <ConfirmModal
-                isOpen={isDeleteLabelOpen}
-                title="Confirm Delete"
-                message={`Are you sure you want to delete label "${labelToDelete?.name}"? This action cannot be undone.`}
-                onConfirm={handleDeleteLabelConfirm}
-                onCancel={() => setIsDeleteLabelOpen(false)}
-            />
+            {/* Deletion now uses native window.confirm in the parent component */}
         </div>
     );
 }

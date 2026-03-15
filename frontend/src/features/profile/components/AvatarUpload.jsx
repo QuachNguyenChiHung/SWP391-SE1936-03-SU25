@@ -23,11 +23,21 @@ const AvatarUpload = ({ name, onUpload, className }) => {
     };
 
     const initial = name?.charAt(0)?.toUpperCase() || '?';
+    const stringToColor = (str) => {
+        if (!str) return '#94a3b8';
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const hue = Math.abs(hash) % 360;
+        return `linear-gradient(135deg, hsl(${hue} 70% 45%) 0%, hsl(${(hue + 40) % 360} 65% 55%) 100%)`;
+    };
+    const bgStyle = { background: stringToColor(name) };
 
     return (
         <div className={className}>
-            <div className="avatar-circle mb-3 mx-auto shadow-sm" aria-hidden>
-                {preview ? <img src={preview} alt="avatar preview" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : initial}
+            <div className="avatar-circle mb-3 mx-auto shadow-sm" aria-hidden style={bgStyle}>
+                {preview ? <img src={preview} alt="avatar preview" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <span aria-hidden style={{ display: 'inline-block' }}>{initial}</span>}
             </div>
 
             <div className="mt-2">

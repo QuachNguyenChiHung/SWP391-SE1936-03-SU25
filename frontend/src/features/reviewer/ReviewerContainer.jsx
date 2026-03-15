@@ -221,6 +221,7 @@ export const ReviewerContainer = ({ onTitleChange, user }) => {
                 <div>
                     <h2 className="fs-5 fw-bold text-dark">Review Queue</h2>
                     <p className="fs-6 text-muted">{pagination.totalCount} items pending validation</p>
+                    <p>Be sure to move the image to see the annotations</p>
                 </div>
                 <button onClick={() => setShowQueuePanel(!showQueuePanel)} className="btn btn-light border d-lg-none" title="Toggle queue list">{showQueuePanel ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}</button>
             </div>

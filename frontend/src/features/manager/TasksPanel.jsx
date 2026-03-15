@@ -24,6 +24,11 @@ const scrollingTextInnerStyle = {
 
 export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadge, externalAssignTarget }) {
     const [annotators, setAnnotators] = useState([]);
+    const [reviewers, setReviewers] = useState([]);
+    const [showReviewersModal, setShowReviewersModal] = useState(false);
+    const [loadingReviewers, setLoadingReviewers] = useState(false);
+    const [reviewerTargetTaskId, setReviewerTargetTaskId] = useState(null);
+    const [assigningReviewer, setAssigningReviewer] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [selectedAssignee, setSelectedAssignee] = useState(null);
     const [selectedDataItemIds, setSelectedDataItemIds] = useState([]);
@@ -56,6 +61,7 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
     useEffect(() => {
         fetchTasks(1, 10);
         fetchAnnotators();
+        fetchReviewers();
     }, []);
 
     const fetchAnnotators = async () => {
@@ -66,6 +72,20 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         } catch (e) {
             console.error('Failed to fetch annotators', e);
             setAnnotators([]);
+        }
+    }
+
+    const fetchReviewers = async () => {
+        setLoadingReviewers(true);
+        try {
+            const res = await api.get('/Tasks/reviewers');
+            const list = res?.data || [];
+            setReviewers(list);
+        } catch (e) {
+            console.error('Failed to fetch reviewers', e);
+            setReviewers([]);
+        } finally {
+            setLoadingReviewers(false);
         }
     }
 
@@ -117,11 +137,10 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         setLoadingItems(true);
         try {
             const res = await api.get(`/projects/${pId}/data-items`, { params: { pageNumber, pageSize } });
-            const filteredItems = res.data.items.filter(i => i.status === 'Pending');
-            console.log('Fetched data items:', filteredItems);
+            // Use full response so UI can show status, dimensions, assignedAnnotator, thumbnails
             if (res?.data) {
                 setDataItems({
-                    items: filteredItems || [],
+                    items: res.data.items || [],
                     totalCount: res.data.totalCount || 0,
                     pageNumber: res.data.pageNumber || pageNumber,
                     pageSize: res.data.pageSize || pageSize,
@@ -141,6 +160,30 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         setSelectedDataItemIds([]);
         setShowAssignModal(true);
         await fetchDataItems(1, DEFAULT_PAGE_SIZE);
+    }
+
+    const openAssignReviewerForTask = (taskId) => {
+        setReviewerTargetTaskId(taskId);
+        setShowReviewersModal(true);
+    }
+
+    const assignReviewer = async (taskId, reviewerId) => {
+        if (!taskId || !reviewerId) return;
+        setAssigningReviewer(true);
+        try {
+            alert(`Assigning reviewer ${reviewerId} to task ${taskId}...`);
+            await api.put(`/Tasks/${taskId}/reviewer`, { reviewerId }, { headers: { 'Content-Type': 'application/json' } });
+            setAssigningReviewer(false);
+            setShowReviewersModal(false);
+            setReviewerTargetTaskId(null);
+            window.alert('Reviewer assigned successfully');
+            fetchTasks(tasksPage.pageNumber, tasksPage.pageSize);
+            fetchReviewers();
+        } catch (err) {
+            console.error('Failed to assign reviewer', err);
+            setAssigningReviewer(false);
+            window.alert('Failed to assign reviewer');
+        }
     }
 
     const openTaskDetail = async (taskId) => {
@@ -196,19 +239,40 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         if (!tasksByAnnotator[aId]) tasksByAnnotator[aId] = [];
         tasksByAnnotator[aId].push(it);
     });
+
+    // Combine annotators fetched from /Tasks/annotators with annotator info present in the tasks response
+    const annotatorMap = {};
+    (annotators || []).forEach(a => { annotatorMap[a.id] = { ...a }; });
+    (tasksPage.items || []).forEach(it => {
+        const aId = it.annotatorId ?? 0;
+        if (!annotatorMap[aId]) {
+            annotatorMap[aId] = { id: aId, name: it.annotatorName || (aId === 0 ? 'Unassigned' : `Annotator ${aId}`), email: it.annotatorName || '' };
+        }
+    });
+    const combinedAnnotators = Object.values(annotatorMap).sort((x, y) => (x.name || '').localeCompare(y.name || ''));
     return (
         <div className="d-flex flex-column gap-3">
             <div className="d-flex justify-content-between align-items-center mb-2">
                 <div>
                     <h5 className="fw-bold mb-0">Task Assignments</h5>
-                    <small className="text-muted">Track assignments</small>
+                    <small className="text-muted">Track assignments • Showing {tasksPage.items.length} of {tasksPage.totalCount}</small>
                 </div>
-                <div className="d-flex gap-2">
-                    <Button variant="primary" size="sm">Auto-Assign</Button>
+                <div className="d-flex gap-2 align-items-center">
+                    <div className="d-flex align-items-center gap-2">
+                        <Button variant="secondary" size="sm" disabled={!tasksPage.hasPreviousPage} onClick={() => fetchTasks(Math.max(1, tasksPage.pageNumber - 1), tasksPage.pageSize)}>Prev</Button>
+                        <Button variant="secondary" size="sm" disabled={!tasksPage.hasNextPage} onClick={() => fetchTasks(Math.min(tasksPage.totalPages || 1, tasksPage.pageNumber + 1), tasksPage.pageSize)}>Next</Button>
+                    </div>
+                    <div className="text-muted small">Page {tasksPage.pageNumber} / {tasksPage.totalPages}</div>
                 </div>
             </div>
-            {annotators.map((assignee) => {
-                const tasks = tasksByAnnotator[assignee.id] || [];
+            {combinedAnnotators.map((assignee) => {
+                const getTime = (t) => {
+                    const d = t?.assignedAt ?? t?.createdAt ?? null;
+                    const ts = d ? Date.parse(d) : 0;
+                    return isNaN(ts) ? 0 : ts;
+                };
+                // Sort so newest first (oldest will be at the end of the list)
+                const tasks = (tasksByAnnotator[assignee.id] || []).slice().sort((a, b) => getTime(b) - getTime(a));
                 const isExpanded = expandedTaskGroups[assignee.id] ?? true;
                 const totalCount = tasks.reduce((s, t) => s + (t.totalItems || 1), 0);
                 const completedCount = tasks.reduce((s, t) => s + (t.completedItems || 0), 0);
@@ -270,7 +334,7 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                                     <div className="d-flex gap-3 align-items-center">
                                                         <div style={{ width: 56, height: 42 }} className="rounded bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center text-secondary small">#{t.id}</div>
                                                         <div>
-                                                            <div className="small fw-bold text-dark">{`Task ${index + 1}`}</div>
+                                                            <div className="small fw-bold text-dark">{`Task ${t.id}`}</div>
                                                             <div className="d-flex gap-2 align-items-center text-muted" style={{ fontSize: '11px' }}>
                                                                 <span>ID: {t.id}</span>
                                                                 <span>•</span>
@@ -279,11 +343,13 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                                                 <span>{t.progressPercent ?? Math.round(((t.completedItems || 0) / (t.totalItems || 1)) * 100)}%</span>
                                                             </div>
                                                             <div className="text-muted small">Assigned: {t.assignedAt ? new Date(t.assignedAt).toLocaleString() : (t.createdAt ? new Date(t.createdAt).toLocaleString() : '-')}</div>
+                                                            <div className="text-muted small">Reviewer: {t.reviewerName || '-'}</div>
                                                         </div>
                                                     </div>
-                                                    <div className="d-flex align-items-center gap-3">
+                                                    <div className="d-flex gap-3 align-items-center">
                                                         <StatusBadge status={t.status} />
                                                         <Button variant="link" className="text-muted p-0" onClick={(e) => { e.stopPropagation(); toggleTaskInline(t.id); }}>{isTaskExpanded ? 'Hide' : 'View'}</Button>
+                                                        <Button size="sm" variant="primary" onClick={(e) => { e.stopPropagation(); openAssignReviewerForTask(t.id); }}>Assign Reviewer</Button>
                                                     </div>
                                                 </div>
 
@@ -416,15 +482,19 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                         <input
                                             type="checkbox"
                                             onChange={(e) => {
-                                                if (e.target.checked) setSelectedDataItemIds(dataItems.items.map(i => i.id));
-                                                else setSelectedDataItemIds([]);
+                                                if (e.target.checked) {
+                                                    const pendingIds = dataItems.items.filter(i => i.status === 'Pending').map(i => i.id);
+                                                    setSelectedDataItemIds(pendingIds);
+                                                } else setSelectedDataItemIds([]);
                                             }}
-                                            checked={dataItems.items.length > 0 && selectedDataItemIds.length === dataItems.items.length}
+                                            checked={dataItems.items.length > 0 && dataItems.items.filter(i => i.status === 'Pending').length > 0 && selectedDataItemIds.length === dataItems.items.filter(i => i.status === 'Pending').length}
                                         />
                                     </th>
                                     <th>File</th>
                                     <th>Size (KB)</th>
+                                    <th>Dims</th>
                                     <th>Status</th>
+                                    <th>Assigned</th>
                                     <th>Created</th>
                                     <th>Actions</th>
                                 </tr>
@@ -432,10 +502,12 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                             <tbody>
                                 {dataItems.items.map(item => {
                                     const checked = selectedDataItemIds.includes(item.id);
+                                    const isSelectable = item.status === 'Pending';
                                     return (
                                         <tr key={item.id}>
                                             <td>
-                                                <input type="checkbox" checked={checked} onChange={(e) => {
+                                                <input type="checkbox" disabled={!isSelectable} checked={checked} onChange={(e) => {
+                                                    if (!isSelectable) return;
                                                     if (e.target.checked) setSelectedDataItemIds(prev => [...prev, item.id]);
                                                     else setSelectedDataItemIds(prev => prev.filter(id => id !== item.id));
                                                 }} />
@@ -462,7 +534,9 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                                 </div>
                                             </td>
                                             <td>{item.fileSizeKB}</td>
-                                            <td>{item.status}</td>
+                                            <td>{item.width}×{item.height}</td>
+                                            <td><StatusBadge status={item.status} /></td>
+                                            <td>{item.assignedAnnotatorName || '-'}</td>
                                             <td>{new Date(item.createdAt).toLocaleString()}</td>
                                             <td><Button variant="outline-primary" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedImage({ url: buildUploadsUrl(item.filePath), fileName: item.fileName }); setShowImageModal(true); }}>View</Button></td>
                                         </tr>
@@ -507,6 +581,52 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                             }
                         }}>{assigning ? 'Assigning...' : `Assign Selected (${selectedDataItemIds.length})`}</Button>
                     </div>
+                </Modal.Footer>
+            </Modal>
+
+            {/* Reviewers modal */}
+            <Modal show={showReviewersModal} onHide={() => { setShowReviewersModal(false); setReviewerTargetTaskId(null); }} size="md">
+                <Modal.Header closeButton>
+                    <Modal.Title>Reviewers</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {loadingReviewers ? (
+                        <div className="d-flex justify-content-center py-4"><Spinner animation="border" /></div>
+                    ) : (
+                        <div className="list-group">
+                            {reviewers.length === 0 && <div className="text-muted small">No reviewers found</div>}
+                            {reviewers.map(r => (
+                                <div key={r.id} className="list-group-item d-flex align-items-center justify-content-between">
+                                    <div className="d-flex align-items-center gap-3">
+                                        <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold" style={{ width: 36, height: 36 }}>
+                                            {r.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div className="fw-bold small mb-0">{r.email || r.name}</div>
+                                            <div className="small text-muted d-flex align-items-center gap-2">
+                                                <span>Active: <strong>{r.activeReviewCount}</strong></span>
+                                                <span>Other projects: <strong>{r.otherProjectAssignedTaskCount ?? 0}</strong></span>
+
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <Button size="sm" variant="primary" disabled={assigningReviewer} onClick={() => {
+                                            if (reviewerTargetTaskId) {
+                                                assignReviewer(reviewerTargetTaskId, r.id);
+                                            } else {
+                                                setShowReviewersModal(false);
+                                                openAssignModal(r);
+                                            }
+                                        }}>{assigningReviewer ? 'Assigning...' : 'Assign Review'}</Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="light" onClick={() => { setShowReviewersModal(false); setReviewerTargetTaskId(null); }}>Close</Button>
                 </Modal.Footer>
             </Modal>
 

@@ -85,7 +85,7 @@ const AppRoutes = ({ user, onLogout }) => {
       <Route path="/" element={<HomePageWrapper />} />
       <Route path="/login" element={<LoginWrapper onLogin={() => { }} />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/change-password" element={<ChangePassword />} />
+      <Route path="/reset-password" element={<ChangePassword />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>;
   }
@@ -220,7 +220,7 @@ function App() {
 
       if (!cookieUser) {
         if (currentUser) setCurrentUser(null);
-        if (location.pathname !== '/' && location.pathname !== '/forgot-password' && location.pathname !== '/change-password') navigate('/login');
+        if (location.pathname !== '/' && location.pathname !== '/forgot-password' && location.pathname !== '/reset-password') navigate('/login');
       } else {
         if (!currentUser) setCurrentUser(cookieUser);
       }
@@ -246,7 +246,7 @@ function App() {
           <Route path="/" element={<HomePageWrapper />} />
           <Route path="/login" element={<LoginWrapper onLogin={handleLogin} />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/change-password" element={<ChangePassword />} />
+          <Route path="/reset-password" element={<ChangePassword />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       ) : (

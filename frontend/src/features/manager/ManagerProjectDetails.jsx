@@ -76,8 +76,8 @@ export const ManagerProjectDetails = ({ user }) => {
         setDataLoading(true);
         (async () => {
             try {
-                const res = await api.get(`/projects/${pid}/data-items?pageNumber=${dataPage}&pageSize=10`);
-                const payload = res.data?.data ?? res.data;
+                const res = await api.get(`/projects/${pid}/data-items`, { params: { pageNumber: dataPage, pageSize: 10 } });
+                const payload = res.data || {};
                 setDataSet(payload);
             } catch (err) {
                 console.warn('Failed to fetch data items', err);
@@ -169,8 +169,8 @@ export const ManagerProjectDetails = ({ user }) => {
 
             // refresh dataset list after upload
             try {
-                const listRes = await api.get(`/projects/${pid}/data-items?pageNumber=${dataPage}&pageSize=10`);
-                const payload = listRes.data?.data ?? listRes.data;
+                const listRes = await api.get(`/projects/${pid}/data-items`, { params: { pageNumber: dataPage, pageSize: 10 } });
+                const payload = listRes.data || {};
                 setDataSet(payload);
             } catch (err) {
                 console.warn('Failed to refresh data items', err);
@@ -270,10 +270,20 @@ export const ManagerProjectDetails = ({ user }) => {
             return;
         }
         try {
-            await api.post(`/projects/${pid}/labels`, { name: newLabelName, color: newLabelColor });
-            setListLabels(prev => [...prev, { id: `label-${Date.now()}`, name: newLabelName, color: newLabelColor }]);
+            const res = await api.post(`/projects/${pid}/labels`, { name: newLabelName, color: newLabelColor }, { headers: { 'Content-Type': 'application/json' } });
+            const created = res.data?.data ?? res.data;
+            if (created && created.id) {
+                setListLabels(prev => [...prev, created]);
+            } else {
+                // Fallback to optimistic entry if API did not return id
+                setListLabels(prev => [...prev, { id: `label-${Date.now()}`, name: newLabelName, color: newLabelColor }]);
+            }
+            setNewLabelName('');
+            setNewLabelColor('#000000');
+            setAddLabelError('');
         } catch (error) {
-
+            console.error('Create label failed', error);
+            alert('Failed to create label');
         }
         setIsAddLabelOpen(false);
     };
@@ -289,8 +299,9 @@ export const ManagerProjectDetails = ({ user }) => {
 
     const openDeleteLabelModal = (label, e) => {
         if (e) e.stopPropagation();
-        setLabelToDelete(label);
-        setIsDeleteLabelOpen(true);
+        const ok = window.confirm(`Are you sure you want to delete label "${label?.name}"? This action cannot be undone.`);
+        if (!ok) return;
+        handleDeleteLabelConfirm(label);
     };
 
     const handleEditLabelSubmit = async () => {
@@ -306,11 +317,12 @@ export const ManagerProjectDetails = ({ user }) => {
         }
     };
 
-    const handleDeleteLabelConfirm = async () => {
-        if (!labelToDelete) return;
+    const handleDeleteLabelConfirm = async (labelParam) => {
+        const label = labelParam || labelToDelete;
+        if (!label) return;
         try {
-            await api.delete(`/labels/${labelToDelete.id}`);
-            setListLabels(prev => prev.filter(l => l.id !== labelToDelete.id));
+            await api.delete(`/labels/${label.id}`);
+            setListLabels(prev => prev.filter(l => l.id !== label.id));
             setIsDeleteLabelOpen(false);
             setLabelToDelete(null);
             alert('Label deleted');
@@ -418,6 +430,7 @@ export const ManagerProjectDetails = ({ user }) => {
             handleEditLabelSubmit={handleEditLabelSubmit}
             isDeleteLabelOpen={isDeleteLabelOpen}
             labelToDelete={labelToDelete}
+            openEditLabelModal={openEditLabelModal}
             openDeleteLabelModal={openDeleteLabelModal}
             handleDeleteLabelConfirm={handleDeleteLabelConfirm}
             // Tasks
