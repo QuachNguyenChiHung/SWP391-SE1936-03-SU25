@@ -70,8 +70,9 @@ public interface ITaskService
 
     /// <summary>
     /// Gets available reviewers for review assignment.
+    /// If projectId is provided, includes count of tasks assigned to the reviewer in other projects.
     /// </summary>
-    Task<IEnumerable<ReviewerDto>> GetAvailableReviewersAsync(CancellationToken cancellationToken = default);
+    Task<IEnumerable<ReviewerDto>> GetAvailableReviewersAsync(int? projectId = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Assigns or changes the reviewer for a task.
@@ -111,4 +112,6 @@ public class ReviewerDto
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public int ActiveReviewCount { get; set; }
+    // Number of tasks assigned to this reviewer in other projects (when caller provides a projectId)
+    public int OtherProjectAssignedTaskCount { get; set; }
 }
