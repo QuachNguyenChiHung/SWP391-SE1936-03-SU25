@@ -5,6 +5,7 @@ import Modal from 'react-bootstrap/Modal';
 import Table from 'react-bootstrap/Table';
 import Spinner from 'react-bootstrap/Spinner';
 import { ChevronUp, ChevronDown, Tag, MoreHorizontal } from 'lucide-react';
+import { useAlert } from '../../shared/context/AlertContext.jsx';
 
 import api from '../../shared/utils/api.js';
 
@@ -23,6 +24,7 @@ const scrollingTextInnerStyle = {
 };
 
 export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadge, externalAssignTarget }) {
+    const { showAlert } = useAlert();
     const [annotators, setAnnotators] = useState([]);
     const [reviewers, setReviewers] = useState([]);
     const [showReviewersModal, setShowReviewersModal] = useState(false);
@@ -171,18 +173,18 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         if (!taskId || !reviewerId) return;
         setAssigningReviewer(true);
         try {
-            alert(`Assigning reviewer ${reviewerId} to task ${taskId}...`);
+            await showAlert(`Assigning reviewer ${reviewerId} to task ${taskId}...`, 'Info', 'info');
             await api.put(`/Tasks/${taskId}/reviewer`, { reviewerId }, { headers: { 'Content-Type': 'application/json' } });
             setAssigningReviewer(false);
             setShowReviewersModal(false);
             setReviewerTargetTaskId(null);
-            window.alert('Reviewer assigned successfully');
+            await showAlert('Reviewer assigned successfully', 'Success', 'success');
             fetchTasks(tasksPage.pageNumber, tasksPage.pageSize);
             fetchReviewers();
         } catch (err) {
             console.error('Failed to assign reviewer', err);
             setAssigningReviewer(false);
-            window.alert('Failed to assign reviewer');
+            await showAlert('Failed to assign reviewer', 'Error', 'error');
         }
     }
 
@@ -570,14 +572,14 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                 setAssigning(false);
                                 setShowAssignModal(false);
                                 setSelectedDataItemIds([]);
-                                window.alert('Assigned successfully');
+                                await showAlert('Assigned successfully', 'Success', 'success');
                                 // refresh tasks list and annotators
                                 fetchTasks(tasksPage.pageNumber, tasksPage.pageSize);
                                 fetchAnnotators();
                             } catch (err) {
                                 console.error('Failed to assign items', err.message || err || err.response);
                                 setAssigning(false);
-                                window.alert('Failed to assign items');
+                                await showAlert('Failed to assign items', 'Error', 'error');
                             }
                         }}>{assigning ? 'Assigning...' : `Assign Selected (${selectedDataItemIds.length})`}</Button>
                     </div>

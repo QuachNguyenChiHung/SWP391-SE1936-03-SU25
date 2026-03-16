@@ -18,6 +18,7 @@ import {
     Save
 } from 'lucide-react';
 import api from '../../shared/utils/api.js';
+import { useConfirm } from '../../shared/context/ConfirmContext.jsx';
 import { ToastNotification } from './ToastNotification';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { AnnotationSidebar } from './AnnotationSidebar';
@@ -27,6 +28,7 @@ import './AnnotatorWorkspace.css';
 
 export const AnnotatorWorkspace = ({ user }) => {
     const [searchParams] = useSearchParams();
+    const { showConfirm } = useConfirm();
     const [selectedBatch, setSelectedBatch] = useState(null);
     const [taskBatches, setTaskBatches] = useState([]);
     const [batchItems, setBatchItems] = useState([]);
@@ -601,7 +603,8 @@ export const AnnotatorWorkspace = ({ user }) => {
     const handleRejectItem = async () => {
         if (!selectedItem) return;
 
-        if (!window.confirm('Are you sure you want to skip this item? It will remain in your task for later.')) {
+        const confirmed = await showConfirm('Are you sure you want to skip this item? It will remain in your task for later.', 'Confirm action', 'warning', 'Skip', 'Cancel');
+        if (!confirmed) {
             return;
         }
 
@@ -618,7 +621,8 @@ export const AnnotatorWorkspace = ({ user }) => {
 
     // Delete a single item
     const handleDeleteItem = async (itemId) => {
-        if (!window.confirm('Are you sure you want to remove this item from your task?')) {
+        const confirmed = await showConfirm('Are you sure you want to remove this item from your task?', 'Confirm delete', 'danger', 'Delete', 'Cancel');
+        if (!confirmed) {
             return;
         }
 
@@ -667,7 +671,8 @@ export const AnnotatorWorkspace = ({ user }) => {
             return;
         }
 
-        if (!window.confirm('Are you sure you want to submit this task for review? You will not be able to edit it after submission.')) {
+        const confirmed = await showConfirm('Are you sure you want to submit this task for review? You will not be able to edit it after submission.', 'Submit for review', 'warning', 'Submit', 'Cancel');
+        if (!confirmed) {
             return;
         }
 
@@ -715,7 +720,8 @@ export const AnnotatorWorkspace = ({ user }) => {
             return;
         }
 
-        if (!window.confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
+        const confirmed = await showConfirm('Are you sure you want to delete this task? This action cannot be undone.', 'Confirm delete', 'danger', 'Delete', 'Cancel');
+        if (!confirmed) {
             return;
         }
 

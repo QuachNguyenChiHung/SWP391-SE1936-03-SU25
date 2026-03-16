@@ -1,0 +1,123 @@
+:root {
+  --nl-ease-standard: cubic-bezier(0.2, 0.85, 0.32, 1);
+  --nl-ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --nl-fast: 140ms;
+  --nl-normal: 220ms;
+  --nl-slow: 320ms;
+  --nl-focus-ring: 0 0 0 0.2rem rgba(53, 112, 255, 0.28);
+}
+
+/* Smooth scrolling and visual continuity */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Core clickable interactions */
+:where(
+  .btn,
+  button,
+  a,
+  [role='button'],
+  .nav-link,
+  .list-group-item,
+  .dropdown-item,
+  .page-link,
+  .sidebar-link,
+  .card,
+  .form-control,
+  .form-select,
+  .input-group-text,
+  .modal-content,
+  .modal-content-custom
+) {
+  transition:
+    transform var(--nl-fast) var(--nl-ease-standard),
+    box-shadow var(--nl-normal) var(--nl-ease-standard),
+    background-color var(--nl-normal) var(--nl-ease-standard),
+    border-color var(--nl-normal) var(--nl-ease-standard),
+    color var(--nl-normal) var(--nl-ease-standard),
+    opacity var(--nl-normal) var(--nl-ease-standard),
+    filter var(--nl-normal) var(--nl-ease-standard);
+}
+
+/* Press feedback */
+:where(.btn, button, a, [role='button'], .page-link):active {
+  transform: scale(0.985);
+}
+
+.layout-container aside a:active,
+.layout-container aside button:active,
+.layout-container aside div[role='button']:active {
+  transform: scale(0.985) !important;
+}
+
+/* Better hover feel for action controls */
+:where(.btn, button, .page-link):hover {
+  filter: brightness(1.02);
+}
+
+/* Cards and table rows feel more alive */
+.card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(12, 23, 46, 0.12);
+}
+
+.table-hover tbody tr {
+  transition:
+    transform var(--nl-fast) var(--nl-ease-standard),
+    box-shadow var(--nl-normal) var(--nl-ease-standard),
+    background-color var(--nl-normal) var(--nl-ease-standard);
+}
+
+.table-hover tbody tr:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(10, 20, 40, 0.08);
+}
+
+/* Inputs and selects */
+:where(.form-control, .form-select):focus,
+:where(.form-control, .form-select):focus-visible {
+  box-shadow: var(--nl-focus-ring);
+}
+
+/* Modal motion consistency */
+.modal.show .modal-dialog,
+.modal.fade.show.d-block .modal-dialog,
+.nl-modal-dialog {
+  animation-duration: var(--nl-normal);
+  animation-timing-function: var(--nl-ease-standard);
+}
+
+.modal.show .modal-content,
+.modal.fade.show.d-block .modal-content,
+.nl-modal-content,
+.modal-content-custom {
+  will-change: transform, opacity;
+}
+
+/* Sidebar active item smooth pulse */
+.sidebar-link-active {
+  animation: nlSidebarActivate var(--nl-slow) var(--nl-ease-soft);
+}
+
+@keyframes nlSidebarActivate {
+  from {
+    transform: scale(0.985);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* Respect accessibility preferences */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

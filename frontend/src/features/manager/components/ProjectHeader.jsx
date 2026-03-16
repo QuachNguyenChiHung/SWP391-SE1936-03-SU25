@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { ArrowLeft } from 'lucide-react';
 import api from '../../../shared/utils/api.js';
+import { useAlert } from '../../../shared/context/AlertContext.jsx';
 
 // Props:
 // - project: object
@@ -9,6 +10,7 @@ import api from '../../../shared/utils/api.js';
 const ProjectHeader = ({ project, onBack }) => {
   const [exporting, setExporting] = useState(false);
   const [exportResult, setExportResult] = useState(null);
+  const { showAlert } = useAlert();
 
   const handleExport = useCallback(async () => {
     if (!project?.id) return;
@@ -34,11 +36,11 @@ const ProjectHeader = ({ project, onBack }) => {
       }
     } catch (err) {
       console.error('Export failed', err);
-      alert('Export failed');
+      await showAlert('Export failed', 'Error', 'error');
     } finally {
       setExporting(false);
     }
-  }, [project]);
+  }, [project, showAlert]);
 
   return (
     <div className="d-flex align-items-center gap-3 mb-2">

@@ -7,9 +7,13 @@ import api from '../../shared/utils/api.js';
 import getInforFromCookie from '../../shared/utils/getInfoFromCookie.js';
 import StatusBadge from '../../shared/components/StatusBadge.jsx';
 import ProjectList from './components/ProjectList';
+import { useAlert } from '../../shared/context/AlertContext.jsx';
+import { useConfirm } from '../../shared/context/ConfirmContext.jsx';
 
 export const ManagerProjects = ({ user }) => {
     const navigate = useNavigate();
+    const { showAlert } = useAlert();
+    const { showConfirm } = useConfirm();
     const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
     const [projectName, setProjectName] = useState('');
     const [projectDescription, setProjectDescription] = useState('');
@@ -51,7 +55,7 @@ export const ManagerProjects = ({ user }) => {
     const handleCreateProject = async () => {
         try {
             if (!projectDeadline.trim() || deadlineError) {
-                alert('Please enter a valid deadline in dd/mm/yyyy format');
+                await showAlert('Please enter a valid deadline in dd/mm/yyyy format', 'Validation', 'warning');
                 return;
             }
 
@@ -72,7 +76,7 @@ export const ManagerProjects = ({ user }) => {
                     'Authorization': `Bearer ${getInforFromCookie().token}`
                 }
             });
-            alert("Project created successfully");
+            await showAlert('Project created successfully', 'Success', 'success');
             let url = `/Projects/?pageNumber=${page}&pageSize=${pageLength}`;
             if (statusFilter) {
                 url += `&status=${statusFilter}`;
@@ -84,7 +88,7 @@ export const ManagerProjects = ({ user }) => {
             setProjects(p.data.data.items);
         } catch (error) {
             if (error.response) {
-                alert(error.response.data.errors || 'Failed to create project');
+                await showAlert(error.response.data.errors || 'Failed to create project', 'Error', 'error');
             }
 
             console.error(error.response.data.errors || error.message);
@@ -100,15 +104,15 @@ export const ManagerProjects = ({ user }) => {
 
     const handleDeleteProject = async (projectId, e) => {
         if (e && e.stopPropagation) e.stopPropagation();
-        const ok = window.confirm('Delete this project? This cannot be undone.');
-        if (!ok) return;
+        const confirmed = await showConfirm('Delete this project? This cannot be undone.', 'Confirm delete', 'danger', 'Delete', 'Cancel');
+        if (!confirmed) return;
         try {
             await api.delete(`/Projects/${projectId}`);
             setProjects(prev => prev.filter(p => p.id !== projectId));
-            alert('Project deleted');
+            await showAlert('Project deleted', 'Success', 'success');
         } catch (err) {
             console.error('Delete project failed', err.response || err.message);
-            alert('Failed to delete project');
+            await showAlert('Failed to delete project', 'Error', 'error');
         }
     };
 
@@ -184,95 +188,92 @@ export const ManagerProjects = ({ user }) => {
 
             {/* Create Project Modal */}
             {isCreateProjectModalOpen && (
-                <>
-                    <div className="modal-backdrop fade show" style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)' }}></div>
-                    <div className="modal fade show d-block" tabIndex="-1">
-                        <div className="modal-dialog modal-dialog-centered">
-                            <div className="modal-content border-0 shadow-lg" style={{ borderRadius: '16px' }}>
-                                <div className="modal-header border-bottom-0 pb-0 pt-4 px-4">
-                                    <h5 className="modal-title fw-bold h5">Create New Project</h5>
-                                    <button onClick={() => setIsCreateProjectModalOpen(false)} className="btn-close shadow-none"></button>
-                                </div>
+                <div className="modal fade show d-block nl-modal-overlay" tabIndex="-1" onClick={() => setIsCreateProjectModalOpen(false)}>
+                    <div className="modal-dialog modal-dialog-centered nl-modal-dialog" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-content nl-modal-content border-0 shadow-lg" style={{ borderRadius: '16px' }}>
+                            <div className="modal-header border-bottom-0 pb-0 pt-4 px-4">
+                                <h5 className="modal-title fw-bold h5">Create New Project</h5>
+                                <button onClick={() => setIsCreateProjectModalOpen(false)} className="btn-close shadow-none"></button>
+                            </div>
 
-                                <div className="modal-body p-4">
-                                    <div className="d-flex flex-column gap-3">
-                                        <div>
-                                            <label className="form-label fw-semibold small text-dark">Project Name</label>
-                                            <input
-                                                type="text"
-                                                value={projectName}
-                                                onChange={(e) => setProjectName(e.target.value)}
-                                                className="form-control"
-                                                placeholder="Enter project name..."
-                                                style={{ borderRadius: '8px', padding: '10px' }}
-                                            />
-                                        </div>
+                            <div className="modal-body p-4">
+                                <div className="d-flex flex-column gap-3">
+                                    <div>
+                                        <label className="form-label fw-semibold small text-dark">Project Name</label>
+                                        <input
+                                            type="text"
+                                            value={projectName}
+                                            onChange={(e) => setProjectName(e.target.value)}
+                                            className="form-control"
+                                            placeholder="Enter project name..."
+                                            style={{ borderRadius: '8px', padding: '10px' }}
+                                        />
+                                    </div>
 
-                                        <div>
-                                            <label className="form-label fw-semibold small text-dark">Description</label>
-                                            <textarea
-                                                value={projectDescription}
-                                                onChange={(e) => setProjectDescription(e.target.value)}
-                                                className="form-control"
-                                                rows="3"
-                                                placeholder="Describe the project objectives..."
-                                                style={{ borderRadius: '8px', padding: '10px', resize: 'none' }}
-                                            />
-                                        </div>
+                                    <div>
+                                        <label className="form-label fw-semibold small text-dark">Description</label>
+                                        <textarea
+                                            value={projectDescription}
+                                            onChange={(e) => setProjectDescription(e.target.value)}
+                                            className="form-control"
+                                            rows="3"
+                                            placeholder="Describe the project objectives..."
+                                            style={{ borderRadius: '8px', padding: '10px', resize: 'none' }}
+                                        />
+                                    </div>
 
-                                        <div>
-                                            <label className="form-label fw-semibold small text-dark">Project Type</label>
-                                            <select
-                                                value={projectType}
-                                                onChange={(e) => setProjectType(e.currentTarget.value)}
-                                                className="form-select"
-                                                style={{ borderRadius: '8px', padding: '10px' }}
-                                            >
-                                                <option value="Classification">Classification</option>
-                                                <option value="ObjectDetection">Object Detection</option>
-                                                <option value="Segmentation">Segmentation</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="form-label fw-semibold small text-dark">Deadline (dd/mm/yyyy)</label>
-                                            <input
-                                                type="text"
-                                                value={projectDeadline}
-                                                onChange={(e) => {
-                                                    setProjectDeadline(e.target.value);
-                                                    setDeadlineError(validateDeadline(e.target.value));
-                                                }}
-                                                className="form-control"
-                                                placeholder="dd/mm/yyyy"
-                                                style={{ borderRadius: '8px', padding: '10px' }}
-                                            />
-                                            {deadlineError && <div className="text-danger small mt-1">{deadlineError}</div>}
-                                        </div>
+                                    <div>
+                                        <label className="form-label fw-semibold small text-dark">Project Type</label>
+                                        <select
+                                            value={projectType}
+                                            onChange={(e) => setProjectType(e.currentTarget.value)}
+                                            className="form-select"
+                                            style={{ borderRadius: '8px', padding: '10px' }}
+                                        >
+                                            <option value="Classification">Classification</option>
+                                            <option value="ObjectDetection">Object Detection</option>
+                                            <option value="Segmentation">Segmentation</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="form-label fw-semibold small text-dark">Deadline (dd/mm/yyyy)</label>
+                                        <input
+                                            type="text"
+                                            value={projectDeadline}
+                                            onChange={(e) => {
+                                                setProjectDeadline(e.target.value);
+                                                setDeadlineError(validateDeadline(e.target.value));
+                                            }}
+                                            className="form-control"
+                                            placeholder="dd/mm/yyyy"
+                                            style={{ borderRadius: '8px', padding: '10px' }}
+                                        />
+                                        {deadlineError && <div className="text-danger small mt-1">{deadlineError}</div>}
                                     </div>
                                 </div>
+                            </div>
 
-                                <div className="modal-footer border-top-0 px-4 pb-4 pt-0">
-                                    <button
-                                        onClick={() => setIsCreateProjectModalOpen(false)}
-                                        className="btn btn-light text-muted fw-medium px-4"
-                                        style={{ borderRadius: '8px' }}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={handleCreateProject}
-                                        disabled={!projectName.trim() || !projectDescription.trim() || !projectDeadline.trim() || Boolean(deadlineError)}
-                                        className="btn btn-primary d-flex align-items-center gap-2 px-4 shadow-sm"
-                                        style={{ borderRadius: '8px' }}
-                                    >
-                                        <Plus size={18} />
-                                        Create Project
-                                    </button>
-                                </div>
+                            <div className="modal-footer border-top-0 px-4 pb-4 pt-0">
+                                <button
+                                    onClick={() => setIsCreateProjectModalOpen(false)}
+                                    className="btn btn-light text-muted fw-medium px-4"
+                                    style={{ borderRadius: '8px' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleCreateProject}
+                                    disabled={!projectName.trim() || !projectDescription.trim() || !projectDeadline.trim() || Boolean(deadlineError)}
+                                    className="btn btn-primary d-flex align-items-center gap-2 px-4 shadow-sm"
+                                    style={{ borderRadius: '8px' }}
+                                >
+                                    <Plus size={18} />
+                                    Create Project
+                                </button>
                             </div>
                         </div>
                     </div>
-                </>
+                </div>
             )}
         </div>
     );

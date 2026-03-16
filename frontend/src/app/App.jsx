@@ -19,6 +19,10 @@ import { AdminPanel } from '../features/admin/AdminPanel.jsx';
 import { Profile } from '../features/profile/Profile.jsx';
 import { UserRole } from '../shared/types/types.js';
 import getInforFromCookie from '../shared/utils/getInfoFromCookie.js';
+import ModalAlert from '../shared/components/ModalAlert.jsx';
+import ConfirmModal from '../shared/components/ConfirmModal.jsx';
+import { useAlert } from '../shared/context/AlertContext.jsx';
+import { useConfirm } from '../shared/context/ConfirmContext.jsx';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, user, allowedRoles }) => {
@@ -179,6 +183,8 @@ const AppRoutes = ({ user, onLogout }) => {
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { modalConfig, closeAlert } = useAlert();
+  const { confirmConfig, closeConfirm } = useConfirm();
 
   // Khôi phục user từ cookie khi app khởi động
   useEffect(() => {
@@ -241,6 +247,23 @@ function App() {
 
   return (
     <>
+      <ModalAlert
+        show={modalConfig.show}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        alertType={modalConfig.alertType}
+        onClose={closeAlert}
+      />
+      <ConfirmModal
+        show={confirmConfig.show}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        variant={confirmConfig.variant}
+        confirmText={confirmConfig.confirmText}
+        cancelText={confirmConfig.cancelText}
+        onConfirm={() => closeConfirm(true)}
+        onCancel={() => closeConfirm(false)}
+      />
       {!currentUser ? (
         <Routes>
           <Route path="/" element={<HomePageWrapper />} />

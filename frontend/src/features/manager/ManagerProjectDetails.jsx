@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../shared/utils/api.js';
+import { useAlert } from '../../shared/context/AlertContext.jsx';
+import { useConfirm } from '../../shared/context/ConfirmContext.jsx';
 import ManagerProjectDetailsUI from './components/ManagerProjectDetails';
 
 export const ManagerProjectDetails = ({ user }) => {
     const { pid } = useParams();
     const navigate = useNavigate();
+    const { showAlert } = useAlert();
+    const { showConfirm } = useConfirm();
     const [project, setProject] = useState(null);
     const [activeTab, setActiveTab] = useState('Overview');
     const [expandedTaskGroups, setExpandedTaskGroups] = useState({});
@@ -110,8 +114,8 @@ export const ManagerProjectDetails = ({ user }) => {
     // --- LOGIC: Delete data-item ---
     const handleDeleteDataItem = async (id) => {
         if (!id) return;
-        const ok = window.confirm('Delete this data item? This cannot be undone.');
-        if (!ok) return;
+        const confirmed = await showConfirm('Delete this data item? This cannot be undone.', 'Confirm delete', 'danger', 'Delete', 'Cancel');
+        if (!confirmed) return;
         try {
             await api.delete(`/data-items/${id}`);
             setDataSet(prev => {
@@ -120,10 +124,10 @@ export const ManagerProjectDetails = ({ user }) => {
                 const total = Math.max(0, (prev.totalCount || 0) - 1);
                 return { ...prev, items, totalCount: total };
             });
-            alert('Item deleted');
+            await showAlert('Item deleted', 'Success', 'success');
         } catch (err) {
             console.error('Delete data item failed', err);
-            alert('Failed to delete item');
+            await showAlert('Failed to delete item', 'Error', 'error');
         }
     };
 
@@ -140,7 +144,7 @@ export const ManagerProjectDetails = ({ user }) => {
         try {
             await api.delete(`/Projects/${pid}`);
         } catch (error) {
-            alert('Failed to delete project. Read the note below the Delete button for more information.');
+            await showAlert('Failed to delete project. Read the note below the Delete button for more information.', 'Error', 'error');
             console.warn('Failed to delete project', error.response);
         }
         setShowDeleteModal(false);
@@ -180,11 +184,11 @@ export const ManagerProjectDetails = ({ user }) => {
             setSelectedFiles([]);
             setIsImportModalOpen(false);
             setActiveTab('Data Items');
-            alert('Upload finished');
+            await showAlert('Upload finished', 'Success', 'success');
         } catch (err) {
             console.error('Upload failed', err);
             setUploadProgress(0);
-            alert('Upload failed');
+            await showAlert('Upload failed', 'Error', 'error');
         }
     };
 
@@ -219,7 +223,7 @@ export const ManagerProjectDetails = ({ user }) => {
 
     const handleSaveProjectUpdate = async () => {
         if (!editName.trim() || !editDescription.trim()) {
-            alert('Name and description are required');
+            await showAlert('Name and description are required', 'Validation', 'warning');
             return;
         }
         try {
@@ -248,10 +252,10 @@ export const ManagerProjectDetails = ({ user }) => {
                     console.warn('Failed to fetch project details', error);
                 }
             })();
-            alert('Project updated');
+            await showAlert('Project updated', 'Success', 'success');
         } catch (error) {
             console.warn('Update failed', error);
-            alert('Failed to update project');
+            await showAlert('Failed to update project', 'Error', 'error');
         }
         setIsEditProjectOpen(false);
     };
@@ -283,7 +287,7 @@ export const ManagerProjectDetails = ({ user }) => {
             setAddLabelError('');
         } catch (error) {
             console.error('Create label failed', error);
-            alert('Failed to create label');
+            await showAlert('Failed to create label', 'Error', 'error');
         }
         setIsAddLabelOpen(false);
     };
@@ -297,10 +301,10 @@ export const ManagerProjectDetails = ({ user }) => {
         setIsEditLabelOpen(true);
     };
 
-    const openDeleteLabelModal = (label, e) => {
+    const openDeleteLabelModal = async (label, e) => {
         if (e) e.stopPropagation();
-        const ok = window.confirm(`Are you sure you want to delete label "${label?.name}"? This action cannot be undone.`);
-        if (!ok) return;
+        const confirmed = await showConfirm(`Are you sure you want to delete label "${label?.name}"? This action cannot be undone.`, 'Confirm delete', 'danger', 'Delete', 'Cancel');
+        if (!confirmed) return;
         handleDeleteLabelConfirm(label);
     };
 
@@ -313,7 +317,7 @@ export const ManagerProjectDetails = ({ user }) => {
             setCurrentEditingLabel(null);
         } catch (err) {
             console.error('Update label failed', err);
-            alert('Failed to update label');
+            await showAlert('Failed to update label', 'Error', 'error');
         }
     };
 
@@ -325,10 +329,10 @@ export const ManagerProjectDetails = ({ user }) => {
             setListLabels(prev => prev.filter(l => l.id !== label.id));
             setIsDeleteLabelOpen(false);
             setLabelToDelete(null);
-            alert('Label deleted');
+            await showAlert('Label deleted', 'Success', 'success');
         } catch (err) {
             console.error('Delete label failed', err);
-            alert('Failed to delete label');
+            await showAlert('Failed to delete label', 'Error', 'error');
         }
     };
 

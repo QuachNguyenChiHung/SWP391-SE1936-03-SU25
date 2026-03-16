@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../shared/utils/api.js';
 import { Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowLeft, ShieldCheck, Loader2 } from 'lucide-react';
+import { useAlert } from '../../shared/context/AlertContext.jsx';
 
 export const ChangePassword = () => {
     const location = useLocation();
     const navigate = useNavigate();
+    const { showAlert } = useAlert();
     const state = location.state || {};
     const email = state?.email || '';
     const token = new URLSearchParams(location.search).get('token') || state?.token || '';
@@ -43,7 +45,7 @@ export const ChangePassword = () => {
 
             setStatus({ type: 'success', message: 'Password changed successfully! Redirecting...' });
             sessionStorage.removeItem('reset_otp');
-            alert('Your password has been changed successfully. Please log in with your new password.');
+            await showAlert('Your password has been changed successfully. Please log in with your new password.', 'Success', 'success');
             setTimeout(() => navigate('/login'), 1500);
         } catch (err) {
             console.error(err);
