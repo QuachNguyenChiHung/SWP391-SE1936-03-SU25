@@ -4,6 +4,7 @@ using DataLabeling.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DataLabeling.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260303035646_AddReviewerLockFields")]
+    partial class AddReviewerLockFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -154,9 +157,6 @@ namespace DataLabeling.Infrastructure.Migrations
                     b.Property<int>("ProjectId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("ReviewerId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -182,8 +182,6 @@ namespace DataLabeling.Infrastructure.Migrations
                     b.HasIndex("AssignedById");
 
                     b.HasIndex("ProjectId");
-
-                    b.HasIndex("ReviewerId");
 
                     b.HasIndex("Status");
 
@@ -867,18 +865,11 @@ namespace DataLabeling.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("DataLabeling.Core.Entities.User", "Reviewer")
-                        .WithMany("TasksAssignedForReview")
-                        .HasForeignKey("ReviewerId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("Annotator");
 
                     b.Navigation("AssignedBy");
 
                     b.Navigation("Project");
-
-                    b.Navigation("Reviewer");
                 });
 
             modelBuilder.Entity("DataLabeling.Core.Entities.DataItem", b =>
@@ -1082,8 +1073,6 @@ namespace DataLabeling.Infrastructure.Migrations
                     b.Navigation("Reviews");
 
                     b.Navigation("TasksAssignedByMe");
-
-                    b.Navigation("TasksAssignedForReview");
                 });
 #pragma warning restore 612, 618
         }

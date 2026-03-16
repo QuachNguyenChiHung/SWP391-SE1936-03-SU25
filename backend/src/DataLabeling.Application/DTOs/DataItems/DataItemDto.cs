@@ -17,4 +17,8 @@ public class DataItemDto
     public int? Height { get; set; }
     public DataItemStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    // Assigned annotator for this data item within the project context (nullable)
+    public int? AssignedAnnotatorId { get; set; }
+    public string? AssignedAnnotatorName { get; set; }
 }

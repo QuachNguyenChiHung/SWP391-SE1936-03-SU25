@@ -44,7 +44,35 @@ public interface IDataItemRepository : IRepository<DataItem>
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets data items assigned to an annotator for a specific project with pagination.
+    /// </summary>
+    Task<(IEnumerable<DataItem> Items, int TotalCount)> GetPagedByAnnotatorAndProjectAsync(
+        int annotatorId,
+        int projectId,
+        int pageNumber,
+        int pageSize,
+        DataItemStatus? status = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Bulk update status for multiple data items.
     /// </summary>
     Task BulkUpdateStatusAsync(IEnumerable<int> ids, DataItemStatus status, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if a DataItem belongs to any task assigned to the specified annotator.
+    /// Used for ownership verification.
+    /// </summary>
+    Task<bool> IsAssignedToAnnotatorAsync(int dataItemId, int annotatorId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets all data items assigned to an annotator across all projects, with pagination.
+    /// Used for "My Work History" feature.
+    /// </summary>
+    Task<(IEnumerable<DataItem> Items, int TotalCount)> GetPagedByAnnotatorAsync(
+        int annotatorId,
+        int pageNumber,
+        int pageSize,
+        DataItemStatus? status = null,
+        CancellationToken cancellationToken = default);
 }

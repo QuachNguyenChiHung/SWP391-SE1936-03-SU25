@@ -30,6 +30,7 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
             .Where(t => t.ProjectId == projectId)
             .Include(t => t.Annotator)
             .Include(t => t.AssignedBy)
+            .Include(t => t.Reviewer)
             .OrderByDescending(t => t.AssignedAt)
             .ToListAsync(cancellationToken);
     }
@@ -49,6 +50,7 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
             .Include(t => t.Project)
             .Include(t => t.Annotator)
             .Include(t => t.AssignedBy)
+            .Include(t => t.Reviewer)
             .Include(t => t.TaskItems)
                 .ThenInclude(ti => ti.DataItem)
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
@@ -86,12 +88,21 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
         var items = await query
             .Include(t => t.Project)
             .Include(t => t.Annotator)
+            .Include(t => t.Reviewer)
             .OrderByDescending(t => t.AssignedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
         return (items, totalCount);
+    }
+
+    public async Task<IEnumerable<AnnotationTask>> GetByReviewerIdsAsync(IEnumerable<int> reviewerIds, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Where(t => t.ReviewerId.HasValue && reviewerIds.Contains(t.ReviewerId.Value))
+            .Include(t => t.Annotator)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IEnumerable<AnnotatorPerformance>> GetAnnotatorPerformanceAsync(int limit = 10, CancellationToken cancellationToken = default)
@@ -123,5 +134,14 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
             task.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    public async Task<int> CountByReviewerExcludingProjectAsync(int reviewerId, int? excludeProjectId = null, CancellationToken cancellationToken = default)
+    {
+        var query = _dbSet.Where(t => t.ReviewerId == reviewerId && t.Status != AnnotationTaskStatus.Completed);
+        if (excludeProjectId.HasValue)
+            query = query.Where(t => t.ProjectId != excludeProjectId.Value);
+
+        return await query.CountAsync(cancellationToken);
     }
 }

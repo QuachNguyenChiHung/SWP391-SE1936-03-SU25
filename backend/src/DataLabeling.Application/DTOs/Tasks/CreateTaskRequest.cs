@@ -16,6 +16,11 @@ public class CreateTaskRequest
     public int AnnotatorId { get; set; }
 
     /// <summary>
+    /// Optional reviewer ID to assign for reviewing this task's items.
+    /// </summary>
+    public int? ReviewerId { get; set; }
+
+    /// <summary>
     /// List of data item IDs to include in this task.
     /// If empty, no items will be assigned initially.
     /// </summary>

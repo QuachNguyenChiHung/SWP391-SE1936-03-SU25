@@ -24,6 +24,11 @@ public class AnnotationTask : BaseEntity
     public int AssignedById { get; set; }
 
     /// <summary>
+    /// Foreign key to the reviewer assigned to review this task's items (optional).
+    /// </summary>
+    public int? ReviewerId { get; set; }
+
+    /// <summary>
     /// Current task status.
     /// </summary>
     public AnnotationTaskStatus Status { get; set; } = AnnotationTaskStatus.Assigned;
@@ -76,6 +81,11 @@ public class AnnotationTask : BaseEntity
     /// Manager who assigned this task.
     /// </summary>
     public virtual User AssignedBy { get; set; } = null!;
+
+    /// <summary>
+    /// Reviewer assigned to review this task's items.
+    /// </summary>
+    public virtual User? Reviewer { get; set; }
 
     /// <summary>
     /// Items in this task.

@@ -67,6 +67,17 @@ public interface ITaskService
     /// Gets available annotators for task assignment.
     /// </summary>
     Task<IEnumerable<AnnotatorDto>> GetAvailableAnnotatorsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets available reviewers for review assignment.
+    /// If projectId is provided, includes count of tasks assigned to the reviewer in other projects.
+    /// </summary>
+    Task<IEnumerable<ReviewerDto>> GetAvailableReviewersAsync(int? projectId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Assigns or changes the reviewer for a task.
+    /// </summary>
+    Task AssignReviewerAsync(int taskId, int reviewerId, int assignedById, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -90,4 +101,17 @@ public class AnnotatorDto
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public int ActiveTaskCount { get; set; }
+}
+
+/// <summary>
+/// DTO for reviewer selection.
+/// </summary>
+public class ReviewerDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public int ActiveReviewCount { get; set; }
+    // Number of tasks assigned to this reviewer in other projects (when caller provides a projectId)
+    public int OtherProjectAssignedTaskCount { get; set; }
 }

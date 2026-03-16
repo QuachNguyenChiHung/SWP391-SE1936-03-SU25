@@ -1,4 +1,7 @@
 using DataLabeling.Application.DTOs.Annotations;
+using DataLabeling.Application.DTOs.Common;
+using DataLabeling.Application.DTOs.Tasks;
+using DataLabeling.Core.Enums;
 
 namespace DataLabeling.Application.Interfaces;
 
@@ -96,6 +99,17 @@ public interface IAnnotationService
     Task<IEnumerable<RejectedItemDto>> GetRejectedItemsAsync(
         int taskId,
         int userId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets paginated work history for an annotator across all tasks and projects.
+    /// Includes feedback and error types for rejected items.
+    /// </summary>
+    Task<PagedResult<MyWorkItemDto>> GetMyWorkHistoryAsync(
+        int annotatorId,
+        int pageNumber,
+        int pageSize,
+        DataItemStatus? status = null,
         CancellationToken cancellationToken = default);
 }
 

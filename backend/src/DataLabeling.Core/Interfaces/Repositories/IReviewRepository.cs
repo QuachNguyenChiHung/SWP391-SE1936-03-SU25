@@ -31,7 +31,7 @@ public interface IReviewRepository : IRepository<Review>
     /// <summary>
     /// Gets data items pending review for a project.
     /// </summary>
-    Task<IEnumerable<DataItem>> GetPendingReviewItemsAsync(int projectId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<DataItem>> GetPendingReviewItemsAsync(int projectId, int currentReviewerId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets pending review items with pagination.
@@ -39,6 +39,7 @@ public interface IReviewRepository : IRepository<Review>
     Task<(IEnumerable<DataItem> Items, int TotalCount)> GetPendingReviewItemsPagedAsync(
         int pageNumber,
         int pageSize,
+        int currentReviewerId,
         int? projectId = null,
         CancellationToken cancellationToken = default);
 

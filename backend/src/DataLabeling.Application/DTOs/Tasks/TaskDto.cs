@@ -12,6 +12,8 @@ public class TaskDto
     public string ProjectName { get; set; } = default!;
     public int AnnotatorId { get; set; }
     public string AnnotatorName { get; set; } = default!;
+    public int? ReviewerId { get; set; }
+    public string? ReviewerName { get; set; }
     public AnnotationTaskStatus Status { get; set; }
     public int TotalItems { get; set; }
     public int CompletedItems { get; set; }

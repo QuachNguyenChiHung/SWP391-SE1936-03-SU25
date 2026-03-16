@@ -21,5 +21,8 @@ public enum DataItemStatus
     Approved = 5,
 
     /// <summary>Rejected - reviewer rejected, needs re-annotation</summary>
-    Rejected = 6
+    Rejected = 6,
+
+    /// <summary>InReview - assigned to a reviewer, locked for review</summary>
+    InReview = 7
 }

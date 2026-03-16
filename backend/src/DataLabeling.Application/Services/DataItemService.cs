@@ -212,6 +212,57 @@ public class DataItemService : IDataItemService
         var (items, totalCount) = await _unitOfWork.DataItems.GetPagedAsync(
             dataset.Id, pageNumber, pageSize, status, cancellationToken);
 
+        var dtos = _mapper.Map<IEnumerable<DataItemDto>>(items).ToList();
+
+        // Populate assigned annotator info for each data item within this project.
+        var itemIds = items.Select(i => i.Id).ToList();
+        if (itemIds.Count > 0)
+        {
+            foreach (var dto in dtos)
+            {
+                try
+                {
+                    // Get task items linking to this data item
+                    var taskItems = await _unitOfWork.TaskItems.GetByDataItemIdAsync(dto.Id, cancellationToken);
+                    // Find a task item where the parent task belongs to this project
+                    var taskItemForProject = taskItems.FirstOrDefault(ti => ti.Task != null && ti.Task.ProjectId == projectId);
+                    if (taskItemForProject != null && taskItemForProject.Task?.AnnotatorId > 0)
+                    {
+                        var annotator = await _unitOfWork.Users.GetByIdAsync(taskItemForProject.Task.AnnotatorId, cancellationToken);
+                        if (annotator != null)
+                        {
+                            dto.AssignedAnnotatorId = annotator.Id;
+                            dto.AssignedAnnotatorName = annotator.Name;
+                        }
+                    }
+                }
+                catch
+                {
+                    // Ignore per-item failures; leave annotator fields null
+                }
+            }
+        }
+
+        return new PagedResult<DataItemDto>
+        {
+            Items = dtos,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<PagedResult<DataItemDto>> GetDataItemsForAnnotatorAsync(
+        int annotatorId,
+        int projectId,
+        int pageNumber,
+        int pageSize,
+        DataItemStatus? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (items, totalCount) = await _unitOfWork.DataItems.GetPagedByAnnotatorAndProjectAsync(
+            annotatorId, projectId, pageNumber, pageSize, status, cancellationToken);
+
         return new PagedResult<DataItemDto>
         {
             Items = _mapper.Map<IEnumerable<DataItemDto>>(items),

@@ -49,12 +49,34 @@ public class DataItem : BaseEntity
     /// </summary>
     public DataItemStatus Status { get; set; } = DataItemStatus.Pending;
 
+    // ==================== Reviewer Lock Properties ====================
+
+    /// <summary>
+    /// Foreign key to the reviewer who has locked this item for review.
+    /// </summary>
+    public int? AssignedReviewerId { get; set; }
+
+    /// <summary>
+    /// When the reviewer was assigned to this item.
+    /// </summary>
+    public DateTime? ReviewAssignedAt { get; set; }
+
+    /// <summary>
+    /// When the review lock expires. After this time, the item becomes available again.
+    /// </summary>
+    public DateTime? ReviewLockExpiry { get; set; }
+
     // ==================== Navigation Properties ====================
 
     /// <summary>
     /// Dataset this item belongs to.
     /// </summary>
     public virtual Dataset Dataset { get; set; } = null!;
+
+    /// <summary>
+    /// Reviewer who has locked this item for review.
+    /// </summary>
+    public virtual User? AssignedReviewer { get; set; }
 
     /// <summary>
     /// Task items - links to tasks this item is assigned to.

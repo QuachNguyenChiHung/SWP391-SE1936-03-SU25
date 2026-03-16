@@ -46,6 +46,7 @@ nunit-*.xml
 
 # Uploads folder (public files)
 uploads/
+exports/
 
 # Storage folder (private files - guidelines, sensitive docs)
 storage/

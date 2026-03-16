@@ -20,11 +20,13 @@ public class TasksController : ControllerBase
 {
     private readonly IUnitOfWork _uow;
     private readonly ITaskService _taskService;
+    private readonly IAnnotationService _annotationService;
 
-    public TasksController(IUnitOfWork uow, ITaskService taskService)
+    public TasksController(IUnitOfWork uow, ITaskService taskService, IAnnotationService annotationService)
     {
         _uow = uow;
         _taskService = taskService;
+        _annotationService = annotationService;
     }
 
     private int GetUserId()
@@ -90,6 +92,8 @@ public class TasksController : ControllerBase
             ProjectName = t.Project?.Name ?? "Unknown",
             AnnotatorId = t.AnnotatorId,
             AnnotatorName = t.Annotator?.Name ?? "Unknown",
+            ReviewerId = t.ReviewerId,
+            ReviewerName = t.Reviewer?.Name,
             Status = t.Status,
             TotalItems = t.TotalItems,
             CompletedItems = t.CompletedItems,
@@ -139,6 +143,8 @@ public class TasksController : ControllerBase
             AnnotatorName = task.Annotator?.Name ?? "Unknown",
             AssignedById = task.AssignedById,
             AssignedByName = task.AssignedBy?.Name ?? "Unknown",
+            ReviewerId = task.ReviewerId,
+            ReviewerName = task.Reviewer?.Name,
             Status = task.Status,
             TotalItems = task.TotalItems,
             CompletedItems = task.CompletedItems,
@@ -371,5 +377,76 @@ public class TasksController : ControllerBase
     {
         var annotators = await _taskService.GetAvailableAnnotatorsAsync(cancellationToken);
         return Ok(annotators);
+    }
+
+    /// <summary>
+    /// Get available reviewers for review assignment.
+    /// Returns reviewers sorted by active review count (least busy first).
+    /// </summary>
+    [HttpGet("reviewers")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(typeof(IEnumerable<ReviewerDto>), 200)]
+    public async Task<ActionResult<IEnumerable<ReviewerDto>>> GetAvailableReviewers(
+        [FromQuery] int? projectId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var reviewers = await _taskService.GetAvailableReviewersAsync(projectId, cancellationToken);
+        return Ok(reviewers);
+    }
+
+    /// <summary>
+    /// Assign or change the reviewer for a task (Admin/Manager only).
+    /// </summary>
+    [HttpPut("{id:int}/reviewer")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> AssignReviewer(
+        int id,
+        [FromBody] AssignReviewerRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
+        try
+        {
+            await _taskService.AssignReviewerAsync(id, request.ReviewerId, userId, cancellationToken);
+            return Ok(new { success = true, message = "Reviewer assigned successfully" });
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Get paginated work history for the current annotator across all tasks and projects.
+    /// Optionally filter by data item status.
+    /// </summary>
+    [HttpGet("my-items")]
+    [Authorize(Roles = "Annotator")]
+    [ProducesResponseType(typeof(PagedResult<MyWorkItemDto>), 200)]
+    [ProducesResponseType(401)]
+    public async Task<ActionResult<PagedResult<MyWorkItemDto>>> GetMyWorkHistory(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] DataItemStatus? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
+        var result = await _annotationService.GetMyWorkHistoryAsync(
+            userId, pageNumber, pageSize, status, cancellationToken);
+
+        return Ok(result);
     }
 }

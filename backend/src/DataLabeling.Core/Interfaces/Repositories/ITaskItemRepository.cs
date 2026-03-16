@@ -37,4 +37,13 @@ public interface ITaskItemRepository : IRepository<TaskItem>
     /// Gets completed task items count for a task.
     /// </summary>
     Task<int> GetCompletedCountAsync(int taskId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets task items for multiple data items belonging to a specific annotator.
+    /// Includes the AnnotationTask navigation property.
+    /// </summary>
+    Task<IEnumerable<TaskItem>> GetByDataItemIdsAndAnnotatorAsync(
+        IEnumerable<int> dataItemIds,
+        int annotatorId,
+        CancellationToken cancellationToken = default);
 }

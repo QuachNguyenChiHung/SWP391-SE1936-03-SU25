@@ -46,8 +46,14 @@ public class DataItemConfiguration : IEntityTypeConfiguration<DataItem>
             .HasForeignKey(d => d.DatasetId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasOne(d => d.AssignedReviewer)
+            .WithMany(u => u.ReviewLockedDataItems)
+            .HasForeignKey(d => d.AssignedReviewerId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.HasIndex(d => d.DatasetId);
         builder.HasIndex(d => d.Status);
+        builder.HasIndex(d => d.AssignedReviewerId);
     }
 }
 
@@ -129,7 +135,13 @@ public class AnnotationTaskConfiguration : IEntityTypeConfiguration<AnnotationTa
             .HasForeignKey(t => t.AssignedById)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(t => t.Reviewer)
+            .WithMany(u => u.TasksAssignedForReview)
+            .HasForeignKey(t => t.ReviewerId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.HasIndex(t => t.ProjectId);
+        builder.HasIndex(t => t.ReviewerId);
         builder.HasIndex(t => t.AnnotatorId);
         builder.HasIndex(t => t.Status);
     }

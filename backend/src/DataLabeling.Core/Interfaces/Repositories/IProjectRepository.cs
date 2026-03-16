@@ -35,6 +35,28 @@ public interface IProjectRepository : IRepository<Project>
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets projects assigned to an annotator (via AnnotationTask) with pagination.
+    /// </summary>
+    Task<(IEnumerable<Project> Items, int TotalCount)> GetPagedByAnnotatorAsync(
+        int annotatorId,
+        int pageNumber,
+        int pageSize,
+        ProjectStatus? status = null,
+        string? searchTerm = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets projects assigned to a reviewer (via Review or pending review items) with pagination.
+    /// </summary>
+    Task<(IEnumerable<Project> Items, int TotalCount)> GetPagedByReviewerAsync(
+        int reviewerId,
+        int pageNumber,
+        int pageSize,
+        ProjectStatus? status = null,
+        string? searchTerm = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets projects with upcoming deadlines.
     /// </summary>
     Task<IEnumerable<Project>> GetWithUpcomingDeadlineAsync(int daysAhead, CancellationToken cancellationToken = default);

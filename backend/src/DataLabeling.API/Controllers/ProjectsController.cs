@@ -18,11 +18,13 @@ public class ProjectsController : ControllerBase
 {
     private readonly IUnitOfWork _uow;
     private readonly IFileStorageService _fileStorage;
+    private readonly IProjectService _projectService;
 
-    public ProjectsController(IUnitOfWork uow, IFileStorageService fileStorage)
+    public ProjectsController(IUnitOfWork uow, IFileStorageService fileStorage, IProjectService projectService)
     {
         _uow = uow;
         _fileStorage = fileStorage;
+        _projectService = projectService;
     }
 
     private int GetUserId()
@@ -67,7 +69,69 @@ public class ProjectsController : ControllerBase
         var userId = GetUserId();
         var role = GetUserRole();
 
-        // Admin can see all projects, others only their own
+        // Reviewer sees projects they've reviewed or have items pending review
+        if (role == UserRole.Reviewer)
+        {
+            var (reviewerItems, reviewerTotalCount) = await _uow.Projects.GetPagedByReviewerAsync(
+                userId, pageNumber, pageSize, status, searchTerm, cancellationToken);
+
+            var reviewerResult = reviewerItems.Select(p => new ProjectDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Type = p.Type,
+                Status = p.Status,
+                Deadline = p.Deadline,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt,
+                TotalItems = p.Dataset?.DataItems?.Count ?? 0,
+                FinishedItems = p.Dataset?.DataItems?.Count(d => d.Status == DataItemStatus.Approved) ?? 0
+            }).ToList();
+
+            var reviewerPagedResult = new PagedResult<ProjectDto>
+            {
+                Items = reviewerResult,
+                TotalCount = reviewerTotalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+
+            return Ok(ApiResponse<PagedResult<ProjectDto>>.SuccessResponse(reviewerPagedResult));
+        }
+
+        // Annotator sees only projects where they have assigned tasks
+        if (role == UserRole.Annotator)
+        {
+            var (annotatorItems, annotatorTotalCount) = await _uow.Projects.GetPagedByAnnotatorAsync(
+                userId, pageNumber, pageSize, status, searchTerm, cancellationToken);
+
+            var annotatorResult = annotatorItems.Select(p => new ProjectDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Type = p.Type,
+                Status = p.Status,
+                Deadline = p.Deadline,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt,
+                TotalItems = p.Dataset?.DataItems?.Count ?? 0,
+                FinishedItems = p.Dataset?.DataItems?.Count(d => d.Status == DataItemStatus.Approved) ?? 0
+            }).ToList();
+
+            var annotatorPagedResult = new PagedResult<ProjectDto>
+            {
+                Items = annotatorResult,
+                TotalCount = annotatorTotalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+
+            return Ok(ApiResponse<PagedResult<ProjectDto>>.SuccessResponse(annotatorPagedResult));
+        }
+
+        // Admin can see all projects, Manager sees only their own
         int? creatorFilter = role == UserRole.Admin ? null : userId;
 
         var (items, totalCount) = await _uow.Projects.GetPagedAsync(
@@ -193,49 +257,9 @@ public class ProjectsController : ControllerBase
             return Unauthorized(ApiResponse.FailureResponse("User ID not found in token"));
         }
 
-        var project = new Project
-        {
-            Name = request.Name,
-            Description = request.Description,
-            Type = request.Type,
-            Status = ProjectStatus.Draft,
-            Deadline = request.Deadline,
-            CreatedById = userId
-        };
+        var dto = await _projectService.CreateAsync(request, userId, cancellationToken);
 
-        await _uow.Projects.AddAsync(project, cancellationToken);
-        await _uow.SaveChangesAsync(cancellationToken);
-
-        // Create text guideline if content provided
-        if (!string.IsNullOrWhiteSpace(request.GuidelineContent))
-        {
-            var guideline = new Guideline
-            {
-                ProjectId = project.Id,
-                Content = request.GuidelineContent,
-                Version = 1,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            await _uow.Guidelines.AddAsync(guideline, cancellationToken);
-            await _uow.SaveChangesAsync(cancellationToken);
-        }
-
-        var dto = new ProjectDto
-        {
-            Id = project.Id,
-            Name = project.Name,
-            Description = project.Description,
-            Type = project.Type,
-            Status = project.Status,
-            Deadline = project.Deadline,
-            CreatedAt = project.CreatedAt,
-            UpdatedAt = project.UpdatedAt,
-            TotalItems = 0,
-            FinishedItems = 0
-        };
-
-        return CreatedAtAction(nameof(GetById), new { id = project.Id },
+        return CreatedAtAction(nameof(GetById), new { id = dto.Id },
             ApiResponse<ProjectDto>.SuccessResponse(dto, "Project created successfully."));
     }
 
@@ -255,20 +279,19 @@ public class ProjectsController : ControllerBase
         var userId = GetUserId();
         var role = GetUserRole();
 
-        var project = await _uow.Projects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return NotFound(ApiResponse.FailureResponse("Project not found"));
-
-        if (project.CreatedById != userId && role != UserRole.Admin)
+        try
+        {
+            await _projectService.UpdateAsync(id, request, userId, role, cancellationToken);
+            return Ok(ApiResponse.SuccessResponse("Project updated successfully."));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(ApiResponse.FailureResponse("Project not found"));
+        }
+        catch (UnauthorizedAccessException)
+        {
             return Forbid();
-
-        project.Name = request.Name;
-        project.Description = request.Description;
-        project.Deadline = request.Deadline;
-
-        _uow.Projects.Update(project);
-        await _uow.SaveChangesAsync(cancellationToken);
-
-        return Ok(ApiResponse.SuccessResponse("Project updated successfully."));
+        }
     }
 
     /// <summary>
@@ -287,18 +310,19 @@ public class ProjectsController : ControllerBase
         var userId = GetUserId();
         var role = GetUserRole();
 
-        var project = await _uow.Projects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return NotFound(ApiResponse.FailureResponse("Project not found"));
-
-        if (project.CreatedById != userId && role != UserRole.Admin)
+        try
+        {
+            await _projectService.ChangeStatusAsync(id, request.Status, userId, role, cancellationToken);
+            return Ok(ApiResponse.SuccessResponse("Project status updated successfully."));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(ApiResponse.FailureResponse("Project not found"));
+        }
+        catch (UnauthorizedAccessException)
+        {
             return Forbid();
-
-        project.Status = request.Status;
-
-        _uow.Projects.Update(project);
-        await _uow.SaveChangesAsync(cancellationToken);
-
-        return Ok(ApiResponse.SuccessResponse("Project status updated successfully."));
+        }
     }
 
     /// <summary>
@@ -314,16 +338,19 @@ public class ProjectsController : ControllerBase
         var userId = GetUserId();
         var role = GetUserRole();
 
-        var project = await _uow.Projects.GetByIdAsync(id, cancellationToken);
-        if (project == null) return NotFound(ApiResponse.FailureResponse("Project not found"));
-
-        if (project.CreatedById != userId && role != UserRole.Admin)
+        try
+        {
+            await _projectService.DeleteAsync(id, userId, role, cancellationToken);
+            return Ok(ApiResponse.SuccessResponse("Project deleted successfully."));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(ApiResponse.FailureResponse("Project not found"));
+        }
+        catch (UnauthorizedAccessException)
+        {
             return Forbid();
-
-        _uow.Projects.Delete(project);
-        await _uow.SaveChangesAsync(cancellationToken);
-
-        return Ok(ApiResponse.SuccessResponse("Project deleted successfully."));
+        }
     }
 
     // ==================== GUIDELINE ENDPOINTS ====================

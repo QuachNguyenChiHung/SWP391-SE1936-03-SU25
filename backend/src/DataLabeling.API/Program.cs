@@ -145,9 +145,25 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads"
 });
 
+// Serve static files from exports folder (publicly accessible)
+var exportsPath = Path.Combine(builder.Environment.ContentRootPath, "exports");
+if (!Directory.Exists(exportsPath))
+{
+    Directory.CreateDirectory(exportsPath);
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(exportsPath),
+    RequestPath = "/exports"
+});
+
 app.UseCors("AllowAll");
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -159,11 +175,8 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-    // Apply migrations automatically in development
-    if (app.Environment.IsDevelopment())
-    {
-        dbContext.Database.Migrate();
-    }
+    // Apply migrations automatically
+    dbContext.Database.Migrate();
 }
 
 app.Run();

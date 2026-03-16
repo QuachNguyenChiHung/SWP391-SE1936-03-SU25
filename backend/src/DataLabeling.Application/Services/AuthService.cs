@@ -12,6 +12,7 @@ using DataLabeling.Core.Enums;
 using DataLabeling.Core.Exceptions;
 using DataLabeling.Core.Interfaces;
 using DataLabeling.Core.Interfaces.Repositories;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -29,6 +30,7 @@ public class AuthService : IAuthService
     private readonly EmailSettings _emailSettings;
     private readonly IEmailService _emailService;
     private readonly IActivityLogService _activityLogService;
+    private readonly ILogger<AuthService> _logger;
 
     private const int MAX_FAILED_ATTEMPTS = 5;
     private const int LOCKOUT_MINUTES = 15;
@@ -40,7 +42,8 @@ public class AuthService : IAuthService
         IOptions<JwtSettings> jwtSettings,
         IOptions<EmailSettings> emailSettings,
         IEmailService emailService,
-        IActivityLogService activityLogService)
+        IActivityLogService activityLogService,
+        ILogger<AuthService> logger)
     {
         _userRepository = userRepository;
         _unitOfWork = unitOfWork;
@@ -49,6 +52,7 @@ public class AuthService : IAuthService
         _emailSettings = emailSettings.Value;
         _emailService = emailService;
         _activityLogService = activityLogService;
+        _logger = logger;
     }
 
     /// <inheritdoc/>
@@ -303,7 +307,7 @@ public class AuthService : IAuthService
         _userRepository.Update(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Send password reset email
+        // Send password reset email - let exception propagate so client knows email failed
         await _emailService.SendPasswordResetEmailAsync(
             user.Email,
             user.Name,

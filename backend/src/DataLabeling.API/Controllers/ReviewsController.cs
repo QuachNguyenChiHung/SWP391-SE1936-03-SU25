@@ -50,8 +50,12 @@ public class ReviewsController : ControllerBase
         [FromQuery] int? projectId = null,
         CancellationToken cancellationToken = default)
     {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
         var result = await _reviewService.GetPendingReviewItemsAsync(
-            pageNumber, pageSize, projectId, cancellationToken);
+            pageNumber, pageSize, userId, projectId, cancellationToken);
         return Ok(result);
     }
 
@@ -67,11 +71,89 @@ public class ReviewsController : ControllerBase
         int dataItemId,
         CancellationToken cancellationToken = default)
     {
-        var data = await _reviewService.GetReviewEditorDataAsync(dataItemId, cancellationToken);
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
+        var data = await _reviewService.GetReviewEditorDataAsync(dataItemId, userId, cancellationToken);
         if (data == null)
             return NotFound(new { success = false, message = "Data item not found" });
 
         return Ok(data);
+    }
+
+    // ==================== Reviewer Assignment ====================
+
+    /// <summary>
+    /// Assign the current reviewer to a data item, locking it for review.
+    /// </summary>
+    [HttpPost("data-items/{dataItemId:int}/assign-reviewer")]
+    [Authorize(Roles = "Admin,Reviewer")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> AssignReviewer(
+        int dataItemId,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
+        try
+        {
+            await _reviewService.AssignReviewerAsync(dataItemId, userId, cancellationToken);
+            return Ok(new { success = true, message = "Reviewer assigned successfully" });
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(403, new { success = false, message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Unassign the current reviewer from a data item, releasing the lock.
+    /// </summary>
+    [HttpPost("data-items/{dataItemId:int}/unassign-reviewer")]
+    [Authorize(Roles = "Admin,Reviewer")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> UnassignReviewer(
+        int dataItemId,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
+        try
+        {
+            await _reviewService.UnassignReviewerAsync(dataItemId, userId, cancellationToken);
+            return Ok(new { success = true, message = "Reviewer unassigned successfully" });
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(403, new { success = false, message = ex.Message });
+        }
     }
 
     // ==================== Review Operations ====================

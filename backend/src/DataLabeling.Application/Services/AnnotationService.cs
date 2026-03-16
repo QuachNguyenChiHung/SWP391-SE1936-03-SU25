@@ -1,5 +1,7 @@
 using System.Text.Json;
 using DataLabeling.Application.DTOs.Annotations;
+using DataLabeling.Application.DTOs.Common;
+using DataLabeling.Application.DTOs.Tasks;
 using DataLabeling.Application.Interfaces;
 using DataLabeling.Core.Entities;
 using DataLabeling.Core.Enums;
@@ -133,8 +135,12 @@ public class AnnotationService : IAnnotationService
 
             // Validate label belongs to same project
             var dataItem = await _unitOfWork.DataItems.GetByIdAsync(annotation.DataItemId, cancellationToken);
-            var dataset = await _unitOfWork.Datasets.GetByIdAsync(dataItem!.DatasetId, cancellationToken);
-            if (label.ProjectId != dataset!.ProjectId)
+            if (dataItem == null)
+                throw new NotFoundException("DataItem", annotation.DataItemId);
+            var dataset = await _unitOfWork.Datasets.GetByIdAsync(dataItem.DatasetId, cancellationToken);
+            if (dataset == null)
+                throw new NotFoundException("Dataset", dataItem.DatasetId);
+            if (label.ProjectId != dataset.ProjectId)
                 throw new ValidationException("Label does not belong to this project");
 
             annotation.LabelId = request.LabelId.Value;
@@ -211,29 +217,39 @@ public class AnnotationService : IAnnotationService
                 throw new ValidationException($"Label {item.LabelId} does not belong to this project");
         }
 
-        // Delete existing annotations
-        await _unitOfWork.Annotations.DeleteByDataItemIdAsync(dataItemId, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        // Create new annotations
-        var newAnnotations = new List<Annotation>();
-        foreach (var item in request.Annotations)
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
         {
-            var annotation = new Annotation
+            // Delete existing annotations
+            await _unitOfWork.Annotations.DeleteByDataItemIdAsync(dataItemId, cancellationToken);
+
+            // Create new annotations
+            var newAnnotations = new List<Annotation>();
+            foreach (var item in request.Annotations)
             {
-                DataItemId = dataItemId,
-                LabelId = item.LabelId,
-                CreatedById = createdById,
-                Coordinates = item.Coordinates,
-                Attributes = item.Attributes
-            };
-            newAnnotations.Add(annotation);
-        }
+                var annotation = new Annotation
+                {
+                    DataItemId = dataItemId,
+                    LabelId = item.LabelId,
+                    CreatedById = createdById,
+                    Coordinates = item.Coordinates,
+                    Attributes = item.Attributes
+                };
+                newAnnotations.Add(annotation);
+            }
 
-        if (newAnnotations.Any())
-        {
-            await _unitOfWork.Annotations.AddRangeAsync(newAnnotations, cancellationToken);
+            if (newAnnotations.Any())
+            {
+                await _unitOfWork.Annotations.AddRangeAsync(newAnnotations, cancellationToken);
+            }
+
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
         }
 
         // Return saved annotations
@@ -541,5 +557,65 @@ public class AnnotationService : IAnnotationService
         }
 
         return rejectedItems.OrderByDescending(r => r.RejectedAt);
+    }
+
+    public async Task<PagedResult<MyWorkItemDto>> GetMyWorkHistoryAsync(
+        int annotatorId,
+        int pageNumber,
+        int pageSize,
+        DataItemStatus? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (items, totalCount) = await _unitOfWork.DataItems.GetPagedByAnnotatorAsync(
+            annotatorId, pageNumber, pageSize, status, cancellationToken);
+
+        var itemList = items.ToList();
+
+        // Batch-load TaskItems to get TaskId + AssignedAt + CompletedAt
+        var dataItemIds = itemList.Select(d => d.Id).ToList();
+        var taskItems = await _unitOfWork.TaskItems.GetByDataItemIdsAndAnnotatorAsync(
+            dataItemIds, annotatorId, cancellationToken);
+        var taskItemByDataItem = taskItems.ToDictionary(ti => ti.DataItemId);
+
+        // Batch-load latest reviews for rejected items only
+        var rejectedIds = itemList.Where(d => d.Status == DataItemStatus.Rejected).Select(d => d.Id).ToList();
+        var reviewByDataItem = new Dictionary<int, Review?>();
+        foreach (var id in rejectedIds)
+        {
+            reviewByDataItem[id] = await _unitOfWork.Reviews.GetLatestByDataItemIdAsync(id, cancellationToken);
+        }
+
+        var result = itemList.Select(d =>
+        {
+            var ti = taskItemByDataItem.GetValueOrDefault(d.Id);
+            var review = reviewByDataItem.GetValueOrDefault(d.Id);
+
+            return new MyWorkItemDto
+            {
+                TaskItemId = ti?.Id ?? 0,
+                TaskId = ti?.TaskId ?? 0,
+                DataItemId = d.Id,
+                FileName = d.FileName,
+                ThumbnailPath = d.ThumbnailPath,
+                Status = d.Status,
+                ProjectId = d.Dataset?.ProjectId ?? 0,
+                ProjectName = d.Dataset?.Project?.Name ?? "",
+                AssignedAt = ti?.AssignedAt ?? d.CreatedAt,
+                CompletedAt = ti?.CompletedAt,
+                Feedback = review?.Feedback,
+                ErrorTypes = review?.ReviewErrorTypes?
+                    .Select(ret => ret.ErrorType?.Name ?? "")
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .ToList() ?? new List<string>()
+            };
+        }).ToList();
+
+        return new PagedResult<MyWorkItemDto>
+        {
+            Items = result,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
     }
 }

@@ -85,6 +85,74 @@ public class DataItemRepository : Repository<DataItem>, IDataItemRepository
         return (items, totalCount);
     }
 
+    public async Task<(IEnumerable<DataItem> Items, int TotalCount)> GetPagedByAnnotatorAndProjectAsync(
+        int annotatorId,
+        int projectId,
+        int pageNumber,
+        int pageSize,
+        DataItemStatus? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Get distinct data item IDs assigned to this annotator for this project
+        var dataItemIdsQuery = _context.TaskItems
+            .Where(ti => ti.Task.AnnotatorId == annotatorId && ti.Task.ProjectId == projectId)
+            .Select(ti => ti.DataItemId)
+            .Distinct();
+
+        var query = _dbSet.Where(d => dataItemIdsQuery.Contains(d.Id));
+
+        if (status.HasValue)
+            query = query.Where(d => d.Status == status.Value);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderBy(d => d.FileName)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
+    public async Task<bool> IsAssignedToAnnotatorAsync(int dataItemId, int annotatorId, CancellationToken cancellationToken = default)
+    {
+        return await _context.TaskItems
+            .AnyAsync(ti => ti.DataItemId == dataItemId
+                         && ti.Task.AnnotatorId == annotatorId,
+                      cancellationToken);
+    }
+
+    public async Task<(IEnumerable<DataItem> Items, int TotalCount)> GetPagedByAnnotatorAsync(
+        int annotatorId,
+        int pageNumber,
+        int pageSize,
+        DataItemStatus? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var assignedItemIds = _context.TaskItems
+            .Where(ti => ti.Task.AnnotatorId == annotatorId)
+            .Select(ti => ti.DataItemId)
+            .Distinct();
+
+        var query = _dbSet.Where(d => assignedItemIds.Contains(d.Id));
+
+        if (status.HasValue)
+            query = query.Where(d => d.Status == status.Value);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Include(d => d.Dataset)
+                .ThenInclude(ds => ds.Project)
+            .OrderByDescending(d => d.UpdatedAt ?? d.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
     public async Task BulkUpdateStatusAsync(IEnumerable<int> ids, DataItemStatus status, CancellationToken cancellationToken = default)
     {
         var idList = ids.ToList();

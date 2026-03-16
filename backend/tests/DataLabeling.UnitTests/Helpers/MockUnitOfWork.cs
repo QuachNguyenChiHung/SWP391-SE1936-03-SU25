@@ -21,6 +21,7 @@ public class MockUnitOfWork
     public Mock<IActivityLogRepository> ActivityLogs { get; } = new Mock<IActivityLogRepository>();
     public Mock<IDataItemRepository> DataItems { get; } = new Mock<IDataItemRepository>();
     public Mock<ITaskItemRepository> TaskItems { get; } = new Mock<ITaskItemRepository>();
+    public Mock<ILabelRepository> Labels { get; } = new Mock<ILabelRepository>();
 
     public IUnitOfWork Object => Mock.Object;
 
@@ -37,6 +38,10 @@ public class MockUnitOfWork
         Mock.Setup(u => u.ActivityLogs).Returns(ActivityLogs.Object);
         Mock.Setup(u => u.DataItems).Returns(DataItems.Object);
         Mock.Setup(u => u.TaskItems).Returns(TaskItems.Object);
+        Mock.Setup(u => u.Labels).Returns(Labels.Object);
         Mock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        Mock.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        Mock.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        Mock.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
     }
 }

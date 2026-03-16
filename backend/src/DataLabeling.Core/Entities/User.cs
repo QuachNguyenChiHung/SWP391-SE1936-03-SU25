@@ -76,6 +76,7 @@ public class User : BaseEntity
     /// <summary>
     /// When the password reset token expires.
     /// </summary>
+    
     public DateTime? PasswordResetTokenExpiry { get; set; }
 
     // ==================== Approval Properties ====================
@@ -118,6 +119,11 @@ public class User : BaseEntity
     public virtual ICollection<AnnotationTask> TasksAssignedByMe { get; set; } = new List<AnnotationTask>();
 
     /// <summary>
+    /// Tasks assigned to this user for review (as Reviewer).
+    /// </summary>
+    public virtual ICollection<AnnotationTask> TasksAssignedForReview { get; set; } = new List<AnnotationTask>();
+
+    /// <summary>
     /// Annotations created by this user.
     /// </summary>
     public virtual ICollection<Annotation> Annotations { get; set; } = new List<Annotation>();
@@ -136,4 +142,9 @@ public class User : BaseEntity
     /// Activity logs for this user.
     /// </summary>
     public virtual ICollection<ActivityLog> ActivityLogs { get; set; } = new List<ActivityLog>();
+
+    /// <summary>
+    /// Data items currently locked by this user for review.
+    /// </summary>
+    public virtual ICollection<DataItem> ReviewLockedDataItems { get; set; } = new List<DataItem>();
 }

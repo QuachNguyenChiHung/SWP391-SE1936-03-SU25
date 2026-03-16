@@ -47,12 +47,25 @@ public class TaskService : ITaskService
         if (annotator.Status != UserStatus.Active)
             throw new ValidationException("Selected annotator is not active");
 
+        // Validate reviewer if provided
+        if (request.ReviewerId.HasValue)
+        {
+            var reviewer = await _unitOfWork.Users.GetByIdAsync(request.ReviewerId.Value, cancellationToken);
+            if (reviewer == null)
+                throw new NotFoundException("Reviewer", request.ReviewerId.Value);
+            if (reviewer.Role != UserRole.Reviewer)
+                throw new ValidationException("Selected user is not a reviewer");
+            if (reviewer.Status != UserStatus.Active)
+                throw new ValidationException("Selected reviewer is not active");
+        }
+
         // Create the task
         var task = new AnnotationTask
         {
             ProjectId = request.ProjectId,
             AnnotatorId = request.AnnotatorId,
             AssignedById = assignedById,
+            ReviewerId = request.ReviewerId,
             Status = AnnotationTaskStatus.Assigned,
             TotalItems = 0,
             CompletedItems = 0,
@@ -332,6 +345,8 @@ public class TaskService : ITaskService
             AnnotatorName = task.Annotator?.Name ?? "Unknown",
             AssignedById = task.AssignedById,
             AssignedByName = task.AssignedBy?.Name ?? "Unknown",
+            ReviewerId = task.ReviewerId,
+            ReviewerName = task.Reviewer?.Name,
             Status = task.Status,
             TotalItems = task.TotalItems,
             CompletedItems = task.CompletedItems,
@@ -444,6 +459,78 @@ public class TaskService : ITaskService
         return result.OrderBy(a => a.ActiveTaskCount).ThenBy(a => a.Name);
     }
 
+    public async Task<IEnumerable<ReviewerDto>> GetAvailableReviewersAsync(int? projectId = null, CancellationToken cancellationToken = default)
+    {
+        var reviewers = await _unitOfWork.Users.GetByRoleAsync(UserRole.Reviewer, cancellationToken);
+        var activeReviewers = reviewers.Where(r => r.Status == UserStatus.Active);
+
+        var result = new List<ReviewerDto>();
+        var reviewerList = activeReviewers.ToList();
+
+        // NOTE: intentionally avoiding a prefetch of tasks by reviewer ids because
+        // the repository does not expose a GetByReviewerIdsAsync method. The
+        // remaining logic only needs per-reviewer counts which are obtained
+        // below without an extra repository method to prevent N+1 in larger
+        // refactors where such a repository method may be added.
+
+        foreach (var reviewer in reviewerList)
+        {
+            // Count active review items (locked and not expired)
+            var activeReviewCount = reviewer.ReviewLockedDataItems?
+                .Count(d => d.ReviewLockExpiry != null && d.ReviewLockExpiry > DateTime.UtcNow) ?? 0;
+
+            // Count assigned tasks in other projects if projectId provided
+            int otherProjectAssignedCount = 0;
+            try
+            {
+                otherProjectAssignedCount = await _unitOfWork.AnnotationTasks.CountByReviewerExcludingProjectAsync(reviewer.Id, projectId, cancellationToken);
+            }
+            catch
+            {
+                // ignore and leave count as 0
+            }
+
+            result.Add(new ReviewerDto
+            {
+                Id = reviewer.Id,
+                Name = reviewer.Name,
+                Email = reviewer.Email,
+                ActiveReviewCount = activeReviewCount,
+                OtherProjectAssignedTaskCount = otherProjectAssignedCount
+            });
+        }
+
+        return result.OrderBy(r => r.ActiveReviewCount).ThenBy(r => r.Name);
+    }
+
+    public async Task AssignReviewerAsync(int taskId, int reviewerId, int assignedById, CancellationToken cancellationToken = default)
+    {
+        var task = await _unitOfWork.AnnotationTasks.GetByIdAsync(taskId, cancellationToken);
+        if (task == null)
+            throw new NotFoundException("Task", taskId);
+
+        var reviewer = await _unitOfWork.Users.GetByIdAsync(reviewerId, cancellationToken);
+        if (reviewer == null)
+            throw new NotFoundException("Reviewer", reviewerId);
+        if (reviewer.Role != UserRole.Reviewer)
+            throw new ValidationException("Selected user is not a reviewer");
+        if (reviewer.Status != UserStatus.Active)
+            throw new ValidationException("Selected reviewer is not active");
+
+        task.ReviewerId = reviewerId;
+        task.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.AnnotationTasks.Update(task);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await _activityLogService.LogAsync(
+            assignedById,
+            ActivityAction.Update,
+            "AnnotationTask",
+            taskId,
+            JsonSerializer.Serialize(new { reviewerId }),
+            cancellationToken: cancellationToken);
+    }
+
     private static TaskDto MapToTaskDto(AnnotationTask task)
     {
         return new TaskDto
@@ -453,6 +540,8 @@ public class TaskService : ITaskService
             ProjectName = task.Project?.Name ?? "Unknown",
             AnnotatorId = task.AnnotatorId,
             AnnotatorName = task.Annotator?.Name ?? "Unknown",
+            ReviewerId = task.ReviewerId,
+            ReviewerName = task.Reviewer?.Name,
             Status = task.Status,
             TotalItems = task.TotalItems,
             CompletedItems = task.CompletedItems,
