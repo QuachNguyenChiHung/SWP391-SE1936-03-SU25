@@ -5,6 +5,7 @@ import {
     AlertCircle, Edit2, Check, X, Loader2, KeyRound, Eye, EyeOff
 } from 'lucide-react';
 import api from '../../shared/utils/api.js';
+import { useAlert } from '../../shared/context/AlertContext.jsx';
 import './Profile.css';
 import ProfileHeader from './components/ProfileHeader';
 import ProfileAvatar from './components/ProfileAvatar';
@@ -16,6 +17,7 @@ import PasswordModal from './components/PasswordModal';
 
 export const Profile = () => {
     const navigate = useNavigate();
+    const { showAlert } = useAlert();
 
     // --- States Dữ liệu ---
     const [profile, setProfile] = useState(null);
@@ -76,7 +78,7 @@ export const Profile = () => {
                 setIsEditing(false);
             }
         } catch (e) {
-            alert(e?.response?.data?.message || 'Update failed');
+            await showAlert(e?.response?.data?.message || 'Update failed', 'Error', 'error');
         } finally {
             setIsUpdating(false);
         }
@@ -86,7 +88,7 @@ export const Profile = () => {
     const handleChangePassword = async (e) => {
         e.preventDefault();
         if (passwordData.newPassword !== passwordData.confirmNewPassword) {
-            alert("New passwords do not match!");
+            await showAlert('New passwords do not match!', 'Validation', 'warning');
             return;
         }
 
@@ -99,12 +101,12 @@ export const Profile = () => {
             });
 
             if (res.status === 200 || res.data.success) {
-                alert("Password changed successfully!");
+                await showAlert('Password changed successfully!', 'Success', 'success');
                 setShowPasswordModal(false);
                 setPasswordData({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
             }
         } catch (e) {
-            alert(e?.response?.data?.message || "Failed to change password. Please check your current password.");
+            await showAlert(e?.response?.data?.message || 'Failed to change password. Please check your current password.', 'Error', 'error');
         } finally {
             setIsChangingPassword(false);
         }
@@ -134,7 +136,7 @@ export const Profile = () => {
             }
         } catch (e) {
             console.error('Avatar upload failed', e);
-            alert(e?.response?.data?.message || 'Failed to upload avatar');
+            await showAlert(e?.response?.data?.message || 'Failed to upload avatar', 'Error', 'error');
         }
     };
 
@@ -197,7 +199,7 @@ export const Profile = () => {
                     onSubmit={async (pwd) => {
                         // reuse previous password change logic adapted for modal
                         if (pwd.newPassword !== pwd.confirmNewPassword) {
-                            alert("New passwords do not match!");
+                            await showAlert('New passwords do not match!', 'Validation', 'warning');
                             return;
                         }
                         setIsChangingPassword(true);
@@ -209,12 +211,12 @@ export const Profile = () => {
                             });
 
                             if (res.status === 200 || res.data?.success) {
-                                alert("Password changed successfully!");
+                                await showAlert('Password changed successfully!', 'Success', 'success');
                                 setShowPasswordModal(false);
                                 setPasswordData({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
                             }
                         } catch (e) {
-                            alert(e?.response?.data?.message || "Failed to change password. Please check your current password.");
+                            await showAlert(e?.response?.data?.message || 'Failed to change password. Please check your current password.', 'Error', 'error');
                         } finally {
                             setIsChangingPassword(false);
                         }
