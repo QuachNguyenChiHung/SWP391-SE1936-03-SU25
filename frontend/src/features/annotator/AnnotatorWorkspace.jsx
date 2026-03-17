@@ -29,6 +29,9 @@ export const AnnotatorWorkspace = ({ user }) => {
     const [searchParams] = useSearchParams();
     const [selectedBatch, setSelectedBatch] = useState(null);
     const [taskBatches, setTaskBatches] = useState([]);
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [searchKeyword, setSearchKeyword] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
     const [batchItems, setBatchItems] = useState([]);
     const [selectedItem, setSelectedItem] = useState(null);
     const [isLoadingBatches, setIsLoadingBatches] = useState(true);
@@ -185,6 +188,11 @@ export const AnnotatorWorkspace = ({ user }) => {
 
         fetchProjectLabels();
     }, [selectedBatch?.projectId]);
+
+    // Reset pagination when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [statusFilter, searchKeyword]);
 
     // Fetch rejected-items for displayed batches to show "Rejected" section
     useEffect(() => {
@@ -1408,6 +1416,45 @@ export const AnnotatorWorkspace = ({ user }) => {
         </div>
     );
 
+    const getBatchStatusCategory = (batch) => {
+        if (rejectedMap[batch.id]) return 'rejected';
+
+        const status = (batch.status || '').toLowerCase();
+
+        if (status === 'assigned' || status === 'new' || status === 'pending') {
+            return 'assigned';
+        }
+        if (status === 'inprogress' || status === 'in progress' || status === 'in_progress') {
+            return 'inprogress';
+        }
+        if (status === 'submitted') {
+            return 'submitted';
+        }
+        if (status === 'completed' || status === 'done' || status === 'finished') {
+            return 'completed';
+        }
+
+        return 'other';
+    };
+
+    const filteredTaskBatches = taskBatches.filter((batch) => {
+        const category = getBatchStatusCategory(batch);
+        const normalizedKeyword = searchKeyword.trim().toLowerCase();
+        const searchableName = (batch.projectName || '').toLowerCase();
+
+        const matchStatus = statusFilter === 'all' || category === statusFilter;
+        const matchSearch = !normalizedKeyword || searchableName.includes(normalizedKeyword);
+
+        return matchStatus && matchSearch;
+    });
+
+    const ITEMS_PER_PAGE = 6;
+    const totalPages = Math.max(1, Math.ceil(filteredTaskBatches.length / ITEMS_PER_PAGE));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+    const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+    const paginatedTaskBatches = filteredTaskBatches.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
+
     // --- VIEW: Task Batches List ---
     if (!selectedBatch) {
 
@@ -1436,129 +1483,99 @@ export const AnnotatorWorkspace = ({ user }) => {
                     </div>
                 ) : (
                     <div>
-                        {console.log('All task statuses:', taskBatches.map(b => b.status))}
-                        {/* Rejected Section */}
-                        {Object.keys(rejectedMap).length > 0 && (
-                            <div className="mb-5">
-                                <h3 className="fs-5 fw-bold text-slate-900 mb-3 d-flex align-items-center gap-2">
-                                    <span className="badge bg-danger text-white">Rejected</span>
-                                    <span className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
-                                        {Object.keys(rejectedMap).length} task{Object.keys(rejectedMap).length !== 1 ? 's' : ''}
-                                    </span>
-                                </h3>
-                                <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                                    {taskBatches.filter(b => rejectedMap[b.id]).map((batch) => renderBatchCard(batch))}
+                        <div className="card border-0 shadow-sm mb-4">
+                            <div className="card-body p-3 p-md-4">
+                                <div className="row g-3 align-items-end">
+                                    <div className="col-12 col-md-5">
+                                        <label htmlFor="batch-search" className="form-label fw-semibold mb-1">Search by project name</label>
+                                        <input
+                                            id="batch-search"
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="Type project name..."
+                                            value={searchKeyword}
+                                            onChange={(e) => setSearchKeyword(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="col-12 col-md-4">
+                                        <label htmlFor="batch-status-filter" className="form-label fw-semibold mb-1">Filter by status</label>
+                                        <select
+                                            id="batch-status-filter"
+                                            className="form-select"
+                                            value={statusFilter}
+                                            onChange={(e) => setStatusFilter(e.target.value)}
+                                        >
+                                            <option value="all">All statuses</option>
+                                            <option value="assigned">Assigned</option>
+                                            <option value="inprogress">In Progress</option>
+                                            <option value="submitted">Submitted</option>
+                                            <option value="completed">Completed</option>
+                                            <option value="rejected">Rejected</option>
+                                        </select>
+                                    </div>
+                                    <div className="col-12 col-md-3 text-md-end">
+                                        <span className="badge bg-light text-dark border px-3 py-2" style={{ fontSize: '0.8rem' }}>
+                                            {filteredTaskBatches.length} task{filteredTaskBatches.length !== 1 ? 's' : ''}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
+
+                        {filteredTaskBatches.length === 0 ? (
+                            <div className="empty-state">
+                                <div className="empty-state-icon">
+                                    <Layers size={32} />
+                                </div>
+                                <h3 className="fs-5 fw-medium text-slate-900">No matching task batches</h3>
+                                <p className="text-muted mx-auto mt-2" style={{ maxWidth: '28rem' }}>
+                                    Try another status filter or search keyword.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                                    {paginatedTaskBatches.map((batch) => renderBatchCard(batch))}
+                                </div>
+
+                                {totalPages > 1 && (
+                                    <nav aria-label="Task batch pagination" className="d-flex justify-content-center mt-4">
+                                        <ul className="pagination mb-0">
+                                            <li className={`page-item ${safeCurrentPage === 1 ? 'disabled' : ''}`}>
+                                                <button
+                                                    className="page-link"
+                                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                                    disabled={safeCurrentPage === 1}
+                                                >
+                                                    Previous
+                                                </button>
+                                            </li>
+
+                                            {pageNumbers.map((pageNumber) => (
+                                                <li key={pageNumber} className={`page-item ${safeCurrentPage === pageNumber ? 'active' : ''}`}>
+                                                    <button
+                                                        className="page-link"
+                                                        onClick={() => setCurrentPage(pageNumber)}
+                                                    >
+                                                        {pageNumber}
+                                                    </button>
+                                                </li>
+                                            ))}
+
+                                            <li className={`page-item ${safeCurrentPage === totalPages ? 'disabled' : ''}`}>
+                                                <button
+                                                    className="page-link"
+                                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                                    disabled={safeCurrentPage === totalPages}
+                                                >
+                                                    Next
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </nav>
+                                )}
+                            </>
                         )}
-
-                        {/* Assigned Section */}
-                        {taskBatches.filter(b => {
-                            const status = b.status?.toLowerCase();
-                            return (status === 'assigned' || status === 'new' || status === 'pending') && !rejectedMap[b.id];
-                        }).length > 0 && (
-                                <div className="mb-5">
-                                    <h3 className="fs-5 fw-bold text-slate-900 mb-3 d-flex align-items-center gap-2">
-                                        <span className="badge bg-warning text-dark">Assigned</span>
-                                        <span className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
-                                            {taskBatches.filter(b => {
-                                                const status = b.status?.toLowerCase();
-                                                return (status === 'assigned' || status === 'new' || status === 'pending') && !rejectedMap[b.id];
-                                            }).length} task{taskBatches.filter(b => {
-                                                const status = b.status?.toLowerCase();
-                                                return (status === 'assigned' || status === 'new' || status === 'pending') && !rejectedMap[b.id];
-                                            }).length !== 1 ? 's' : ''}
-                                        </span>
-                                    </h3>
-                                    <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                                        {taskBatches.filter(b => {
-                                            const status = b.status?.toLowerCase();
-                                            return (status === 'assigned' || status === 'new' || status === 'pending') && !rejectedMap[b.id];
-                                        }).map((batch) => renderBatchCard(batch))}
-                                    </div>
-                                </div>
-                            )}
-
-                        {/* In Progress Section */}
-                        {taskBatches.filter(b => {
-                            const status = b.status?.toLowerCase();
-                            return (status === 'inprogress' || status === 'in progress' || status === 'in_progress') && !rejectedMap[b.id];
-                        }).length > 0 && (
-                                <div className="mb-5">
-                                    <h3 className="fs-5 fw-bold text-slate-900 mb-3 d-flex align-items-center gap-2">
-                                        <span className="badge bg-info text-white">In Progress</span>
-                                        <span className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
-                                            {taskBatches.filter(b => {
-                                                const status = b.status?.toLowerCase();
-                                                return (status === 'inprogress' || status === 'in progress' || status === 'in_progress') && !rejectedMap[b.id];
-                                            }).length} task{taskBatches.filter(b => {
-                                                const status = b.status?.toLowerCase();
-                                                return (status === 'inprogress' || status === 'in progress' || status === 'in_progress') && !rejectedMap[b.id];
-                                            }).length !== 1 ? 's' : ''}
-                                        </span>
-                                    </h3>
-                                    <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                                        {taskBatches.filter(b => {
-                                            const status = b.status?.toLowerCase();
-                                            return (status === 'inprogress' || status === 'in progress' || status === 'in_progress') && !rejectedMap[b.id];
-                                        }).map((batch) => renderBatchCard(batch))}
-                                    </div>
-                                </div>
-                            )}
-
-                        {/* Submitted Section */}
-                        {taskBatches.filter(b => {
-                            const status = b.status?.toLowerCase();
-                            return status === 'submitted' && !rejectedMap[b.id];
-                        }).length > 0 && (
-                                <div className="mb-5">
-                                    <h3 className="fs-5 fw-bold text-slate-900 mb-3 d-flex align-items-center gap-2">
-                                        <span className="badge bg-primary">Submitted</span>
-                                        <span className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
-                                            {taskBatches.filter(b => {
-                                                const status = b.status?.toLowerCase();
-                                                return status === 'submitted' && !rejectedMap[b.id];
-                                            }).length} task{taskBatches.filter(b => {
-                                                const status = b.status?.toLowerCase();
-                                                return status === 'submitted' && !rejectedMap[b.id];
-                                            }).length !== 1 ? 's' : ''}
-                                        </span>
-                                    </h3>
-                                    <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                                        {taskBatches.filter(b => {
-                                            const status = b.status?.toLowerCase();
-                                            return status === 'submitted' && !rejectedMap[b.id];
-                                        }).map((batch) => renderBatchCard(batch))}
-                                    </div>
-                                </div>
-                            )}
-
-                        {/* Completed Section */}
-                        {taskBatches.filter(b => {
-                            const status = b.status?.toLowerCase();
-                            return (status === 'completed' || status === 'done' || status === 'finished') && !rejectedMap[b.id];
-                        }).length > 0 && (
-                                <div className="mb-5">
-                                    <h3 className="fs-5 fw-bold text-slate-900 mb-3 d-flex align-items-center gap-2">
-                                        <span className="badge bg-success">Completed</span>
-                                        <span className="text-muted" style={{ fontSize: '0.875rem', fontWeight: 'normal' }}>
-                                            {taskBatches.filter(b => {
-                                                const status = b.status?.toLowerCase();
-                                                return (status === 'completed' || status === 'done' || status === 'finished') && !rejectedMap[b.id];
-                                            }).length} task{taskBatches.filter(b => {
-                                                const status = b.status?.toLowerCase();
-                                                return (status === 'completed' || status === 'done' || status === 'finished') && !rejectedMap[b.id];
-                                            }).length !== 1 ? 's' : ''}
-                                        </span>
-                                    </h3>
-                                    <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                                        {taskBatches.filter(b => {
-                                            const status = b.status?.toLowerCase();
-                                            return (status === 'completed' || status === 'done' || status === 'finished') && !rejectedMap[b.id];
-                                        }).map((batch) => renderBatchCard(batch))}
-                                    </div>
-                                </div>
-                            )}
                     </div>
                 )}
             </div>
@@ -1567,9 +1584,16 @@ export const AnnotatorWorkspace = ({ user }) => {
 
     // --- VIEW: Workspace (Single Item) ---
     const projectClasses = projectLabels;
+    const labelCountsById = annotations.reduce((acc, ann) => {
+        const key = String(ann.labelId ?? 'unknown');
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+    }, {});
+    const totalAnnotationsCount = annotations.length;
+    const activeLabelCount = activeLabelId ? (labelCountsById[String(activeLabelId)] || 0) : 0;
 
     return (
-        <div className="d-flex flex-column animate-fade-in-zoom bg-white rounded-4 shadow-sm border border-slate-200 overflow-hidden h-100" style={{}}>
+        <div className="annotator-ui d-flex flex-column animate-fade-in-zoom bg-white rounded-4 shadow-sm border border-slate-200 overflow-hidden h-100" style={{}}>
 
             {/* Workspace Toolbar Header */}
             <div className="border-bottom border-slate-200 bg-white flex-shrink-0" style={{ zIndex: 10 }}>
@@ -1582,29 +1606,39 @@ export const AnnotatorWorkspace = ({ user }) => {
                 )}
 
                 {/* Main Toolbar */}
-                <div className="d-flex align-items-center justify-content-between px-3" style={{ height: '3.5rem' }}>
-                    <div className="d-flex align-items-center gap-3">
-                        <button onClick={handleBackToItemList} className="btn btn-link text-muted text-decoration-none d-flex align-items-center gap-1 p-0 hover-text-slate-800" title="Back to item list" style={{ fontSize: '0.875rem', transition: 'color 0.15s' }}>
+                <div className="annotator-main-toolbar d-flex align-items-center justify-content-between px-3" style={{ height: '3.5rem', overflowX: 'auto', overflowY: 'hidden' }}>
+                    <div className="annotator-toolbar-left d-flex align-items-center gap-3" style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                        <button onClick={handleBackToItemList} className="btn btn-link text-muted text-decoration-none d-flex align-items-center gap-1 p-0 hover-text-slate-800" title="Back to item list" style={{ fontSize: '0.875rem', transition: 'color 0.15s', whiteSpace: 'nowrap', flexShrink: 0 }}>
                             <ChevronLeft size={16} />
                             Back to Items
                         </button>
                         <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
-                        <div className="d-flex align-items-center gap-2">
-                            <span className="text-uppercase text-muted fw-bold" style={{ fontSize: '0.625rem', letterSpacing: '0.05em' }}>
+                        <div className="d-flex align-items-center gap-2" style={{ minWidth: 0, overflow: 'hidden' }}>
+                            <span className="text-uppercase text-muted fw-bold" style={{ fontSize: '0.625rem', letterSpacing: '0.05em', whiteSpace: 'nowrap', flexShrink: 0 }}>
                                 ITEM #{selectedItem?.id}
                             </span>
-                            <h3 className="mb-0 fw-semibold text-slate-900" style={{ fontSize: '0.875rem' }}>
+                            <h3
+                                className="mb-0 fw-semibold text-slate-900 text-truncate"
+                                style={{ fontSize: '0.875rem', maxWidth: 'clamp(140px, 20vw, 300px)', minWidth: 0 }}
+                                title={selectedItem?.fileName || `Item ${selectedItem?.id}`}
+                            >
                                 {selectedItem?.fileName || `Item ${selectedItem?.id}`}
                             </h3>
                             {selectedItem?.dataItemStatus && (
-                                <span className={`badge ${selectedItem.dataItemStatus === 'Approved' ? 'bg-success' : selectedItem.dataItemStatus === 'Rejected' ? 'bg-danger' : 'bg-secondary'}`} style={{ fontSize: '0.625rem' }}>
+                                <span className={`badge ${selectedItem.dataItemStatus === 'Approved' ? 'bg-success' : selectedItem.dataItemStatus === 'Rejected' ? 'bg-danger' : 'bg-secondary'}`} style={{ fontSize: '0.625rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
                                     {selectedItem.dataItemStatus}
                                 </span>
                             )}
                         </div>
                     </div>
 
-                    <div className="d-flex align-items-center gap-2">
+                    <div className="annotator-toolbar-right d-flex align-items-center gap-2" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        <span className="badge bg-indigo-50 text-indigo-700 border border-indigo-200" style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                            Labels: {totalAnnotationsCount}{activeLabelId ? ` | Active: ${activeLabelCount}` : ''}
+                        </span>
+
+                        <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+
                         {/* Progress Indicator */}
                         {selectedBatch && (
                             <ProgressIndicator
@@ -1622,7 +1656,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                             onClick={() => setShowShortcutsHelp(true)}
                             className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
                             title="Keyboard Shortcuts (?)"
-                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
                         >
                             <Keyboard size={14} />
                         </button>
@@ -1633,21 +1667,21 @@ export const AnnotatorWorkspace = ({ user }) => {
                         <button
                             onClick={handlePreviousItem}
                             className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
-                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
                             disabled={batchItems.length <= 1}
                         >
                             <ChevronLeft size={14} />
                             Previous
                         </button>
 
-                        <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                        <span className="text-muted" style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
                             {batchItems.findIndex(item => item.id === selectedItem?.id) + 1} / {batchItems.length}
                         </span>
 
                         <button
                             onClick={handleNextItem}
                             className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
-                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
                             disabled={batchItems.length <= 1}
                         >
                             Next
@@ -1659,7 +1693,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                         <button
                             onClick={() => setShowGuidelines(!showGuidelines)}
                             className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
-                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
                         >
                             {showGuidelines ? 'Hide Labels' : 'Show Labels'}
                         </button>
@@ -1759,6 +1793,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                         onWheel={handleWheel}
                     >
                         <div
+                            className="canvas-transform-layer"
                             style={{
                                 transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
                                 transformOrigin: 'center center',
@@ -1767,7 +1802,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 display: 'inline-block'
                             }}
                         >
-                            <div style={{ position: 'relative', display: 'inline-block', maxWidth: '800px', maxHeight: '600px' }}>
+                            <div className="canvas-image-frame" style={{ position: 'relative', display: 'inline-block', maxWidth: '800px', maxHeight: '600px' }}>
                                 <img
                                     ref={imageRef}
                                     src={selectedItem?.filePath ? import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem.filePath : selectedItem?.thumbnailPath ? import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem.thumbnailPath : 'https://via.placeholder.com/800x600?text=No+Image'}
@@ -2020,12 +2055,12 @@ export const AnnotatorWorkspace = ({ user }) => {
                     </div>
 
                     {/* Action Bar (Below Canvas) */}
-                    <div className="p-4 bg-white border-top border-slate-200">
+                    <div className="annotator-action-bar p-4 bg-white border-top border-slate-200">
                         <div className="d-flex align-items-center gap-3" style={{ height: '3rem' }}>
                             <button
                                 onClick={handlePreviousItem}
                                 disabled={selectedBatch?.status === 'Submitted'}
-                                className="btn btn-outline-secondary h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                                className="annotator-btn-secondary btn btn-outline-secondary h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
                                 style={{ fontSize: '0.875rem', opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
                                 title={selectedBatch?.status === 'Submitted' ? 'Task submitted - read only' : 'Go to previous item'}
                             >
@@ -2036,7 +2071,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                             <button
                                 onClick={selectedItem?.status === 'Completed' ? handleNextItem : handleAcceptAndNext}
                                 disabled={selectedBatch?.status === 'Submitted'}
-                                className={`btn flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm ${selectedItem?.status === 'Completed' ? 'btn-secondary' : 'btn-success'}`}
+                                className={`annotator-btn-primary btn flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm ${selectedItem?.status === 'Completed' ? 'btn-secondary' : 'btn-success'}`}
                                 style={{ fontSize: '0.875rem', opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
                                 title={selectedBatch?.status === 'Submitted' ? 'Task submitted - read only' : selectedItem?.status === 'Completed' ? 'Move to next item' : ''}
                             >
@@ -2048,7 +2083,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                 </div>
 
                 {/* Right Sidebar */}
-                <div className="d-flex flex-column gap-3 p-3 bg-white border-start border-slate-200" style={{ width: '320px', overflowY: 'auto', minHeight: 0, flex: '0 0 320px' }}>
+                <div className="annotator-right-panel d-flex flex-column gap-3 p-3 bg-white border-start border-slate-200" style={{ width: '320px', overflowY: 'auto', minHeight: 0, flex: '0 0 320px' }}>
                     {/* Annotation Sidebar */}
                     <AnnotationSidebar
                         showGuidelines={showGuidelines}
@@ -2057,6 +2092,8 @@ export const AnnotatorWorkspace = ({ user }) => {
                         activeLabelId={activeLabelId}
                         setActiveLabelId={setActiveLabelId}
                         annotations={annotations}
+                        labelCountsById={labelCountsById}
+                        totalAnnotationsCount={totalAnnotationsCount}
                         selectedAnnotationId={selectedAnnotationId}
                         setSelectedAnnotationId={setSelectedAnnotationId}
                         handleDeleteAnnotation={handleDeleteAnnotation}

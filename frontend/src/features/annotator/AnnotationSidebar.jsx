@@ -8,6 +8,8 @@ export const AnnotationSidebar = ({
     activeLabelId,
     setActiveLabelId,
     annotations = [],
+    labelCountsById = {},
+    totalAnnotationsCount = 0,
     selectedAnnotationId,
     setSelectedAnnotationId,
     handleDeleteAnnotation
@@ -15,6 +17,12 @@ export const AnnotationSidebar = ({
     // Ensure projectClasses is always an array
     const classes = Array.isArray(projectClasses) ? projectClasses : [];
     const annotationsList = Array.isArray(annotations) ? annotations : [];
+    const counts = labelCountsById && typeof labelCountsById === 'object' ? labelCountsById : {};
+
+    const getLabelCount = (labelId) => {
+        if (labelId === null || labelId === undefined) return 0;
+        return counts[String(labelId)] || 0;
+    };
 
     return (
         <div className={`sidebar ${showGuidelines ? '' : 'hidden'}`} style={{ position: 'relative', right: 0, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -50,6 +58,7 @@ export const AnnotationSidebar = ({
                                             <div className="d-flex align-items-center gap-2">
                                                 <span className="rounded-circle" style={{ backgroundColor: ann.labelColor, width: '0.625rem', height: '0.625rem' }}></span>
                                                 <span className={activeLabelId === ann.labelId ? 'text-slate-900 fw-medium' : 'text-slate-600'}>{ann.labelName}</span>
+                                                <span className="badge bg-light text-dark border ms-1">{getLabelCount(ann.labelId)}</span>
                                             </div>
                                             <span className="shortcut-badge">{idx + 1}</span>
                                         </button>
@@ -69,6 +78,7 @@ export const AnnotationSidebar = ({
                                     <div className="d-flex align-items-center gap-2">
                                         <span className="rounded-circle" style={{ backgroundColor: cls.color, width: '0.625rem', height: '0.625rem' }}></span>
                                         <span className={activeLabelId === cls.id ? 'text-slate-900 fw-medium' : 'text-slate-600'}>{cls.name}</span>
+                                        <span className="badge bg-light text-dark border ms-1">{getLabelCount(cls.id)}</span>
                                     </div>
                                     <span className="shortcut-badge">{idx + 1}</span>
                                 </button>
@@ -79,7 +89,15 @@ export const AnnotationSidebar = ({
 
                 {/* Annotation List */}
                 <div className="mb-4">
-                    <h4 className="text-uppercase fw-bold text-muted mb-3" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Annotations ({annotationsList.length})</h4>
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                        <h4 className="text-uppercase fw-bold text-muted mb-0" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Annotations ({annotationsList.length})</h4>
+                        <span className="badge bg-indigo-50 text-indigo-700 border border-indigo-200">Total Labels: {totalAnnotationsCount}</span>
+                    </div>
+                    {activeLabelId && (
+                        <p className="text-muted mb-3" style={{ fontSize: '0.75rem' }}>
+                            Active label count: <span className="fw-semibold text-slate-900">{getLabelCount(activeLabelId)}</span>
+                        </p>
+                    )}
                     <div className="overflow-auto" style={{ maxHeight: '12rem' }}>
                         {annotationsList.length === 0 ? (
                             <p className="text-muted fst-italic" style={{ fontSize: '0.75rem' }}>No annotations yet.</p>
