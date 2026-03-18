@@ -1,4 +1,5 @@
 using AutoMapper;
+using DataLabeling.Application.DTOs.Comments;
 using DataLabeling.Application.DTOs.DataItems;
 using DataLabeling.Application.DTOs.Label;
 using DataLabeling.Application.DTOs.User;
@@ -30,5 +31,8 @@ public class MappingProfile : Profile
         // DataItem mappings
         CreateMap<DataItem, DataItemDto>();
         CreateMap<DataItem, DataItemDetailDto>();
+
+        // Comment mappings
+        CreateMap<Comment, CommentDto>();
     }
 }

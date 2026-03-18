@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AutoMapper;
+using DataLabeling.Application.DTOs.Comments;
 using DataLabeling.Application.DTOs.Common;
 using DataLabeling.Application.DTOs.Tasks;
 using DataLabeling.Application.Interfaces;
@@ -336,6 +337,43 @@ public class TaskService : ITaskService
         var task = await _unitOfWork.AnnotationTasks.GetWithDetailsAsync(taskId, cancellationToken);
         if (task == null) return null;
 
+        var items = new List<TaskItemDto>();
+        foreach (var ti in task.TaskItems)
+        {
+            var comments = await _unitOfWork.Comments.GetCommentsByTaskItemIdAsync(ti.Id);
+            var commentDtos = new List<CommentDto>();
+
+            foreach (var comment in comments)
+            {
+                var author = await _unitOfWork.Users.GetByIdAsync(comment.AuthorId, cancellationToken);
+                commentDtos.Add(new CommentDto
+                {
+                    Id = comment.Id,
+                    TaskItemId = comment.TaskItemId,
+                    AuthorId = comment.AuthorId,
+                    AuthorName = author?.Name,
+                    AuthorRole = comment.AuthorRole,
+                    Content = comment.Content,
+                    CreatedAt = comment.CreatedAt
+                });
+            }
+
+            items.Add(new TaskItemDto
+            {
+                Id = ti.Id,
+                DataItemId = ti.DataItemId,
+                FileName = ti.DataItem?.FileName ?? "Unknown",
+                FilePath = ti.DataItem?.FilePath ?? "",
+                ThumbnailPath = ti.DataItem?.ThumbnailPath,
+                Status = ti.Status,
+                DataItemStatus = ti.DataItem?.Status ?? DataItemStatus.Pending,
+                AssignedAt = ti.AssignedAt,
+                StartedAt = ti.StartedAt,
+                CompletedAt = ti.CompletedAt,
+                Comments = commentDtos
+            });
+        }
+
         return new TaskDetailDto
         {
             Id = task.Id,
@@ -356,19 +394,7 @@ public class TaskService : ITaskService
             CompletedAt = task.CompletedAt,
             CreatedAt = task.CreatedAt,
             UpdatedAt = task.UpdatedAt,
-            Items = task.TaskItems.Select(ti => new TaskItemDto
-            {
-                Id = ti.Id,
-                DataItemId = ti.DataItemId,
-                FileName = ti.DataItem?.FileName ?? "Unknown",
-                FilePath = ti.DataItem?.FilePath ?? "",
-                ThumbnailPath = ti.DataItem?.ThumbnailPath,
-                Status = ti.Status,
-                DataItemStatus = ti.DataItem?.Status ?? DataItemStatus.Pending,
-                AssignedAt = ti.AssignedAt,
-                StartedAt = ti.StartedAt,
-                CompletedAt = ti.CompletedAt
-            }).ToList()
+            Items = items
         };
     }
 

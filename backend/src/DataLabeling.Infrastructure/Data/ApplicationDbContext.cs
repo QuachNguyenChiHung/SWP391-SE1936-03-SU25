@@ -29,6 +29,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ReviewErrorType> ReviewErrorTypes => Set<ReviewErrorType>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
+    public DbSet<Comment> Comments => Set<Comment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

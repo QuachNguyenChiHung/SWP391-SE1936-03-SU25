@@ -113,6 +113,13 @@ public class AnnotationTaskConfiguration : IEntityTypeConfiguration<AnnotationTa
             .HasMaxLength(20)
             .HasDefaultValue(AnnotationTaskStatus.Assigned);
 
+        builder.Property(t => t.Priority)
+            .IsRequired()
+            .HasConversion<int>()
+            .HasDefaultValue(TaskPriority.Medium);
+
+        builder.Property(t => t.Description).HasColumnType("nvarchar(max)");
+        builder.Property(t => t.ReviewerNote).HasColumnType("nvarchar(max)");
         builder.Property(t => t.TotalItems).HasDefaultValue(0);
         builder.Property(t => t.CompletedItems).HasDefaultValue(0);
         builder.Property(t => t.AssignedAt).HasDefaultValueSql("GETUTCDATE()");

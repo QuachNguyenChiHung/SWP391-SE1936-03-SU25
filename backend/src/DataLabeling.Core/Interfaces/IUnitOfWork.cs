@@ -73,6 +73,11 @@ public interface IUnitOfWork : IDisposable
     IActivityLogRepository ActivityLogs { get; }
 
     /// <summary>
+    /// Gets the Comment repository.
+    /// </summary>
+    ICommentRepository Comments { get; }
+
+    /// <summary>
     /// Saves all changes made in this unit of work to the database.
     /// </summary>
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

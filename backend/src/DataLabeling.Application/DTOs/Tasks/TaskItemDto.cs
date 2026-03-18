@@ -1,3 +1,4 @@
+using DataLabeling.Application.DTOs.Comments;
 using DataLabeling.Core.Enums;
 
 namespace DataLabeling.Application.DTOs.Tasks;
@@ -17,4 +18,5 @@ public class TaskItemDto
     public DateTime AssignedAt { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
+    public IEnumerable<CommentDto> Comments { get; set; } = new List<CommentDto>();
 }

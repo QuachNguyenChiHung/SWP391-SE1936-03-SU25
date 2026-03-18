@@ -49,4 +49,9 @@ public class TaskItem : BaseEntity
     /// Data item being worked on.
     /// </summary>
     public virtual DataItem DataItem { get; set; } = null!;
+
+    /// <summary>
+    /// Comments on this task item.
+    /// </summary>
+    public virtual ICollection<Comment> Comments { get; set; } = new List<Comment>();
 }
