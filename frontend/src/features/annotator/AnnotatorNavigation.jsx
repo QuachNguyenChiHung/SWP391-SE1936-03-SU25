@@ -4,10 +4,35 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import api from '../../shared/utils/api';
+import { useUI } from '../../shared/context/UIContext.jsx';
 
 export const AnnotatorNavigation = () => {
     const location = useLocation();
     const [unreadCount, setUnreadCount] = useState(0);
+    const { language } = useUI();
+
+    const copy = {
+        en: {
+            workspace: 'WORKSPACE',
+            account: 'ACCOUNT',
+            dashboard: 'Dashboard',
+            myTasks: 'My Tasks',
+            notifications: 'Notifications',
+            profile: 'Profile',
+            settings: 'Settings',
+        },
+        vi: {
+            workspace: 'KHONG GIAN LAM VIEC',
+            account: 'TAI KHOAN',
+            dashboard: 'Bang dieu khien',
+            myTasks: 'Nhiem vu cua toi',
+            notifications: 'Thong bao',
+            profile: 'Ho so',
+            settings: 'Cai dat',
+        },
+    };
+
+    const t = (key) => copy[language]?.[key] || key;
 
     useEffect(() => {
         const fetchCounts = async () => {
@@ -30,18 +55,18 @@ export const AnnotatorNavigation = () => {
 
     const menuItems = [
         {
-            section: 'WORKSPACE',
+            section: t('workspace'),
             items: [
-                { icon: LayoutDashboard, label: 'Dashboard', path: '/annotator/dashboard' },
-                { icon: Target, label: 'My Tasks', path: '/annotator/workspace' }
+                { icon: LayoutDashboard, label: t('dashboard'), path: '/annotator/dashboard' },
+                { icon: Target, label: t('myTasks'), path: '/annotator/workspace' }
             ]
         },
         {
-            section: 'ACCOUNT',
+            section: t('account'),
             items: [
-                { icon: Bell, label: 'Notifications', path: '/annotator/notifications', badge: unreadCount },
-                { icon: User, label: 'Profile', path: '/profile' },
-                { icon: Settings, label: 'Settings', path: '/annotator/settings' }
+                { icon: Bell, label: t('notifications'), path: '/annotator/notifications', badge: unreadCount },
+                { icon: User, label: t('profile'), path: '/profile' },
+                { icon: Settings, label: t('settings'), path: '/annotator/settings' }
             ]
         }
     ];

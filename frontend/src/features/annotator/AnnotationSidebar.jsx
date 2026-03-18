@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useUI } from '../../shared/context/UIContext.jsx';
 
 export const AnnotationSidebar = ({
     showGuidelines,
@@ -14,6 +15,45 @@ export const AnnotationSidebar = ({
     setSelectedAnnotationId,
     handleDeleteAnnotation
 }) => {
+    const { language } = useUI();
+    const copy = {
+        en: {
+            labelClasses: 'Label Classes',
+            labelsFromAnnotations: 'Available labels from annotations:',
+            noLabels: 'No label classes available. Draw annotations to see labels.',
+            annotations: 'Annotations',
+            totalLabels: 'Total Labels',
+            activeLabelCount: 'Active label count',
+            noAnnotations: 'No annotations yet.',
+            object: 'Object',
+            confidence: 'Confidence',
+            deleteAnnotation: 'Delete annotation',
+            delete: 'Delete',
+            guidelinesTitle: 'Labeling Guidelines',
+            guideline1: 'Draw tight boxes around visible vehicles.',
+            guideline2: 'Include side mirrors, exclude antennas.',
+            guideline3: 'Ignore occluded vehicles less than 20% visible.'
+        },
+        vi: {
+            labelClasses: 'Nhom nhan',
+            labelsFromAnnotations: 'Nhan kha dung tu annotation:',
+            noLabels: 'Chua co nhan. Hay ve annotation de hien nhan.',
+            annotations: 'Annotation',
+            totalLabels: 'Tong nhan',
+            activeLabelCount: 'So nhan dang chon',
+            noAnnotations: 'Chua co annotation.',
+            object: 'Doi tuong',
+            confidence: 'Do tin cay',
+            deleteAnnotation: 'Xoa annotation',
+            delete: 'Xoa',
+            guidelinesTitle: 'Huong dan gan nhan',
+            guideline1: 'Ve khung sat voi xe dang hien thi.',
+            guideline2: 'Bao gom guong chieu hau, loai bo anten.',
+            guideline3: 'Bo qua xe bi che khuat duoi 20%.'
+        }
+    };
+    const t = copy[language] || copy.en;
+
     // Ensure projectClasses is always an array
     const classes = Array.isArray(projectClasses) ? projectClasses : [];
     const annotationsList = Array.isArray(annotations) ? annotations : [];
@@ -37,13 +77,13 @@ export const AnnotationSidebar = ({
             <div className="d-flex flex-column flex-grow-1 overflow-auto custom-scrollbar p-3" style={{ minHeight: 0 }}>
                 {/* Class Selector */}
                 <div className="mb-4">
-                    <h4 className="text-uppercase fw-bold text-muted mb-3" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Label Classes</h4>
+                    <h4 className="text-uppercase fw-bold text-muted mb-3" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>{t.labelClasses}</h4>
                     {classes.length === 0 ? (
                         <div>
                             <p className="text-muted fst-italic mb-2" style={{ fontSize: '0.75rem' }}>
                                 {annotationsList.length > 0
-                                    ? 'Available labels from annotations:'
-                                    : 'No label classes available. Draw annotations to see labels.'}
+                                    ? t.labelsFromAnnotations
+                                    : t.noLabels}
                             </p>
                             {annotationsList.length > 0 && (
                                 <div>
@@ -90,17 +130,17 @@ export const AnnotationSidebar = ({
                 {/* Annotation List */}
                 <div className="mb-4">
                     <div className="d-flex justify-content-between align-items-center mb-2">
-                        <h4 className="text-uppercase fw-bold text-muted mb-0" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>Annotations ({annotationsList.length})</h4>
-                        <span className="badge bg-indigo-50 text-indigo-700 border border-indigo-200">Total Labels: {totalAnnotationsCount}</span>
+                        <h4 className="text-uppercase fw-bold text-muted mb-0" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>{t.annotations} ({annotationsList.length})</h4>
+                        <span className="badge bg-indigo-50 text-indigo-700 border border-indigo-200">{t.totalLabels}: {totalAnnotationsCount}</span>
                     </div>
                     {activeLabelId && (
                         <p className="text-muted mb-3" style={{ fontSize: '0.75rem' }}>
-                            Active label count: <span className="fw-semibold text-slate-900">{getLabelCount(activeLabelId)}</span>
+                            {t.activeLabelCount}: <span className="fw-semibold text-slate-900">{getLabelCount(activeLabelId)}</span>
                         </p>
                     )}
                     <div className="overflow-auto" style={{ maxHeight: '12rem' }}>
                         {annotationsList.length === 0 ? (
-                            <p className="text-muted fst-italic" style={{ fontSize: '0.75rem' }}>No annotations yet.</p>
+                            <p className="text-muted fst-italic" style={{ fontSize: '0.75rem' }}>{t.noAnnotations}</p>
                         ) : (
                             annotationsList.map((ann, i) => (
                                 <div
@@ -126,11 +166,11 @@ export const AnnotationSidebar = ({
                                     ></div>
                                     <div className="flex-grow-1">
                                         <div className="d-flex align-items-center justify-content-between mb-1">
-                                            <span className="fw-semibold text-slate-900">{ann.labelName || 'Object'}</span>
+                                            <span className="fw-semibold text-slate-900">{ann.labelName || t.object}</span>
                                             <span className="text-muted" style={{ fontSize: '0.625rem' }}>#{i + 1}</span>
                                         </div>
                                         <div className="text-muted" style={{ fontSize: '0.625rem' }}>
-                                            Confidence: {ann.confidence ? `${(ann.confidence * 100).toFixed(0)}%` : '100%'}
+                                            {t.confidence}: {ann.confidence ? `${(ann.confidence * 100).toFixed(0)}%` : '100%'}
                                         </div>
                                         {/* Action buttons */}
                                         <div className="d-flex gap-1 mt-2">
@@ -141,13 +181,13 @@ export const AnnotationSidebar = ({
                                                 }}
                                                 className="btn btn-sm btn-danger d-flex align-items-center gap-1"
                                                 style={{ fontSize: '0.625rem', padding: '0.125rem 0.375rem' }}
-                                                title="Delete annotation"
+                                                title={t.deleteAnnotation}
                                             >
                                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                     <polyline points="3 6 5 6 21 6"></polyline>
                                                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                                                 </svg>
-                                                Delete
+                                                {t.delete}
                                             </button>
                                         </div>
                                     </div>
@@ -161,12 +201,12 @@ export const AnnotationSidebar = ({
                 <div className="guidelines-box">
                     <div className="guidelines-title">
                         <AlertCircle size={14} />
-                        <span>Labeling Guidelines</span>
+                        <span>{t.guidelinesTitle}</span>
                     </div>
                     <ul className="guidelines-list">
-                        <li>Draw tight boxes around visible vehicles.</li>
-                        <li>Include side mirrors, exclude antennas.</li>
-                        <li>Ignore occluded vehicles less than 20% visible.</li>
+                        <li>{t.guideline1}</li>
+                        <li>{t.guideline2}</li>
+                        <li>{t.guideline3}</li>
                     </ul>
                 </div>
             </div>

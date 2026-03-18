@@ -11,13 +11,13 @@
 
 .input-group {
   border-radius: 5px;
-  border: 1px solid black;
+  border: 1px solid #cbd5e1;
 }
 
 .card-custom,
 .info-banner,
 .sys-info {
-  border: 1px solid black !important;
+  border: 1px solid #cbd5e1 !important;
 }
 
 .sys-info {
@@ -25,7 +25,7 @@
 }
 
 .card {
-  border: 2px solid black !important;
+  border: 1px solid #dbe6f2 !important;
 }
 
 
@@ -35,6 +35,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background-color: #ffffff;
+  color: #0f172a;
 }
 
 #root {
@@ -178,4 +179,81 @@ button:active {
 .layout-container aside div[role="button"] {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+}
+
+/* Theme system */
+body.theme-light {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+body.theme-dark {
+  background-color: #0b1220;
+  color: #e2e8f0;
+}
+
+body.theme-dark .card,
+body.theme-dark .dropdown-menu,
+body.theme-dark .modal-content,
+body.theme-dark .table {
+  background-color: #111827 !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+body.theme-dark .table-hover > tbody > tr:hover > * {
+  color: #f8fafc;
+  background-color: rgba(51, 65, 85, 0.45);
+}
+
+body.theme-dark .text-slate-900,
+body.theme-dark .text-slate-800,
+body.theme-dark .text-slate-700 {
+  color: #e2e8f0 !important;
+}
+
+body.theme-dark .text-muted,
+body.theme-dark .text-slate-600,
+body.theme-dark .text-slate-500,
+body.theme-dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+body.theme-dark .bg-white,
+body.theme-dark .bg-slate-50,
+body.theme-dark .bg-slate-100 {
+  background-color: #111827 !important;
+}
+
+body.theme-dark .border-slate-200,
+body.theme-dark .border-slate-100,
+body.theme-dark .border {
+  border-color: #334155 !important;
+}
+
+body.theme-dark .form-control,
+body.theme-dark .form-select {
+  background-color: #0f172a;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
+body.theme-dark .form-control::placeholder {
+  color: #64748b;
+}
+
+body.theme-dark .btn-outline-secondary,
+body.theme-dark .btn-outline-primary,
+body.theme-dark .btn-outline-warning,
+body.theme-dark .btn-outline-danger {
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
+body.theme-dark .btn-outline-secondary:hover,
+body.theme-dark .btn-outline-primary:hover,
+body.theme-dark .btn-outline-warning:hover,
+body.theme-dark .btn-outline-danger:hover {
+  background-color: #1e293b;
+  color: #f8fafc;
 }

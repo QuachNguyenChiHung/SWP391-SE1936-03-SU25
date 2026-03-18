@@ -17,16 +17,64 @@ import {
   User,
   Mail,
   Shield,
-  CreditCard
+  CreditCard,
+  Languages,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { AnnotatorNavigation } from '../features/annotator/AnnotatorNavigation.jsx';
 import { SearchBar } from '../shared/components/SearchBar.jsx';
 import { NotificationDropdown } from '../shared/components/NotificationDropdown.jsx';
+import { useUI } from '../shared/context/UIContext.jsx';
 
 export const Layout = ({ children, user, onLogout }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { language, toggleLanguage, theme, toggleTheme } = useUI();
+
+  const isDark = theme === 'dark';
+
+  const dictionary = {
+    en: {
+      dashboard: 'Dashboard',
+      projects: 'Projects',
+      workspace: 'Workspace',
+      reviewQueue: 'Review Queue',
+      userManagement: 'User Management',
+      notifications: 'Notifications',
+      settings: 'Settings',
+      profile: 'Profile',
+      myTasks: 'My Tasks',
+      adminPanel: 'Admin Panel',
+      account: 'Account',
+      signOut: 'Sign Out',
+      theme: 'Theme',
+      language: 'Language',
+      light: 'Light',
+      dark: 'Dark',
+    },
+    vi: {
+      dashboard: 'Bang dieu khien',
+      projects: 'Du an',
+      workspace: 'Khong gian lam viec',
+      reviewQueue: 'Hang doi duyet',
+      userManagement: 'Quan ly nguoi dung',
+      notifications: 'Thong bao',
+      settings: 'Cai dat',
+      profile: 'Ho so',
+      myTasks: 'Nhiem vu cua toi',
+      adminPanel: 'Bang quan tri',
+      account: 'Tai khoan',
+      signOut: 'Dang xuat',
+      theme: 'Giao dien',
+      language: 'Ngon ngu',
+      light: 'Sang',
+      dark: 'Toi',
+    },
+  };
+
+  const t = (key) => dictionary[language]?.[key] || key;
 
   const getInitial = () => (user?.user?.name?.charAt(0) || '?').toUpperCase();
   const stringToBackground = (str) => {
@@ -45,15 +93,15 @@ export const Layout = ({ children, user, onLogout }) => {
   // Get page title based on current route
   const getPageTitle = () => {
     const path = location.pathname;
-    if (path.includes('/dashboard')) return 'Dashboard';
-    if (path.includes('/projects')) return 'Projects';
-    if (path.includes('/workspace')) return 'Workspace';
-    if (path.includes('/reviews')) return 'Review Queue';
-    if (path.includes('/users')) return 'User Management';
-    if (path.includes('/notifications')) return 'Notifications';
-    if (path.includes('/settings')) return 'Settings';
-    if (path.includes('/profile')) return 'Profile';
-    return 'Dashboard';
+    if (path.includes('/dashboard')) return t('dashboard');
+    if (path.includes('/projects')) return t('projects');
+    if (path.includes('/workspace')) return t('workspace');
+    if (path.includes('/reviews')) return t('reviewQueue');
+    if (path.includes('/users')) return t('userManagement');
+    if (path.includes('/notifications')) return t('notifications');
+    if (path.includes('/settings')) return t('settings');
+    if (path.includes('/profile')) return t('profile');
+    return t('dashboard');
   };
 
   // Render Sidebar Links based on Role
@@ -70,11 +118,11 @@ export const Layout = ({ children, user, onLogout }) => {
           <>
             <Link to="/manager/dashboard" className={linkClass('/manager/dashboard')}>
               <LayoutDashboard size={18} />
-              Dashboard
+              {t('dashboard')}
             </Link>
             <Link to="/manager/projects" className={linkClass('/manager/projects')}>
               <Layers size={18} />
-              Projects
+              {t('projects')}
             </Link>
           </>
         );
@@ -83,11 +131,11 @@ export const Layout = ({ children, user, onLogout }) => {
           <>
             <Link to="/annotator/dashboard" className={linkClass('/annotator/dashboard')}>
               <LayoutDashboard size={18} />
-              Dashboard
+              {t('dashboard')}
             </Link>
             <Link to="/annotator/workspace" className={linkClass('/annotator/workspace')}>
               <PenTool size={18} />
-              My Tasks
+              {t('myTasks')}
             </Link>
           </>
         );
@@ -96,11 +144,11 @@ export const Layout = ({ children, user, onLogout }) => {
           <>
             <Link to="/reviewer/dashboard" className={linkClass('/reviewer/dashboard')}>
               <LayoutDashboard size={18} />
-              Dashboard
+              {t('dashboard')}
             </Link>
             <Link to="/reviewer/reviews" className={linkClass('/reviewer/reviews')}>
               <CheckCircle size={18} />
-              Review Queue
+              {t('reviewQueue')}
             </Link>
           </>
         );
@@ -109,11 +157,11 @@ export const Layout = ({ children, user, onLogout }) => {
           <>
             <Link to="/admin/dashboard" className={linkClass('/admin/dashboard')}>
               <LayoutDashboard size={18} />
-              Dashboard
+              {t('dashboard')}
             </Link>
             <Link to="/admin/users" className={linkClass('/admin/users')}>
               <Settings size={18} />
-              Admin Panel
+              {t('adminPanel')}
             </Link>
           </>
         );
@@ -123,7 +171,7 @@ export const Layout = ({ children, user, onLogout }) => {
   };
 
   return (
-    <div className="layout-container d-flex vh-100 bg-slate-50 overflow-hidden">
+    <div className="layout-container d-flex vh-100 overflow-hidden" style={{ backgroundColor: isDark ? '#0b1220' : '#f8fafc' }}>
 
       {/* Desktop Sidebar */}
       <aside className="d-none d-md-flex flex-column text-slate-300" style={{ width: '16rem', zIndex: 50, background: 'linear-gradient(180deg, #0f172a 0%, #0f172a 100%)', boxShadow: '4px 0 24px rgba(0,0,0,0.18)', borderRight: '1px solid #1e293b' }}>
@@ -144,15 +192,15 @@ export const Layout = ({ children, user, onLogout }) => {
           ) : (
             <div className="d-flex flex-column" style={{ gap: '1.5rem' }}>
               <div className="d-flex flex-column gap-1">
-                <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>Workspace</p>
+                <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>{t('workspace')}</p>
                 {renderSidebarLinks()}
               </div>
               <div className="d-flex flex-column gap-1">
-                <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>Account</p>
+                <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>{t('account')}</p>
                 <Link to="/profile" className={`w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 small fw-medium text-decoration-none sidebar-link ${isActive('/profile') ? 'bg-indigo-600 text-white sidebar-link-active' : 'text-slate-400'
                   }`}>
                   <User size={18} />
-                  Profile
+                  {t('profile')}
                 </Link>
               </div>
             </div>
@@ -191,7 +239,7 @@ export const Layout = ({ children, user, onLogout }) => {
             <button
               onClick={onLogout}
               className="btn btn-link text-slate-500 d-flex align-items-center justify-content-center rounded-2"
-              title="Sign Out"
+              title={t('signOut')}
               style={{ flexShrink: 0, width: '32px', height: '32px', padding: 0, minWidth: 'auto' }}
             >
               <LogOut size={15} />
@@ -222,21 +270,21 @@ export const Layout = ({ children, user, onLogout }) => {
                 ) : (
                   <div className="d-flex flex-column" style={{ gap: '1.5rem' }}>
                     <div className="d-flex flex-column gap-1">
-                      <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>Workspace</p>
+                      <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>{t('workspace')}</p>
                       {renderSidebarLinks()}
                     </div>
                     <div className="d-flex flex-column gap-1">
-                      <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>Account</p>
+                      <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>{t('account')}</p>
                       <button
                         onClick={() => navigate('/profile')}
                         className="w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 text-slate-400 small fw-medium btn btn-link text-decoration-none text-start sidebar-link"
                       >
                         <User size={18} />
-                        Profile
+                        {t('profile')}
                       </button>
                       <button onClick={onLogout} className="w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 text-slate-400 small fw-medium btn btn-link text-decoration-none text-start sidebar-link">
                         <LogOut size={18} />
-                        Sign Out
+                        {t('signOut')}
                       </button>
                     </div>
                   </div>
@@ -250,15 +298,46 @@ export const Layout = ({ children, user, onLogout }) => {
       {/* Main Content Area */}
       <div className="flex-fill d-flex flex-column min-w-0 h-100 position-relative">
         {/* Header */}
-        <header className="flex-shrink-0 bg-white border-bottom border-slate-200 d-flex align-items-center justify-content-between px-3 px-sm-4 shadow-sm" style={{ height: '4rem', zIndex: 30 }}>
+        <header className="flex-shrink-0 d-flex align-items-center justify-content-between px-3 px-sm-4 shadow-sm" style={{ height: '4rem', zIndex: 30, backgroundColor: isDark ? '#0f172a' : '#ffffff', borderBottom: `1px solid ${isDark ? '#1e293b' : '#e2e8f0'}` }}>
           <div className="d-flex align-items-center gap-3">
             <button className="btn btn-link d-md-none text-slate-500 p-2" onClick={() => setMobileMenuOpen(true)}>
               <Menu size={24} />
             </button>
-            <h1 className="fs-5 fw-semibold text-slate-800 truncate mb-0">{getPageTitle()}</h1>
+            <h1 className="fs-5 fw-semibold truncate mb-0" style={{ color: isDark ? '#e2e8f0' : '#1e293b' }}>{getPageTitle()}</h1>
           </div>
 
           <div className="d-flex align-items-center gap-2 gap-sm-3">
+            <div className="d-none d-md-flex align-items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-sm d-flex align-items-center gap-1"
+                onClick={toggleLanguage}
+                title={t('language')}
+                style={{
+                  border: `1px solid ${isDark ? '#334155' : '#cbd5e1'}`,
+                  color: isDark ? '#e2e8f0' : '#334155',
+                  backgroundColor: isDark ? '#111827' : '#ffffff'
+                }}
+              >
+                <Languages size={14} />
+                {language.toUpperCase()}
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm d-flex align-items-center gap-1"
+                onClick={toggleTheme}
+                title={t('theme')}
+                style={{
+                  border: `1px solid ${isDark ? '#334155' : '#cbd5e1'}`,
+                  color: isDark ? '#e2e8f0' : '#334155',
+                  backgroundColor: isDark ? '#111827' : '#ffffff'
+                }}
+              >
+                {isDark ? <Sun size={14} /> : <Moon size={14} />}
+                {isDark ? t('light') : t('dark')}
+              </button>
+            </div>
+
             {/* Search Bar */}
             <div className="d-none d-sm-block">
 
@@ -267,10 +346,10 @@ export const Layout = ({ children, user, onLogout }) => {
             {/* Notification Dropdown */}
             <NotificationDropdown />
 
-            <div className="d-none d-md-block bg-slate-200" style={{ height: '2rem', width: '1px' }}></div>
+            <div className="d-none d-md-block" style={{ height: '2rem', width: '1px', backgroundColor: isDark ? '#334155' : '#e2e8f0' }}></div>
 
             <div className="d-none d-md-flex align-items-center gap-2">
-              <span className="badge text-uppercase fw-semibold" style={{ fontSize: '0.68rem', letterSpacing: '0.06em', padding: '0.35rem 0.75rem', background: 'linear-gradient(90deg, #eef2ff, #e0e7ff)', color: '#4338ca', border: '1px solid #c7d2fe', borderRadius: '999px' }}>
+              <span className="badge text-uppercase fw-semibold" style={{ fontSize: '0.68rem', letterSpacing: '0.06em', padding: '0.35rem 0.75rem', background: isDark ? 'linear-gradient(90deg, #1e293b, #334155)' : 'linear-gradient(90deg, #eef2ff, #e0e7ff)', color: isDark ? '#e2e8f0' : '#4338ca', border: `1px solid ${isDark ? '#475569' : '#c7d2fe'}`, borderRadius: '999px' }}>
                 {user.user.roleName || user.role}
               </span>
             </div>
@@ -278,7 +357,7 @@ export const Layout = ({ children, user, onLogout }) => {
         </header>
 
         {/* Scrollable Content */}
-        <main className="flex-fill overflow-auto bg-slate-50 p-3 p-sm-4 p-lg-5 position-relative" style={{ backgroundColor: 'rgba(248, 250, 252, 0.5)' }}>
+        <main className="flex-fill overflow-auto p-3 p-sm-4 p-lg-5 position-relative" style={{ backgroundColor: isDark ? '#0b1220' : 'rgba(248, 250, 252, 0.5)', color: isDark ? '#e2e8f0' : '#0f172a' }}>
           {children}
         </main>
       </div>
