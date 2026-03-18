@@ -105,10 +105,6 @@ public class CommentsController : ControllerBase
         if (role != UserRole.Reviewer && role != UserRole.Admin)
             return Forbid();
 
-        // Validate request
-        if (string.IsNullOrWhiteSpace(request.Content))
-            return BadRequest(new { message = "Comment content cannot be empty" });
-
         try
         {
             var comment = await _commentService.AddCommentAsync(taskItemId, userId, request.Content, cancellationToken);
@@ -119,15 +115,4 @@ public class CommentsController : ControllerBase
             return NotFound(new { message = ex.Message });
         }
     }
-}
-
-/// <summary>
-/// Request model for adding a comment.
-/// </summary>
-public class AddCommentRequest
-{
-    /// <summary>
-    /// The comment content.
-    /// </summary>
-    public string Content { get; set; } = default!;
 }
