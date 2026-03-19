@@ -22,5 +22,9 @@ public class UpdateUserRequestValidator : AbstractValidator<UpdateUserRequest>
         RuleFor(x => x.Status)
             .IsInEnum().WithMessage("Invalid status specified.")
             .When(x => x.Status.HasValue);
+
+        RuleFor(x => x.SpecializeIn)
+            .MaximumLength(500).WithMessage("Specialization must not exceed 500 characters.")
+            .When(x => !string.IsNullOrWhiteSpace(x.SpecializeIn));
     }
 }

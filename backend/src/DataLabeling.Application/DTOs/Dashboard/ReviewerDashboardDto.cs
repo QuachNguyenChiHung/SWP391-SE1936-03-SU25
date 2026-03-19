@@ -6,6 +6,10 @@ namespace DataLabeling.Application.DTOs.Dashboard;
 public class ReviewerDashboardDto
 {
     /// <summary>
+    /// Reviewer specialization (areas of expertise).
+    /// </summary>
+    public string? SpecializeIn { get; set; }
+    /// <summary>
     /// Reviewer statistics.
     /// </summary>
     public DashboardReviewerStatsDto Stats { get; set; } = new();

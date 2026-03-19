@@ -21,4 +21,9 @@ public class UpdateUserRequest
     /// Account status.
     /// </summary>
     public UserStatus? Status { get; set; }
+
+    /// <summary>
+    /// Areas of specialization for the user.
+    /// </summary>
+    public string? SpecializeIn { get; set; }
 }

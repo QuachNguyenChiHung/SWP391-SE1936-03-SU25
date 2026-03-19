@@ -7,6 +7,7 @@ public class TeamPerformanceDto
 {
     public int UserId { get; set; }
     public string UserName { get; set; } = default!;
+    public string? SpecializeIn { get; set; }
     public string Role { get; set; } = default!;
     public int TasksCompleted { get; set; }
     public int ItemsProcessed { get; set; }
@@ -50,6 +51,7 @@ public class DashboardPendingReviewItemDto
     public string FileName { get; set; } = default!;
     public string ProjectName { get; set; } = default!;
     public string AnnotatorName { get; set; } = default!;
+    public string? AnnotatorSpecializeIn { get; set; }
     public DateTime SubmittedAt { get; set; }
 }
 

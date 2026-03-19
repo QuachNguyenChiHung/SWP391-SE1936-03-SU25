@@ -101,6 +101,8 @@ public class AnnotatorDto
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public int ActiveTaskCount { get; set; }
+    // Areas of specialization for the annotator
+    public string? SpecializedIn { get; set; }
 }
 
 /// <summary>
@@ -114,4 +116,6 @@ public class ReviewerDto
     public int ActiveReviewCount { get; set; }
     // Number of tasks assigned to this reviewer in other projects (when caller provides a projectId)
     public int OtherProjectAssignedTaskCount { get; set; }
+    // Areas of specialization for the reviewer
+    public string? SpecializedIn { get; set; }
 }

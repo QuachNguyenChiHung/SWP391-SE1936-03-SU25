@@ -16,6 +16,7 @@ public class DashboardService : IDashboardService
 
     public async Task<AnnotatorDashboardDto> GetAnnotatorDashboardAsync(int userId, CancellationToken ct)
     {
+        var user = await _uow.Users.GetByIdAsync(userId, ct);
         var tasks = await _uow.AnnotationTasks.GetByAnnotatorIdAsync(userId, ct);
         var taskList = tasks?.ToList() ?? new List<Core.Entities.AnnotationTask>();
 
@@ -58,6 +59,7 @@ public class DashboardService : IDashboardService
 
         return new AnnotatorDashboardDto
         {
+            SpecializeIn = user?.SpecializeIn,
             Stats = stats,
             RecentTasks = recentTasks,
             Notifications = notificationDtos
@@ -68,17 +70,24 @@ public class DashboardService : IDashboardService
     {
         var reviewerStats = await _uow.Reviews.GetReviewerStatisticsAsync(userId, ct);
 
+        var user = await _uow.Users.GetByIdAsync(userId, ct);
+
         var (pendingItems, pendingCount) = await _uow.Reviews.GetPendingReviewItemsPagedAsync(
             1, 10, userId, null, ct);
 
         var pendingQueue = (pendingItems ?? Enumerable.Empty<Core.Entities.DataItem>())
-            .Select(item => new DashboardPendingReviewItemDto
+            .Select(item =>
             {
-                DataItemId = item.Id,
-                FileName = item.FileName ?? "Unknown",
-                ProjectName = item.Dataset?.Project?.Name ?? "Unknown",
-                AnnotatorName = item.TaskItems?.FirstOrDefault()?.Task?.Annotator?.Name ?? "Unknown",
-                SubmittedAt = item.UpdatedAt ?? item.CreatedAt
+                var annotator = item.TaskItems?.FirstOrDefault()?.Task?.Annotator;
+                return new DashboardPendingReviewItemDto
+                {
+                    DataItemId = item.Id,
+                    FileName = item.FileName ?? "Unknown",
+                    ProjectName = item.Dataset?.Project?.Name ?? "Unknown",
+                    AnnotatorName = annotator?.Name ?? "Unknown",
+                    AnnotatorSpecializeIn = annotator?.SpecializeIn,
+                    SubmittedAt = item.UpdatedAt ?? item.CreatedAt
+                };
             }).ToList();
 
         var allReviewsByUser = (await _uow.Reviews.GetByReviewerIdAsync(userId, ct))?.ToList()
@@ -109,6 +118,7 @@ public class DashboardService : IDashboardService
 
         return new ReviewerDashboardDto
         {
+            SpecializeIn = user?.SpecializeIn,
             Stats = stats,
             PendingQueue = pendingQueue,
             RecentReviews = recentReviews
@@ -157,11 +167,22 @@ public class DashboardService : IDashboardService
         };
 
         var annotatorPerformance = await _uow.AnnotationTasks.GetAnnotatorPerformanceAsync(10, ct);
+        var annotatorPerfList = annotatorPerformance?.ToList() ?? new List<DataLabeling.Core.Interfaces.Repositories.AnnotatorPerformance>();
 
-        var tasksByAnnotator = annotatorPerformance.Select(a => new TeamPerformanceDto
+        // Fetch specialization for each annotator
+        var annotatorIds = annotatorPerfList.Select(a => (int)a.AnnotatorId).Distinct().ToList();
+        var annotatorSpecializeMap = new Dictionary<int, string?>();
+        foreach (var id in annotatorIds)
+        {
+            var u = await _uow.Users.GetByIdAsync(id, ct);
+            annotatorSpecializeMap[id] = u?.SpecializeIn;
+        }
+
+        var tasksByAnnotator = annotatorPerfList.Select(a => new TeamPerformanceDto
         {
             UserId = a.AnnotatorId,
             UserName = a.AnnotatorName,
+            SpecializeIn = annotatorSpecializeMap.ContainsKey(a.AnnotatorId) ? annotatorSpecializeMap[a.AnnotatorId] : null,
             Role = "Annotator",
             TasksCompleted = a.TasksCompleted,
             ItemsProcessed = a.ItemsProcessed,

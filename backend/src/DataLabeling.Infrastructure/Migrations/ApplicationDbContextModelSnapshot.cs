@@ -190,6 +190,38 @@ namespace DataLabeling.Infrastructure.Migrations
                     b.ToTable("AnnotationTask", (string)null);
                 });
 
+            modelBuilder.Entity("DataLabeling.Core.Entities.Comment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<int>("ReviewerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TaskItemId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReviewerId");
+
+                    b.HasIndex("TaskItemId");
+
+                    b.ToTable("Comment", (string)null);
+                });
+
             modelBuilder.Entity("DataLabeling.Core.Entities.DataItem", b =>
                 {
                     b.Property<int>("Id")
@@ -229,6 +261,9 @@ namespace DataLabeling.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ReviewLockExpiry")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ReviewerDeadlineUtc")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Status")
@@ -657,6 +692,9 @@ namespace DataLabeling.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("AnnotatorDeadlineUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("AssignedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -881,6 +919,25 @@ namespace DataLabeling.Infrastructure.Migrations
                     b.Navigation("Reviewer");
                 });
 
+            modelBuilder.Entity("DataLabeling.Core.Entities.Comment", b =>
+                {
+                    b.HasOne("DataLabeling.Core.Entities.User", "Reviewer")
+                        .WithMany()
+                        .HasForeignKey("ReviewerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DataLabeling.Core.Entities.TaskItem", "TaskItem")
+                        .WithMany("Comments")
+                        .HasForeignKey("TaskItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Reviewer");
+
+                    b.Navigation("TaskItem");
+                });
+
             modelBuilder.Entity("DataLabeling.Core.Entities.DataItem", b =>
                 {
                     b.HasOne("DataLabeling.Core.Entities.User", "AssignedReviewer")
@@ -1063,6 +1120,11 @@ namespace DataLabeling.Infrastructure.Migrations
             modelBuilder.Entity("DataLabeling.Core.Entities.Review", b =>
                 {
                     b.Navigation("ReviewErrorTypes");
+                });
+
+            modelBuilder.Entity("DataLabeling.Core.Entities.TaskItem", b =>
+                {
+                    b.Navigation("Comments");
                 });
 
             modelBuilder.Entity("DataLabeling.Core.Entities.User", b =>
