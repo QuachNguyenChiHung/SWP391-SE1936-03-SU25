@@ -76,7 +76,17 @@ export const ManagerProjects = ({ user }) => {
                     'Authorization': `Bearer ${getInforFromCookie().token}`
                 }
             });
+
+            // Close modal and reset form immediately so the UI reflects success
+            setIsCreateProjectModalOpen(false);
+            setProjectName('');
+            setProjectDescription('');
+            setProjectType('Classification');
+            setProjectDeadline('');
+            setDeadlineError('');
+
             await showAlert('Project created successfully', 'Success', 'success');
+
             let url = `/Projects/?pageNumber=${page}&pageSize=${pageLength}`;
             if (statusFilter) {
                 url += `&status=${statusFilter}`;
@@ -94,12 +104,7 @@ export const ManagerProjects = ({ user }) => {
             console.error(error.response.data.errors || error.message);
         }
 
-        setProjectName('');
-        setProjectDescription('');
-        setProjectType('Classification');
-        setProjectDeadline('');
-        setDeadlineError('');
-        setIsCreateProjectModalOpen(false);
+        // Note: form reset and modal close handled on success above
     };
 
     const handleDeleteProject = async (projectId, e) => {

@@ -18,7 +18,7 @@ export default function ReviewersPanel({ onAssign, compact = false }) {
             try {
                 const res = await api.get('/Tasks/reviewers');
                 if (!mounted) return;
-                setReviewers(res?.data || []);
+                setReviewers(res.data?.data ?? res.data ?? []);
             } catch (e) {
                 console.error('Failed to fetch reviewers', e);
                 if (mounted) setError('Failed to load reviewers');
@@ -44,8 +44,15 @@ export default function ReviewersPanel({ onAssign, compact = false }) {
                         </div>
                         <div className="d-flex flex-column" style={{ minWidth: 0 }}>
                             <div className="fw-bold small mb-0" style={{ lineHeight: 1 }}>{r.name}</div>
-                            <div className="small text-muted" style={{ display: compact ? 'none' : 'block' }}>{r.email} • {r.activeReviewCount} active</div>
-                            {compact && <div className="small text-muted">{r.activeReviewCount} active</div>}
+                            <div className="small text-muted" style={{ display: compact ? 'none' : 'block' }}>
+                                {[
+                                    r.email,
+                                    `${r.activeReviewCount ?? 0} active`,
+                                    (typeof r.otherProjectAssignedTaskCount !== 'undefined') ? `${r.otherProjectAssignedTaskCount} other` : null,
+                                    r.specializedIn || null
+                                ].filter(Boolean).join(' • ')}
+                            </div>
+                            {compact && <div className="small text-muted">{`${r.activeReviewCount ?? 0} active`}</div>}
                         </div>
                     </div>
                     <div>

@@ -28,6 +28,9 @@ export const Profile = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [newName, setNewName] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
+    // --- Specialize In ---
+    const [specializeIn, setSpecializeIn] = useState('');
+    const [isEditingSpecialize, setIsEditingSpecialize] = useState(false);
 
     // --- States Thay đổi mật khẩu ---
     const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -48,6 +51,7 @@ export const Profile = () => {
             if (res?.data?.success && res?.data?.data) {
                 setProfile(res.data.data);
                 setNewName(res.data.data.name);
+                setSpecializeIn(res.data.data.specializeIn || '');
             } else {
                 setError('Failed to load profile data');
             }
@@ -65,17 +69,20 @@ export const Profile = () => {
 
     // Xử lý Cập nhật tên (PUT /api/profile)
     const handleUpdateName = async () => {
-        if (!newName.trim() || newName === profile.name) {
+        // proceed if either name or specializeIn changed
+        if (!newName.trim() || (newName === profile.name && specializeIn === (profile.specializeIn || ''))) {
             setIsEditing(false);
+            setIsEditingSpecialize(false);
             return;
         }
 
         setIsUpdating(true);
         try {
-            const res = await api.put('/profile', { name: newName });
-            if (res.data.success) {
-                setProfile({ ...profile, name: newName });
+            const res = await api.put('/profile', { name: newName, specializeIn });
+            if (res.data?.success) {
+                setProfile({ ...profile, name: newName, specializeIn });
                 setIsEditing(false);
+                setIsEditingSpecialize(false);
             }
         } catch (e) {
             await showAlert(e?.response?.data?.message || 'Update failed', 'Error', 'error');
@@ -183,6 +190,41 @@ export const Profile = () => {
                             />
 
                             <ProfileDetails profile={profile} />
+
+                            {/* Extra profile metadata and editable specializeIn */}
+                            <div className="mt-3 text-start">
+                                <div className="mb-2">
+                                    <strong>Email:</strong> <span className="text-muted">{profile.email}</span>
+                                </div>
+                                <div className="mb-2">
+                                    <strong>Role:</strong> <span className="text-muted">{profile.roleName || profile.role}</span>
+                                </div>
+                                <div className="mb-2">
+                                    <strong>Status:</strong> <span className="text-muted">{profile.statusName || profile.status}</span>
+                                </div>
+                                <div className="mb-2">
+                                    <strong>Created:</strong> <span className="text-muted">{profile.createdAt ? new Date(profile.createdAt).toLocaleString() : '-'}</span>
+                                </div>
+                                <div className="mb-2">
+                                    <strong>Last login:</strong> <span className="text-muted">{profile.lastLoginAt ? new Date(profile.lastLoginAt).toLocaleString() : '-'}</span>
+                                </div>
+
+                                <div className="mb-2 d-flex align-items-center gap-2">
+                                    <strong>Specialize in:</strong>
+                                    {!isEditingSpecialize ? (
+                                        <>
+                                            <span className="text-muted">{specializeIn || '-'}</span>
+                                            <button className="btn btn-sm btn-link ms-2" onClick={() => setIsEditingSpecialize(true)}><Edit2 size={14} /></button>
+                                        </>
+                                    ) : (
+                                        <div className="d-flex gap-2 align-items-center">
+                                            <input className="form-control form-control-sm" style={{ minWidth: 200 }} value={specializeIn} onChange={(e) => setSpecializeIn(e.target.value)} />
+                                            <button className="btn btn-sm btn-success" onClick={handleUpdateName} disabled={isUpdating}><Check size={14} /></button>
+                                            <button className="btn btn-sm btn-secondary" onClick={() => { setSpecializeIn(profile.specializeIn || ''); setIsEditingSpecialize(false); }}><X size={14} /></button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
 

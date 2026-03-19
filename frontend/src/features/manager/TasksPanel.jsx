@@ -69,7 +69,7 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
     const fetchAnnotators = async () => {
         try {
             const res = await api.get('/Tasks/annotators');
-            const annotatorsList = res?.data || [];
+            const annotatorsList = res.data?.data ?? res.data ?? [];
             setAnnotators(annotatorsList);
         } catch (e) {
             console.error('Failed to fetch annotators', e);
@@ -81,7 +81,7 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         setLoadingReviewers(true);
         try {
             const res = await api.get('/Tasks/reviewers');
-            const list = res?.data || [];
+            const list = res.data?.data ?? res.data ?? [];
             setReviewers(list);
         } catch (e) {
             console.error('Failed to fetch reviewers', e);
@@ -248,7 +248,14 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
     (tasksPage.items || []).forEach(it => {
         const aId = it.annotatorId ?? 0;
         if (!annotatorMap[aId]) {
-            annotatorMap[aId] = { id: aId, name: it.annotatorName || (aId === 0 ? 'Unassigned' : `Annotator ${aId}`), email: it.annotatorName || '' };
+            annotatorMap[aId] = {
+                id: aId,
+                name: it.annotatorName || (aId === 0 ? 'Unassigned' : `Annotator ${aId}`),
+                email: it.annotatorEmail || it.annotatorName || '',
+                specializedIn: it.annotatorSpecializedIn || it.specializedIn || it.specializeIn || undefined,
+                activeReviewCount: it.annotatorActiveReviewCount ?? undefined,
+                otherProjectAssignedTaskCount: it.otherProjectAssignedTaskCount ?? undefined
+            };
         }
     });
     const combinedAnnotators = Object.values(annotatorMap).sort((x, y) => (x.name || '').localeCompare(y.name || ''));
@@ -303,7 +310,10 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                         </div>
                                         <small className="text-muted">
                                             {assignee?.email && `${assignee.email} • `}
-                                            {tasks.length} tasks{assignee && ` • ${assignee.activeTaskCount} active`}
+                                            {tasks.length} tasks
+                                            {assignee && (typeof assignee.activeReviewCount !== 'undefined') && ` • ${assignee.activeReviewCount} reviews`}
+                                            {assignee && (typeof assignee.otherProjectAssignedTaskCount !== 'undefined') && ` • ${assignee.otherProjectAssignedTaskCount} other`}
+                                            {assignee && assignee.specializedIn && ` • Specialized in: ${assignee.specializedIn}`}
                                         </small>
                                     </div>
                                 </div>
@@ -605,9 +615,15 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                         </div>
                                         <div>
                                             <div className="fw-bold small mb-0">{r.email || r.name}</div>
-                                            <div className="small text-muted d-flex align-items-center gap-2">
-                                                <span>Active: <strong>{r.activeReviewCount}</strong></span>
-                                                <span>Other projects: <strong>{r.otherProjectAssignedTaskCount ?? 0}</strong></span>
+                                            <div className="small text-muted gap-2" style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <div className='d-flex gap-2'>
+                                                    <span>Active: <strong>{r.activeReviewCount}</strong></span>
+                                                    <span>Other projects: <strong>{r.otherProjectAssignedTaskCount ?? 0}</strong></span>
+                                                </div>
+
+                                                <div>
+                                                    {r.specializedIn && <span>Specialized in: <strong>{r.specializedIn}</strong></span>}
+                                                </div>
 
                                             </div>
                                         </div>
