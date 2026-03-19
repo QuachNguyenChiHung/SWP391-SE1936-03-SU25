@@ -10,55 +10,16 @@ namespace DataLabeling.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Add Rejected status to TaskItemStatus enum values (handled by EF Core string conversion)
-            // The enum change is already in code, this migration just creates the supporting table
-
-            migrationBuilder.CreateTable(
-                name: "Comment",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    TaskItemId = table.Column<int>(type: "int", nullable: false),
-                    AuthorId = table.Column<int>(type: "int", nullable: false),
-                    AuthorRole = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Comment", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Comment_TaskItem_TaskItemId",
-                        column: x => x.TaskItemId,
-                        principalTable: "TaskItem",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_Comment_User_AuthorId",
-                        column: x => x.AuthorId,
-                        principalTable: "User",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Comment_TaskItemId",
-                table: "Comment",
-                column: "TaskItemId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Comment_TaskItemId_AuthorRole",
-                table: "Comment",
-                columns: new[] { "TaskItemId", "AuthorRole" });
+            // Intentionally left blank.
+            // This migration was created with an out-of-order timestamp and would run
+            // before the initial schema migration. Comment table creation is handled in
+            // 20260313000003_CreateCommentsTable.
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "Comment");
+            // Intentionally left blank.
         }
     }
 }

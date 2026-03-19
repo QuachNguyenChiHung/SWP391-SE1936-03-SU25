@@ -18,9 +18,11 @@ namespace DataLabeling.Infrastructure.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     TaskItemId = table.Column<int>(type: "int", nullable: false),
-                    ReviewerId = table.Column<int>(type: "int", nullable: false),
+                    AuthorId = table.Column<int>(type: "int", nullable: false),
+                    AuthorRole = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()")
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -30,24 +32,24 @@ namespace DataLabeling.Infrastructure.Migrations
                         column: x => x.TaskItemId,
                         principalTable: "TaskItem",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_Comment_User_ReviewerId",
-                        column: x => x.ReviewerId,
+                        name: "FK_Comment_User_AuthorId",
+                        column: x => x.AuthorId,
                         principalTable: "User",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Comment_ReviewerId",
-                table: "Comment",
-                column: "ReviewerId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Comment_TaskItemId",
                 table: "Comment",
                 column: "TaskItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Comment_TaskItemId_AuthorRole",
+                table: "Comment",
+                columns: new[] { "TaskItemId", "AuthorRole" });
         }
 
         /// <inheritdoc />

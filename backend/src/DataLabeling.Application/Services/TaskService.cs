@@ -48,25 +48,14 @@ public class TaskService : ITaskService
         if (annotator.Status != UserStatus.Active)
             throw new ValidationException("Selected annotator is not active");
 
-        // Validate reviewer if provided
-        if (request.ReviewerId.HasValue)
-        {
-            var reviewer = await _unitOfWork.Users.GetByIdAsync(request.ReviewerId.Value, cancellationToken);
-            if (reviewer == null)
-                throw new NotFoundException("Reviewer", request.ReviewerId.Value);
-            if (reviewer.Role != UserRole.Reviewer)
-                throw new ValidationException("Selected user is not a reviewer");
-            if (reviewer.Status != UserStatus.Active)
-                throw new ValidationException("Selected reviewer is not active");
-        }
-
         // Create the task
         var task = new AnnotationTask
         {
             ProjectId = request.ProjectId,
             AnnotatorId = request.AnnotatorId,
             AssignedById = assignedById,
-            ReviewerId = request.ReviewerId,
+            Deadline = request.Deadline,
+            Priority = request.Priority,
             Status = AnnotationTaskStatus.Assigned,
             TotalItems = 0,
             CompletedItems = 0,
@@ -392,6 +381,8 @@ public class TaskService : ITaskService
             AssignedAt = task.AssignedAt,
             SubmittedAt = task.SubmittedAt,
             CompletedAt = task.CompletedAt,
+            Deadline = task.Deadline,
+            Priority = task.Priority,
             CreatedAt = task.CreatedAt,
             UpdatedAt = task.UpdatedAt,
             Items = items
@@ -579,6 +570,8 @@ public class TaskService : ITaskService
             AssignedAt = task.AssignedAt,
             SubmittedAt = task.SubmittedAt,
             CompletedAt = task.CompletedAt,
+            Deadline = task.Deadline,
+            Priority = task.Priority,
             CreatedAt = task.CreatedAt
         };
     }

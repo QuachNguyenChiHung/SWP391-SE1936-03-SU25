@@ -101,6 +101,8 @@ public class TasksController : ControllerBase
             AssignedAt = t.AssignedAt,
             SubmittedAt = t.SubmittedAt,
             CompletedAt = t.CompletedAt,
+            Deadline = t.Deadline,
+            Priority = t.Priority,
             CreatedAt = t.CreatedAt
         }).ToList();
 
@@ -152,6 +154,8 @@ public class TasksController : ControllerBase
             AssignedAt = task.AssignedAt,
             SubmittedAt = task.SubmittedAt,
             CompletedAt = task.CompletedAt,
+            Deadline = task.Deadline,
+            Priority = task.Priority,
             CreatedAt = task.CreatedAt,
             UpdatedAt = task.UpdatedAt,
             Items = task.TaskItems.Select(ti => new TaskItemDto

@@ -11,20 +11,23 @@ namespace DataLabeling.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "SpecializeIn",
-                table: "User",
-                type: "nvarchar(500)",
-                maxLength: 500,
-                nullable: true);
+            migrationBuilder.Sql(@"
+IF COL_LENGTH('User', 'SpecializeIn') IS NULL
+BEGIN
+    ALTER TABLE [User] ADD [SpecializeIn] nvarchar(500) NULL;
+END
+");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "SpecializeIn",
-                table: "User");
+            migrationBuilder.Sql(@"
+IF COL_LENGTH('User', 'SpecializeIn') IS NOT NULL
+BEGIN
+    ALTER TABLE [User] DROP COLUMN [SpecializeIn];
+END
+");
         }
     }
 }

@@ -1,3 +1,5 @@
+using DataLabeling.Core.Enums;
+
 namespace DataLabeling.Application.DTOs.Tasks;
 
 /// <summary>
@@ -16,9 +18,15 @@ public class CreateTaskRequest
     public int AnnotatorId { get; set; }
 
     /// <summary>
-    /// Optional reviewer ID to assign for reviewing this task's items.
+    /// Optional deadline for completing this task.
     /// </summary>
-    public int? ReviewerId { get; set; }
+    public DateTime? Deadline { get; set; }
+
+    /// <summary>
+    /// Priority level for this task.
+    /// Defaults to Medium when not specified.
+    /// </summary>
+    public TaskPriority Priority { get; set; } = TaskPriority.Medium;
 
     /// <summary>
     /// List of data item IDs to include in this task.
