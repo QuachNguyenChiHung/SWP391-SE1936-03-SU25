@@ -1,26 +1,42 @@
 import React, { useEffect, useState } from 'react';
 import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 import Modal from 'react-bootstrap/Modal';
 import Table from 'react-bootstrap/Table';
 import Spinner from 'react-bootstrap/Spinner';
-import { ChevronUp, ChevronDown, Tag, MoreHorizontal } from 'lucide-react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { useAlert } from '../../shared/context/AlertContext.jsx';
 
 import api from '../../shared/utils/api.js';
 
-// CSS for scrolling text animation
-const scrollingTextStyle = {
-    display: 'inline-block',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    maxWidth: '100%'
+const PRIORITY_OPTIONS = ['Low', 'Medium', 'High'];
+
+const validateDeadline = (value) => {
+    if (!value) return 'Deadline is required';
+    const regex = /^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+    if (!regex.test(value)) return 'Format must be dd/mm/yyyy';
+    const [day, month, year] = value.split('/').map(Number);
+    const parsedDate = new Date(year, month - 1, day);
+    if (parsedDate.getFullYear() !== year || parsedDate.getMonth() !== month - 1 || parsedDate.getDate() !== day) {
+        return 'Invalid date';
+    }
+    return '';
 };
 
-const scrollingTextInnerStyle = {
-    display: 'inline-block',
-    paddingRight: '20px',
-    animation: 'scroll-text 10s linear infinite'
+const toIsoStringFromDdMmYyyy = (value) => {
+    const [day, month, year] = value.split('/').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0)).toISOString();
+};
+
+const formatTaskDate = (value) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
 };
 
 export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadge, externalAssignTarget }) {
@@ -34,6 +50,9 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [selectedAssignee, setSelectedAssignee] = useState(null);
     const [selectedDataItemIds, setSelectedDataItemIds] = useState([]);
+    const [taskDeadline, setTaskDeadline] = useState('');
+    const [taskDeadlineError, setTaskDeadlineError] = useState('');
+    const [taskPriority, setTaskPriority] = useState('Medium');
     const [assigning, setAssigning] = useState(false);
     const DEFAULT_PAGE_SIZE = 12;
     const [dataItems, setDataItems] = useState({ items: [], totalCount: 0, pageNumber: 1, pageSize: DEFAULT_PAGE_SIZE, totalPages: 1 });
@@ -160,6 +179,9 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
     const openAssignModal = async (assignee) => {
         setSelectedAssignee(assignee);
         setSelectedDataItemIds([]);
+        setTaskDeadline('');
+        setTaskDeadlineError('');
+        setTaskPriority('Medium');
         setShowAssignModal(true);
         await fetchDataItems(1, DEFAULT_PAGE_SIZE);
     }
@@ -233,6 +255,9 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
     const closeAssignModal = () => {
         setShowAssignModal(false);
         setSelectedAssignee(null);
+        setTaskDeadline('');
+        setTaskDeadlineError('');
+        setTaskPriority('Medium');
     }
     // group tasksPage items by annotatorId for UI rendering
     const tasksByAnnotator = {};
@@ -356,6 +381,8 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                                             </div>
                                                             <div className="text-muted small">Assigned: {t.assignedAt ? new Date(t.assignedAt).toLocaleString() : (t.createdAt ? new Date(t.createdAt).toLocaleString() : '-')}</div>
                                                             <div className="text-muted small">Reviewer: {t.reviewerName || '-'}</div>
+                                                            <div className="text-muted small">Deadline: {formatTaskDate(t.deadline)}</div>
+                                                            <div className="text-muted small">Priority: {t.priority || 'Medium'}</div>
                                                         </div>
                                                     </div>
                                                     <div className="d-flex gap-3 align-items-center">
@@ -428,6 +455,8 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                     <div className="fw-bold">{taskDetail.projectName}</div>
                                     <div className="small text-muted">Annotator: {taskDetail.annotatorName}</div>
                                     <div className="small text-muted">Assigned by: {taskDetail.assignedByName}</div>
+                                    <div className="small text-muted">Deadline: {formatTaskDate(taskDetail.deadline)}</div>
+                                    <div className="small text-muted">Priority: {taskDetail.priority || 'Medium'}</div>
                                 </div>
                                 <div className="text-end">
                                     <div className="small text-muted">Status</div>
@@ -566,32 +595,66 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                         </div>
                         <div className="text-muted small">Page {dataItems.pageNumber} / {dataItems.totalPages} • {dataItems.totalCount} items</div>
                     </div>
-                    <div className="ms-3">
-                        <Button variant="primary" size="sm" disabled={!selectedAssignee || selectedDataItemIds.length === 0 || assigning} onClick={async () => {
-                            if (!selectedAssignee) return;
-                            const pId = Number(getProjectIdFromPropsOrPath());
-                            const payload = {
-                                projectId: pId,
-                                annotatorId: Number(selectedAssignee.id),
-                                dataItemIds: selectedDataItemIds.map(id => Number(id))
-                            };
-                            try {
-                                console.log('Assigning with payload:', payload);
-                                setAssigning(true);
-                                await api.post('/Tasks', payload, { headers: { 'Content-Type': 'application/json' } });
-                                setAssigning(false);
-                                setShowAssignModal(false);
-                                setSelectedDataItemIds([]);
-                                await showAlert('Assigned successfully', 'Success', 'success');
-                                // refresh tasks list and annotators
-                                fetchTasks(tasksPage.pageNumber, tasksPage.pageSize);
-                                fetchAnnotators();
-                            } catch (err) {
-                                console.error('Failed to assign items', err.message || err || err.response);
-                                setAssigning(false);
-                                await showAlert('Failed to assign items', 'Error', 'error');
-                            }
-                        }}>{assigning ? 'Assigning...' : `Assign Selected (${selectedDataItemIds.length})`}</Button>
+                    <div className="ms-3 d-flex flex-column gap-2 w-100">
+                        <div className="d-flex flex-wrap gap-3">
+                            <div style={{ minWidth: 240 }} className="flex-grow-1">
+                                <Form.Label className="small fw-semibold mb-1">Deadline (dd/mm/yyyy)</Form.Label>
+                                <Form.Control
+                                    type="text"
+                                    placeholder="dd/mm/yyyy"
+                                    value={taskDeadline}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        setTaskDeadline(value);
+                                        setTaskDeadlineError(validateDeadline(value));
+                                    }}
+                                />
+                                {taskDeadlineError && <div className="text-danger small mt-1">{taskDeadlineError}</div>}
+                            </div>
+                            <div style={{ minWidth: 180 }}>
+                                <Form.Label className="small fw-semibold mb-1">Priority</Form.Label>
+                                <Form.Select value={taskPriority} onChange={(e) => setTaskPriority(e.target.value)}>
+                                    {PRIORITY_OPTIONS.map((priority) => (
+                                        <option key={priority} value={priority}>{priority}</option>
+                                    ))}
+                                </Form.Select>
+                            </div>
+                        </div>
+                        <div className="d-flex justify-content-end">
+                            <Button variant="primary" size="sm" disabled={!selectedAssignee || selectedDataItemIds.length === 0 || assigning || Boolean(taskDeadlineError) || !taskDeadline} onClick={async () => {
+                                if (!selectedAssignee) return;
+                                const deadlineError = validateDeadline(taskDeadline);
+                                if (deadlineError) {
+                                    setTaskDeadlineError(deadlineError);
+                                    await showAlert('Please choose a deadline before assigning tasks', 'Validation', 'warning');
+                                    return;
+                                }
+                                const pId = Number(getProjectIdFromPropsOrPath());
+                                const payload = {
+                                    projectId: pId,
+                                    annotatorId: Number(selectedAssignee.id),
+                                    deadline: toIsoStringFromDdMmYyyy(taskDeadline),
+                                    priority: taskPriority,
+                                    dataItemIds: selectedDataItemIds.map(id => Number(id))
+                                };
+                                try {
+                                    console.log('Assigning with payload:', payload);
+                                    setAssigning(true);
+                                    await api.post('/Tasks', payload, { headers: { 'Content-Type': 'application/json' } });
+                                    setAssigning(false);
+                                    setShowAssignModal(false);
+                                    setSelectedDataItemIds([]);
+                                    await showAlert('Assigned successfully', 'Success', 'success');
+                                    // refresh tasks list and annotators
+                                    fetchTasks(tasksPage.pageNumber, tasksPage.pageSize);
+                                    fetchAnnotators();
+                                } catch (err) {
+                                    console.error('Failed to assign items', err.message || err || err.response);
+                                    setAssigning(false);
+                                    await showAlert('Failed to assign items', 'Error', 'error');
+                                }
+                            }}>{assigning ? 'Assigning...' : `Assign Selected (${selectedDataItemIds.length})`}</Button>
+                        </div>
                     </div>
                 </Modal.Footer>
             </Modal>
