@@ -117,6 +117,11 @@ public class UserService : IUserService
             user.Status = request.Status.Value;
         }
 
+        if (request.SpecializeIn != null)
+        {
+            user.SpecializeIn = request.SpecializeIn;
+        }
+
         user.UpdatedAt = DateTime.UtcNow;
 
         _userRepository.Update(user);

@@ -9,4 +9,9 @@ public class UpdateProfileRequest
     /// User's full name.
     /// </summary>
     public required string Name { get; set; }
+
+    /// <summary>
+    /// Areas of specialization for the user.
+    /// </summary>
+    public string? SpecializeIn { get; set; }
 }

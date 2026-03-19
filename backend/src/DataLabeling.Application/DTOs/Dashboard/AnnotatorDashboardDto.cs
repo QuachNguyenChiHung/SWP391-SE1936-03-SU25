@@ -6,6 +6,10 @@ namespace DataLabeling.Application.DTOs.Dashboard;
 public class AnnotatorDashboardDto
 {
     /// <summary>
+    /// Annotator specialization (areas of expertise).
+    /// </summary>
+    public string? SpecializeIn { get; set; }
+    /// <summary>
     /// Annotator statistics.
     /// </summary>
     public AnnotatorStatsDto Stats { get; set; } = new();

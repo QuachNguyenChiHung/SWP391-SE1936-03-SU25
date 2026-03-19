@@ -479,6 +479,8 @@ public class TaskService : ITaskService
                 Name = annotator.Name,
                 Email = annotator.Email,
                 ActiveTaskCount = activeTaskCount
+                ,
+                SpecializedIn = annotator.SpecializeIn
             });
         }
 
@@ -523,6 +525,8 @@ public class TaskService : ITaskService
                 Email = reviewer.Email,
                 ActiveReviewCount = activeReviewCount,
                 OtherProjectAssignedTaskCount = otherProjectAssignedCount
+                ,
+                SpecializedIn = reviewer.SpecializeIn
             });
         }
 
