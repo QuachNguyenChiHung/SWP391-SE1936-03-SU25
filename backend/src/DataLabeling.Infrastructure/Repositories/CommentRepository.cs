@@ -18,6 +18,7 @@ public class CommentRepository : Repository<Comment>, ICommentRepository
     public async Task<IEnumerable<Comment>> GetCommentsByTaskItemIdAsync(int taskItemId)
     {
         return await _dbSet
+            .Include(c => c.Author)
             .Where(c => c.TaskItemId == taskItemId)
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
