@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react';
 import { useUI } from '../../shared/context/UIContext.jsx';
 
 export const AnnotationSidebar = ({
@@ -13,7 +13,9 @@ export const AnnotationSidebar = ({
     totalAnnotationsCount = 0,
     selectedAnnotationId,
     setSelectedAnnotationId,
-    handleDeleteAnnotation
+    handleDeleteAnnotation,
+    projectGuideline,
+    onDownloadGuideline,
 }) => {
     const { language } = useUI();
     const copy = {
@@ -30,9 +32,10 @@ export const AnnotationSidebar = ({
             deleteAnnotation: 'Delete annotation',
             delete: 'Delete',
             guidelinesTitle: 'Labeling Guidelines',
-            guideline1: 'Draw tight boxes around visible vehicles.',
-            guideline2: 'Include side mirrors, exclude antennas.',
-            guideline3: 'Ignore occluded vehicles less than 20% visible.'
+            guidelinesEmpty: 'No guideline has been uploaded for this project yet.',
+            guidelinesLoading: 'Loading guideline...',
+            guidelinesBinary: 'This guideline was uploaded as a file. Use download to open it.',
+            download: 'Download guideline'
         },
         vi: {
             labelClasses: 'Nhom nhan',
@@ -47,9 +50,10 @@ export const AnnotationSidebar = ({
             deleteAnnotation: 'Xoa annotation',
             delete: 'Xoa',
             guidelinesTitle: 'Huong dan gan nhan',
-            guideline1: 'Ve khung sat voi xe dang hien thi.',
-            guideline2: 'Bao gom guong chieu hau, loai bo anten.',
-            guideline3: 'Bo qua xe bi che khuat duoi 20%.'
+            guidelinesEmpty: 'Chua co guideline nao duoc tai len cho du an nay.',
+            guidelinesLoading: 'Dang tai guideline...',
+            guidelinesBinary: 'Guideline nay duoc tai len duoi dang file. Hay tai xuong de mo.',
+            download: 'Tai guideline'
         }
     };
     const t = copy[language] || copy.en;
@@ -58,6 +62,9 @@ export const AnnotationSidebar = ({
     const classes = Array.isArray(projectClasses) ? projectClasses : [];
     const annotationsList = Array.isArray(annotations) ? annotations : [];
     const counts = labelCountsById && typeof labelCountsById === 'object' ? labelCountsById : {};
+    const guideline = projectGuideline && typeof projectGuideline === 'object' ? projectGuideline : {};
+    const hasGuidelineContent = Boolean(guideline.content && String(guideline.content).trim());
+    const hasGuidelineFile = Boolean(guideline.hasFile);
 
     const getLabelCount = (labelId) => {
         if (labelId === null || labelId === undefined) return 0;
@@ -199,15 +206,39 @@ export const AnnotationSidebar = ({
 
                 {/* Guidelines */}
                 <div className="guidelines-box">
-                    <div className="guidelines-title">
-                        <AlertCircle size={14} />
-                        <span>{t.guidelinesTitle}</span>
+                    <div className="guidelines-title d-flex align-items-center justify-content-between gap-2">
+                        <div className="d-flex align-items-center gap-2">
+                            <AlertCircle size={14} />
+                            <span>{t.guidelinesTitle}</span>
+                        </div>
+                        {hasGuidelineFile && onDownloadGuideline ? (
+                            <button
+                                type="button"
+                                onClick={onDownloadGuideline}
+                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                                style={{ fontSize: '0.625rem' }}
+                            >
+                                <Download size={12} /> {t.download}
+                            </button>
+                        ) : null}
                     </div>
-                    <ul className="guidelines-list">
-                        <li>{t.guideline1}</li>
-                        <li>{t.guideline2}</li>
-                        <li>{t.guideline3}</li>
-                    </ul>
+                    {guideline.isLoading ? (
+                        <div className="text-muted fst-italic" style={{ fontSize: '0.75rem' }}>{t.guidelinesLoading}</div>
+                    ) : hasGuidelineContent ? (
+                        <div className="p-3 bg-white rounded border" style={{ whiteSpace: 'pre-wrap', fontSize: '0.8rem', lineHeight: 1.5, maxHeight: '220px', overflowY: 'auto' }}>
+                            {guideline.content}
+                        </div>
+                    ) : hasGuidelineFile ? (
+                        <div className="d-flex flex-column gap-2">
+                            <div className="d-flex align-items-center gap-2 text-muted" style={{ fontSize: '0.75rem' }}>
+                                <FileText size={14} />
+                                <span>{guideline.fileName || t.guidelinesBinary}</span>
+                            </div>
+                            <div className="text-muted fst-italic" style={{ fontSize: '0.75rem' }}>{t.guidelinesBinary}</div>
+                        </div>
+                    ) : (
+                        <div className="text-muted fst-italic" style={{ fontSize: '0.75rem' }}>{t.guidelinesEmpty}</div>
+                    )}
                 </div>
             </div>
         </div>

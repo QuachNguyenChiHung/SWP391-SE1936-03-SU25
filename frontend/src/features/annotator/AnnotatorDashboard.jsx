@@ -38,6 +38,7 @@ const formatCompact = (value) => Number(value || 0).toLocaleString();
 
 export const AnnotatorDashboard = ({ user }) => {
     const { language } = useUI();
+    const isDark = false;
 
     const copy = {
         en: {

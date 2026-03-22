@@ -20,9 +20,6 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
     return (
         <div className="card border-0 shadow-sm">
             <div className="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
-                <div className="d-flex gap-2">
-                    <Button variant="secondary" size="sm" className="d-flex align-items-center gap-2">Filter</Button>
-                </div>
                 <small className="text-muted">Showing {dataSet?.totalCount ?? 0} items</small>
             </div>
             <div className="table-responsive">

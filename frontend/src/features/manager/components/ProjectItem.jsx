@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Calendar, Tag, Trash2 } from 'lucide-react';
+import { Calendar, Tag } from 'lucide-react';
 import { useUI } from '../../../shared/context/UIContext.jsx';
 
 const copy = {
@@ -25,8 +25,7 @@ const copy = {
 // Props:
 // - project: object
 // - onClick: func(project)
-// - onDelete: func(projectId, e)
-const ProjectItem = ({ project, onClick, onDelete }) => {
+const ProjectItem = ({ project, onClick }) => {
   const progress = project.totalItems > 0 ? Math.round((project.finishedItems / project.totalItems) * 100) : 0;
   const { language } = useUI();
   const t = copy[language] || copy.en;
@@ -84,12 +83,6 @@ const ProjectItem = ({ project, onClick, onDelete }) => {
             </div>
           </div>
 
-          <div className="d-flex justify-content-end mt-2">
-            <button onClick={(e) => { e.stopPropagation(); onDelete?.(project.id, e); }} className="btn btn-sm btn-danger d-flex align-items-center gap-2">
-              <Trash2 size={14} />
-              <span className="d-none d-sm-inline">{t.delete}</span>
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -99,7 +92,6 @@ const ProjectItem = ({ project, onClick, onDelete }) => {
 ProjectItem.propTypes = {
   project: PropTypes.object.isRequired,
   onClick: PropTypes.func,
-  onDelete: PropTypes.func,
 };
 
 export default ProjectItem;

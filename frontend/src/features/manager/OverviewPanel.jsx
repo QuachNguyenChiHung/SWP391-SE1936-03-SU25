@@ -5,8 +5,9 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import Button from 'react-bootstrap/Button';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 
-export default function OverviewPanel({ project, openImportModal, openGuidelines, openEditProject }) {
+export default function OverviewPanel({ project, openImportModal, openGuidelines, openEditProject, onDeleteProject }) {
     if (!project) return null;
+    const hasBlockingTasks = (project.taskCount || 0) > 0;
     const StatusBadge = ({ status }) => {
         const config = {
             [ProjectStatus.Active]: { bg: '#eff6ff', text: '#1e40af', icon: Clock, label: 'Active' },
@@ -85,10 +86,14 @@ export default function OverviewPanel({ project, openImportModal, openGuidelines
                                 <span className="d-flex align-items-center gap-2">Edit Project</span>
                             </Button>
                             <hr className="my-2" />
-                            <Button variant="danger">Delete Project</Button>
-                            <p className="mt-2 mb-0">In case of unable to delete an item:</p>
-                            <p className="mb-0">1. Item has associated tasks and dataset that must be deleted first.</p>
-                            <div>2. There is a server issue. Please contact support.</div>
+                            <Button variant="danger" onClick={hasBlockingTasks ? undefined : onDeleteProject} disabled={hasBlockingTasks}>
+                                Delete Project
+                            </Button>
+                            {hasBlockingTasks ? (
+                                <p className="mt-2 mb-0 text-muted small">This project still has {project.taskCount} task{project.taskCount === 1 ? '' : 's'}, so delete is blocked.</p>
+                            ) : (
+                                <p className="mt-2 mb-0 text-muted small">Dataset, guideline, and labels will be removed automatically when this project is deleted.</p>
+                            )}
                         </div>
                     </div>
                 </div>

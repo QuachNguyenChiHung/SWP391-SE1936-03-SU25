@@ -33,6 +33,7 @@ export const AnnotatorWorkspace = ({ user }) => {
     const copy = {
         en: {
             failedLoadProjectLabels: 'Failed to load project labels',
+            failedLoadGuideline: 'Failed to load project guideline',
             failedLoadItems: 'Failed to load items',
             failedLoadAnnotations: 'Failed to load annotations',
             cannotEditSubmitted: 'Cannot edit - task has been submitted',
@@ -115,6 +116,7 @@ export const AnnotatorWorkspace = ({ user }) => {
         },
         vi: {
             failedLoadProjectLabels: 'Khong tai duoc nhan du an',
+            failedLoadGuideline: 'Khong tai duoc guideline cua du an',
             failedLoadItems: 'Khong tai duoc danh sach muc',
             failedLoadAnnotations: 'Khong tai duoc annotation',
             cannotEditSubmitted: 'Khong the sua - task da duoc nop',
@@ -215,6 +217,15 @@ export const AnnotatorWorkspace = ({ user }) => {
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [showGuidelines, setShowGuidelines] = useState(true);
     const [projectLabels, setProjectLabels] = useState([]);
+    const [projectGuideline, setProjectGuideline] = useState({
+        content: '',
+        fileName: '',
+        fileSize: 0,
+        contentType: '',
+        hasFile: false,
+        isLoading: false,
+        error: '',
+    });
 
     // Rejected items map: taskId -> count
     const [rejectedMap, setRejectedMap] = useState({});
@@ -380,6 +391,97 @@ export const AnnotatorWorkspace = ({ user }) => {
 
         fetchProjectLabels();
     }, [selectedBatch?.projectId]);
+
+    useEffect(() => {
+        let mounted = true;
+
+        const isTextLike = (contentType, fileName) => {
+            if (contentType && contentType.startsWith('text/')) return true;
+            return /\.(txt|md|csv|json|xml|log)$/i.test(fileName || '');
+        };
+
+        const fetchProjectGuideline = async () => {
+            if (!selectedBatch?.projectId) {
+                setProjectGuideline({
+                    content: '',
+                    fileName: '',
+                    fileSize: 0,
+                    contentType: '',
+                    hasFile: false,
+                    isLoading: false,
+                    error: '',
+                });
+                return;
+            }
+
+            setProjectGuideline(prev => ({ ...prev, isLoading: true, error: '' }));
+
+            try {
+                const res = await api.get(`/Projects/${selectedBatch.projectId}/guideline`);
+                const guideline = res?.data?.data ?? res?.data ?? {};
+                const fileName = guideline.fileName || '';
+                const contentType = guideline.contentType || '';
+                const hasFile = Boolean(fileName);
+                let content = guideline.content || '';
+
+                if (!content && hasFile && isTextLike(contentType, fileName)) {
+                    const downloadRes = await api.get(`/Projects/${selectedBatch.projectId}/guideline/download`, { responseType: 'blob' });
+                    const blob = new Blob([downloadRes.data], { type: downloadRes.headers['content-type'] || contentType || 'text/plain' });
+                    content = await blob.text();
+                }
+
+                if (!mounted) return;
+
+                setProjectGuideline({
+                    content,
+                    fileName,
+                    fileSize: guideline.fileSize || 0,
+                    contentType,
+                    hasFile,
+                    isLoading: false,
+                    error: '',
+                });
+            } catch (error) {
+                if (!mounted) return;
+                console.warn('Failed to load project guideline', error);
+                setProjectGuideline({
+                    content: '',
+                    fileName: '',
+                    fileSize: 0,
+                    contentType: '',
+                    hasFile: false,
+                    isLoading: false,
+                    error: t.failedLoadGuideline,
+                });
+            }
+        };
+
+        fetchProjectGuideline();
+
+        return () => {
+            mounted = false;
+        };
+    }, [selectedBatch?.projectId]);
+
+    const handleDownloadGuideline = async () => {
+        if (!selectedBatch?.projectId || !projectGuideline.hasFile) return;
+
+        try {
+            const response = await api.get(`/Projects/${selectedBatch.projectId}/guideline/download`, { responseType: 'blob' });
+            const blob = new Blob([response.data], { type: response.headers['content-type'] || projectGuideline.contentType || 'application/octet-stream' });
+            const objectUrl = window.URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = objectUrl;
+            anchor.download = projectGuideline.fileName || 'guideline';
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            window.URL.revokeObjectURL(objectUrl);
+        } catch (error) {
+            console.warn('Failed to download guideline', error);
+            showToast('Failed to download guideline', 'error');
+        }
+    };
 
     // Reset pagination when filters change
     useEffect(() => {
@@ -2008,6 +2110,8 @@ export const AnnotatorWorkspace = ({ user }) => {
                         selectedAnnotationId={selectedAnnotationId}
                         setSelectedAnnotationId={setSelectedAnnotationId}
                         handleDeleteAnnotation={handleDeleteAnnotation}
+                        projectGuideline={projectGuideline}
+                        onDownloadGuideline={handleDownloadGuideline}
                     />
 
                     {/* Comments Section - Show when item is selected */}

@@ -37,6 +37,15 @@ export const ManagerProjectDetails = ({ user }) => {
     const [isGuidelinesModalOpen, setIsGuidelinesModalOpen] = useState(false);
     const [guidelinesText, setGuidelinesText] = useState('');
     const [isEditingGuidelines, setIsEditingGuidelines] = useState(false);
+    const [guidelineFile, setGuidelineFile] = useState(null);
+    const [guidelineInfo, setGuidelineInfo] = useState({
+        fileName: '',
+        fileSize: 0,
+        contentType: '',
+        fileUrl: '',
+        updatedAt: null,
+    });
+    const [isGuidelineSaving, setIsGuidelineSaving] = useState(false);
     const [dataSet, setDataSet] = useState([]);
     const [dataPage, setDataPage] = useState(1);
     const [dataLoading, setDataLoading] = useState(true);
@@ -139,10 +148,16 @@ export const ManagerProjectDetails = ({ user }) => {
         }
     };
     const removeSelectedFile = (index) => setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-    const handleDelete = async () => {
-
+    const handleDeleteProject = async () => {
+        if ((project?.taskCount || 0) > 0) {
+            await showAlert('This project still has tasks, so it cannot be deleted.', 'Error', 'error');
+            setShowDeleteModal(false);
+            return;
+        }
         try {
             await api.delete(`/Projects/${pid}`);
+            await showAlert('Project deleted', 'Success', 'success');
+            navigate('/manager/projects');
         } catch (error) {
             await showAlert('Failed to delete project. Read the note below the Delete button for more information.', 'Error', 'error');
             console.warn('Failed to delete project', error.response);
@@ -193,17 +208,102 @@ export const ManagerProjectDetails = ({ user }) => {
     };
 
     // --- LOGIC: Guidelines ---
-    const openGuidelines = () => {
-        if (project) {
-            setGuidelinesText(project.guidelines || '');
-            setIsEditingGuidelines(false);
-            setIsGuidelinesModalOpen(true);
+    const loadGuidelines = async () => {
+        if (!pid) return;
+        try {
+            const response = await api.get(`/Projects/${pid}/guideline`);
+            const guideline = response.data?.data ?? response.data ?? {};
+            setGuidelinesText(guideline.content || '');
+            setGuidelineInfo({
+                fileName: guideline.fileName || '',
+                fileSize: guideline.fileSize || 0,
+                contentType: guideline.contentType || '',
+                fileUrl: guideline.fileUrl || '',
+                updatedAt: guideline.updatedAt || null,
+            });
+        } catch (error) {
+            console.warn('Failed to load guideline', error);
+            setGuidelinesText('');
+            setGuidelineInfo({
+                fileName: '',
+                fileSize: 0,
+                contentType: '',
+                fileUrl: '',
+                updatedAt: null,
+            });
         }
     };
-    const handleSaveGuidelines = () => {
-        if (project) {
-            project.guidelines = guidelinesText;
+
+    const openGuidelines = async () => {
+        if (!project) return;
+        setIsEditingGuidelines(false);
+        setGuidelineFile(null);
+        await loadGuidelines();
+        setIsGuidelinesModalOpen(true);
+    };
+
+    const handleGuidelineFileSelect = (event) => {
+        const file = event.target.files?.[0] ?? null;
+        setGuidelineFile(file);
+
+        if (!file) return;
+
+        const isTextLikeFile =
+            (file.type && file.type.startsWith('text/')) ||
+            /\.(txt|md|csv|json|xml|log)$/i.test(file.name);
+
+        if (!isTextLikeFile) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            const content = typeof reader.result === 'string' ? reader.result : '';
+            setGuidelinesText(content);
+        };
+        reader.onerror = () => {
+            console.warn('Failed to read guideline file content');
+        };
+        reader.readAsText(file);
+    };
+
+    const handleSaveGuidelines = async () => {
+        if (!project) return;
+        try {
+            setIsGuidelineSaving(true);
+            const fileName = guidelineFile?.name || `${project.name || 'guideline'}.txt`;
+            const fileToUpload = guidelineFile || new File([guidelinesText || ''], fileName, { type: 'text/plain' });
+            const form = new FormData();
+            form.append('file', fileToUpload);
+            await api.post(`/Projects/${pid}/guideline/upload`, form, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            await loadGuidelines();
+            setGuidelineFile(null);
             setIsEditingGuidelines(false);
+            await showAlert('Guideline saved', 'Success', 'success');
+        } catch (error) {
+            console.warn('Failed to save guideline', error);
+            await showAlert('Failed to save guideline', 'Error', 'error');
+        } finally {
+            setIsGuidelineSaving(false);
+        }
+    };
+
+    const handleDownloadGuideline = async () => {
+        try {
+            const downloadUrl = guidelineInfo.fileUrl || `/Projects/${pid}/guideline/download`;
+            const response = await api.get(downloadUrl, { responseType: 'blob' });
+            const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' });
+            const objectUrl = window.URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = objectUrl;
+            anchor.download = guidelineInfo.fileName || 'guideline';
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            window.URL.revokeObjectURL(objectUrl);
+        } catch (error) {
+            console.warn('Failed to download guideline', error);
+            await showAlert('Failed to download guideline', 'Error', 'error');
         }
     };
 
@@ -380,6 +480,11 @@ export const ManagerProjectDetails = ({ user }) => {
             setDataPage={setDataPage}
             handleDeleteDataItem={handleDeleteDataItem}
 
+            // Delete project
+            showDeleteModal={showDeleteModal}
+            setShowDeleteModal={setShowDeleteModal}
+            handleDeleteProject={handleDeleteProject}
+
             // Import modal handlers
             isImportModalOpen={isImportModalOpen}
             openImportModal={() => setIsImportModalOpen(true)}
@@ -398,6 +503,12 @@ export const ManagerProjectDetails = ({ user }) => {
             isEditingGuidelines={isEditingGuidelines}
             guidelinesText={guidelinesText}
             setGuidelinesText={setGuidelinesText}
+            setIsEditingGuidelines={setIsEditingGuidelines}
+            guidelineInfo={guidelineInfo}
+            guidelineFile={guidelineFile}
+            onGuidelineFileSelect={handleGuidelineFileSelect}
+            onDownloadGuideline={handleDownloadGuideline}
+            isGuidelineSaving={isGuidelineSaving}
             handleSaveGuidelines={handleSaveGuidelines}
 
             // Edit project

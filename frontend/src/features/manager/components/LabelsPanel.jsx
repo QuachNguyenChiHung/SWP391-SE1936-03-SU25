@@ -37,14 +37,6 @@ export default function LabelsPanel({ listLabels, openAddLabel, openEditLabelMod
                         </div>
                     </div>
                 )}
-                <div className="col-12 col-md-6 col-lg-3">
-                    <button onClick={openAddLabel} className="card border border-2 border-dashed bg-light h-100 w-100 p-0 text-muted hover-bg-light" style={{ minHeight: '80px' }}>
-                        <div className="card-body d-flex flex-column align-items-center justify-content-center">
-                            <Plus size={24} className="mb-1" />
-                            <span className="small fw-medium">Create New Label</span>
-                        </div>
-                    </button>
-                </div>
             </div>
         </div>
     );

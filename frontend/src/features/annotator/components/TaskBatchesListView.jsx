@@ -1,7 +1,7 @@
-import { Calendar, Check, Layers, Trash2 } from 'lucide-react';
+import { Calendar, Check, Layers } from 'lucide-react';
 import { useUI } from '../../../shared/context/UIContext.jsx';
 
-const BatchCard = ({ batch, onSelectBatch, onDeleteTask, t }) => (
+const BatchCard = ({ batch, onSelectBatch, t }) => (
     <div key={batch.id} className="col">
         <div
             onClick={() => onSelectBatch(batch)}
@@ -80,19 +80,6 @@ const BatchCard = ({ batch, onSelectBatch, onDeleteTask, t }) => (
                 <span className={`status-badge ${batch.status === 'Completed' ? 'completed' : batch.status === 'InProgress' ? 'in-progress' : 'pending'}`}>
                     {batch.status}
                 </span>
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteTask(batch.id);
-                    }}
-                    className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
-                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
-                    title={batch.totalItems > 0 ? t.deleteAllItemsFirst : t.deleteTask}
-                    disabled={batch.totalItems > 0}
-                >
-                    <Trash2 size={12} />
-                    {t.delete}
-                </button>
             </div>
         </div>
     </div>
