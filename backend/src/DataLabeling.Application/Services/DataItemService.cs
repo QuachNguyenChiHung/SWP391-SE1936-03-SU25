@@ -195,6 +195,7 @@ public class DataItemService : IDataItemService
         int pageNumber,
         int pageSize,
         DataItemStatus? status = null,
+        string? searchTerm = null,
         CancellationToken cancellationToken = default)
     {
         var dataset = await _unitOfWork.Datasets.GetByProjectIdAsync(projectId, cancellationToken);
@@ -210,7 +211,7 @@ public class DataItemService : IDataItemService
         }
 
         var (items, totalCount) = await _unitOfWork.DataItems.GetPagedAsync(
-            dataset.Id, pageNumber, pageSize, status, cancellationToken);
+            dataset.Id, pageNumber, pageSize, status, searchTerm, cancellationToken);
 
         var dtos = _mapper.Map<IEnumerable<DataItemDto>>(items).ToList();
 

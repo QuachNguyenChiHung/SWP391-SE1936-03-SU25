@@ -132,6 +132,7 @@ public class DataItemsController : ControllerBase
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] DataItemStatus? status = null,
+        [FromQuery] string? search = null,
         CancellationToken cancellationToken = default)
     {
         var project = await _uow.Projects.GetByIdAsync(projectId, cancellationToken);
@@ -150,7 +151,7 @@ public class DataItemsController : ControllerBase
         }
 
         var result = await _dataItemService.GetDataItemsAsync(
-            projectId, pageNumber, pageSize, status, cancellationToken);
+            projectId, pageNumber, pageSize, status, search, cancellationToken);
 
         return Ok(result);
     }

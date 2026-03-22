@@ -41,6 +41,7 @@ public interface IDataItemRepository : IRepository<DataItem>
         int pageNumber,
         int pageSize,
         DataItemStatus? status = null,
+        string? searchTerm = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -44,6 +44,7 @@ public interface IDataItemService
         int pageNumber,
         int pageSize,
         DataItemStatus? status = null,
+        string? searchTerm = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -67,6 +67,7 @@ public class TasksController : ControllerBase
         [FromQuery] int pageSize = 10,
         [FromQuery] int? projectId = null,
         [FromQuery] AnnotationTaskStatus? status = null,
+        [FromQuery] string? search = null,
         CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
@@ -83,7 +84,7 @@ public class TasksController : ControllerBase
         // Manager can optionally filter by project (only their projects)
         // Admin sees all
         var (items, totalCount) = await _uow.AnnotationTasks.GetPagedAsync(
-            pageNumber, pageSize, projectId, annotatorFilter, status, cancellationToken);
+            pageNumber, pageSize, projectId, annotatorFilter, status, search, cancellationToken);
 
         var result = items.Select(t => new TaskDto
         {

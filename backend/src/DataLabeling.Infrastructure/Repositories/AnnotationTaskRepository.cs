@@ -70,9 +70,13 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
         int? projectId = null,
         int? annotatorId = null,
         AnnotationTaskStatus? status = null,
+        string? searchTerm = null,
         CancellationToken cancellationToken = default)
     {
-        var query = _dbSet.AsQueryable();
+        var query = _dbSet
+            .Include(t => t.TaskItems)
+                .ThenInclude(ti => ti.DataItem)
+            .AsQueryable();
 
         if (projectId.HasValue)
             query = query.Where(t => t.ProjectId == projectId.Value);
@@ -82,6 +86,17 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
 
         if (status.HasValue)
             query = query.Where(t => t.Status == status.Value);
+
+        // Add search filter
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var search = searchTerm.ToLower();
+            query = query.Where(t => 
+                t.Annotator.Name.ToLower().Contains(search) ||
+                (t.Reviewer != null && t.Reviewer.Name.ToLower().Contains(search)) ||
+                t.TaskItems.Any(ti => ti.DataItem.FileName.ToLower().Contains(search))
+            );
+        }
 
         var totalCount = await query.CountAsync(cancellationToken);
 

@@ -67,12 +67,20 @@ public class DataItemRepository : Repository<DataItem>, IDataItemRepository
         int pageNumber,
         int pageSize,
         DataItemStatus? status = null,
+        string? searchTerm = null,
         CancellationToken cancellationToken = default)
     {
         var query = _dbSet.Where(d => d.DatasetId == datasetId);
 
         if (status.HasValue)
             query = query.Where(d => d.Status == status.Value);
+
+        // Add search filter
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var search = searchTerm.ToLower();
+            query = query.Where(d => d.FileName.ToLower().Contains(search));
+        }
 
         var totalCount = await query.CountAsync(cancellationToken);
 
