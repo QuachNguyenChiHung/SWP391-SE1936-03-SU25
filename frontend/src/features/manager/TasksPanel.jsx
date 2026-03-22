@@ -14,19 +14,15 @@ const PRIORITY_OPTIONS = ['Low', 'Medium', 'High'];
 
 const validateDeadline = (value) => {
     if (!value) return 'Deadline is required';
-    const regex = /^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
-    if (!regex.test(value)) return 'Format must be dd/mm/yyyy';
-    const [day, month, year] = value.split('/').map(Number);
-    const parsedDate = new Date(year, month - 1, day);
-    if (parsedDate.getFullYear() !== year || parsedDate.getMonth() !== month - 1 || parsedDate.getDate() !== day) {
+    const parsedDate = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsedDate.getTime())) {
         return 'Invalid date';
     }
     return '';
 };
 
 const toIsoStringFromDdMmYyyy = (value) => {
-    const [day, month, year] = value.split('/').map(Number);
-    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0)).toISOString();
+    return new Date(`${value}T00:00:00Z`).toISOString();
 };
 
 const formatTaskDate = (value) => {
@@ -628,10 +624,10 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                     <div className="p-3 bg-light rounded-4 border w-100">
                         <div className="d-flex flex-wrap gap-3">
                             <div style={{ minWidth: 240 }} className="flex-grow-1">
-                                <Form.Label className="small fw-semibold mb-1 text-uppercase text-muted">Deadline (dd/mm/yyyy)</Form.Label>
+                                <Form.Label className="small fw-semibold mb-1 text-uppercase text-muted">Deadline</Form.Label>
                                 <Form.Control
-                                    type="text"
-                                    placeholder="dd/mm/yyyy"
+                                    type="date"
+                                    placeholder="yyyy-mm-dd"
                                     value={taskDeadline}
                                     onChange={(e) => {
                                         const value = e.target.value;

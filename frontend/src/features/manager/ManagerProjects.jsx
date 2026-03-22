@@ -27,14 +27,14 @@ const copy = {
         description: 'Description',
         descriptionPlaceholder: 'Describe the project objectives...',
         projectType: 'Project Type',
-        deadline: 'Deadline (dd/mm/yyyy)',
-        deadlinePlaceholder: 'dd/mm/yyyy',
+        deadline: 'Deadline',
+        deadlinePlaceholder: 'Select a date',
         cancel: 'Cancel',
         save: 'Create Project',
         typeClassification: 'Classification',
         typeObjectDetection: 'Object Detection',
         typeSegmentation: 'Segmentation',
-        validateDeadline: 'Please enter a valid deadline in dd/mm/yyyy format',
+        validateDeadline: 'Please select a valid deadline',
         successCreate: 'Project created successfully',
         successDelete: 'Project deleted',
         deleteLabel: 'Delete',
@@ -54,14 +54,14 @@ const copy = {
         description: 'Mo ta',
         descriptionPlaceholder: 'Mo ta muc tieu du an...',
         projectType: 'Loai du an',
-        deadline: 'Han chot (dd/mm/yyyy)',
-        deadlinePlaceholder: 'dd/mm/yyyy',
+        deadline: 'Han chot',
+        deadlinePlaceholder: 'Chon ngay',
         cancel: 'Huy',
         save: 'Tao du an',
         typeClassification: 'Phan loai',
         typeObjectDetection: 'Phat hien doi tuong',
         typeSegmentation: 'Phan vung',
-        validateDeadline: 'Vui long nhap han chot theo dinh dang dd/mm/yyyy',
+        validateDeadline: 'Vui long chon han chot hop le',
         successCreate: 'Tao du an thanh cong',
         successDelete: 'Du an da xoa',
         deleteLabel: 'Xoa',
@@ -119,11 +119,7 @@ export const ManagerProjects = ({ user }) => {
                 return;
             }
 
-            // Convert dd/mm/yyyy to yyyy-MM-dd string for backend (DateOnly)
-            const [dd, mm, yyyy] = projectDeadline.split('/').map(Number);
-            const mmStr = String(mm).padStart(2, '0');
-            const ddStr = String(dd).padStart(2, '0');
-            const deadlinePayload = `${yyyy}-${mmStr}-${ddStr}`;
+            const deadlinePayload = projectDeadline;
             const payload = {
                 name: projectName,
                 description: projectDescription,
@@ -186,11 +182,8 @@ export const ManagerProjects = ({ user }) => {
 
     const validateDeadline = (value) => {
         if (!value) return 'Deadline is required';
-        const regex = /^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
-        if (!regex.test(value)) return 'Format must be dd/mm/yyyy';
-        const [dd, mm, yyyy] = value.split('/').map(Number);
-        const dt = new Date(yyyy, mm - 1, dd);
-        if (dt.getFullYear() !== yyyy || dt.getMonth() !== mm - 1 || dt.getDate() !== dd) return 'Invalid date';
+        const dt = new Date(`${value}T00:00:00`);
+        if (Number.isNaN(dt.getTime())) return 'Invalid date';
         return '';
     };
 
@@ -306,7 +299,7 @@ export const ManagerProjects = ({ user }) => {
                                     <div>
                                         <label className="form-label fw-semibold small text-dark">{t.deadline}</label>
                                         <input
-                                            type="text"
+                                            type="date"
                                             value={projectDeadline}
                                             onChange={(e) => {
                                                 setProjectDeadline(e.target.value);
