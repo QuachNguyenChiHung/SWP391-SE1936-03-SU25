@@ -18,7 +18,7 @@ export const AdminDashboard = ({ user }) => {
     ];
 
     return (
-        <div className="container-fluid p-4 bg-light min-vh-100 animate-in fade-in duration-500">
+        <div className="container-fluid p-4 bg-light min-vh-100 admin-dashboard-surface animate-in fade-in duration-500">
             <div className="d-flex justify-content-between align-items-end mb-5">
                 <div>
                     <span className="badge bg-primary-subtle text-primary mb-2 px-3 py-2 rounded-pill fw-semibold">

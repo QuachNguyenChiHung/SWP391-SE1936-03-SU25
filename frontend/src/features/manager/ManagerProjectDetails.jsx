@@ -210,14 +210,33 @@ export const ManagerProjectDetails = ({ user }) => {
     // --- LOGIC: Guidelines ---
     const loadGuidelines = async () => {
         if (!pid) return;
+
+        const isTextLikeGuideline = (contentType, fileName) => {
+            if (contentType && contentType.startsWith('text/')) return true;
+            return /\.(txt|md|csv|json|xml|log)$/i.test(fileName || '');
+        };
+
         try {
             const response = await api.get(`/Projects/${pid}/guideline`);
             const guideline = response.data?.data ?? response.data ?? {};
-            setGuidelinesText(guideline.content || '');
+
+            let content = guideline.content || '';
+            const fileName = guideline.fileName || '';
+            const contentType = guideline.contentType || '';
+
+            if (!content && guideline.fileUrl && isTextLikeGuideline(contentType, fileName)) {
+                const downloadResponse = await api.get(`/Projects/${pid}/guideline/download`, { responseType: 'blob' });
+                const blob = new Blob([downloadResponse.data], {
+                    type: downloadResponse.headers['content-type'] || contentType || 'text/plain',
+                });
+                content = await blob.text();
+            }
+
+            setGuidelinesText(content);
             setGuidelineInfo({
-                fileName: guideline.fileName || '',
+                fileName,
                 fileSize: guideline.fileSize || 0,
-                contentType: guideline.contentType || '',
+                contentType,
                 fileUrl: guideline.fileUrl || '',
                 updatedAt: guideline.updatedAt || null,
             });

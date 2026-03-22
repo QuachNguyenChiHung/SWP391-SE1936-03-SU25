@@ -156,14 +156,14 @@ body.homepage-active {
   color: white;
 }
 
-.brand-name {
+.home-brand-name {
   font-size: 1.25rem;
   font-weight: 700;
   color: white;
   transition: color 0.3s ease;
 }
 
-.navbar.scrolled .brand-name {
+.navbar.scrolled .home-brand-name {
   color: var(--text-dark);
 }
 

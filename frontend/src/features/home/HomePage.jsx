@@ -94,7 +94,7 @@ export const HomePage = ({ onNavigateToLogin }) => {
                             <div className="brand-logo">
                                 <span className="logo-letter">DLS</span>
                             </div>
-                            <span className="brand-name">LabelNexus</span>
+                            <span className="home-brand-name">LabelNexus</span>
                         </div>
 
                         {/* Desktop Menu */}
@@ -581,7 +581,7 @@ export const HomePage = ({ onNavigateToLogin }) => {
                             <div className="brand-logo">
                                 <span className="logo-letter">L</span>
                             </div>
-                            <span className="brand-name">LabelNexus</span>
+                            <span className="home-brand-name">LabelNexus</span>
                         </div>
                         <p className="footer-text">
                             Enterprise-grade data labeling and annotation management system.

@@ -75,7 +75,7 @@ export const ReviewerDashboard = ({ user }) => {
 
     // --- Giao diện mới ---
     return (
-        <div className="p-4 bg-light min-vh-100" style={{ fontFamily: "'Inter', sans-serif" }}>
+        <div className="p-4 bg-light min-vh-100 reviewer-dashboard-surface" style={{ fontFamily: "'Inter', sans-serif" }}>
             {/* Header Section */}
             <div className="mb-5 d-flex justify-content-between align-items-end">
                 <div>
