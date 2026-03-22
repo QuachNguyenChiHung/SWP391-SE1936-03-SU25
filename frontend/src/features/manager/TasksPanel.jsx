@@ -12,6 +12,25 @@ import api from '../../shared/utils/api.js';
 
 const PRIORITY_OPTIONS = ['Low', 'Medium', 'High'];
 
+const getPriorityBadgeClass = (priority) => {
+    const normalized = String(priority || 'Medium').toLowerCase();
+    if (normalized === 'high') return 'bg-danger-subtle text-danger border border-danger-subtle';
+    if (normalized === 'low') return 'bg-success-subtle text-success border border-success-subtle';
+    return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+};
+
+const getDeadlineBadgeClass = (deadline) => {
+    if (!deadline) return 'text-muted';
+    const date = new Date(deadline);
+    if (Number.isNaN(date.getTime())) return 'text-muted';
+    const now = new Date();
+    const diffDays = Math.ceil((date.setHours(0, 0, 0, 0) - now.setHours(0, 0, 0, 0)) / 86400000);
+    if (diffDays < 0) return 'text-danger fw-semibold';
+    if (diffDays <= 3) return 'text-warning fw-semibold';
+    if (diffDays <= 7) return 'text-info fw-semibold';
+    return 'text-success';
+};
+
 const validateDeadline = (value) => {
     if (!value) return 'Deadline is required';
     const parsedDate = new Date(`${value}T00:00:00`);
@@ -383,8 +402,8 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                                             </div>
                                                             <div className="text-muted small">Assigned: {t.assignedAt ? new Date(t.assignedAt).toLocaleString() : (t.createdAt ? new Date(t.createdAt).toLocaleString() : '-')}</div>
                                                             <div className="text-muted small">Reviewer: {t.reviewerName || '-'}</div>
-                                                            <div className="text-muted small">Deadline: {formatTaskDate(t.deadline)}</div>
-                                                            <div className="text-muted small">Priority: {t.priority || 'Medium'}</div>
+                                                            <div className={`small ${getDeadlineBadgeClass(t.deadline)}`}>Deadline: {formatTaskDate(t.deadline)}</div>
+                                                            <div className={`small ${getPriorityBadgeClass(t.priority)}`}>Priority: {t.priority || 'Medium'}</div>
                                                         </div>
                                                     </div>
                                                     <div className="d-flex gap-3 align-items-center">
@@ -459,8 +478,8 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                     <div className="fw-bold">{taskDetail.projectName}</div>
                                     <div className="small text-muted">Annotator: {taskDetail.annotatorName}</div>
                                     <div className="small text-muted">Assigned by: {taskDetail.assignedByName}</div>
-                                    <div className="small text-muted">Deadline: {formatTaskDate(taskDetail.deadline)}</div>
-                                    <div className="small text-muted">Priority: {taskDetail.priority || 'Medium'}</div>
+                                    <div className={`small ${getDeadlineBadgeClass(taskDetail.deadline)}`}>Deadline: {formatTaskDate(taskDetail.deadline)}</div>
+                                    <div className={`small ${getPriorityBadgeClass(taskDetail.priority)}`}>Priority: {taskDetail.priority || 'Medium'}</div>
                                 </div>
                                 <div className="text-end">
                                     <div className="small text-muted">Status</div>
@@ -645,6 +664,9 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                         <option key={priority} value={priority}>{priority}</option>
                                     ))}
                                 </Form.Select>
+                                <div className={`small mt-2 ${getPriorityBadgeClass(taskPriority)}`}>
+                                    Selected: {taskPriority}
+                                </div>
                             </div>
                         </div>
 

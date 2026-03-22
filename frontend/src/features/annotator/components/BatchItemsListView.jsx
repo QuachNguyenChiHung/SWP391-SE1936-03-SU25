@@ -13,6 +13,25 @@ const formatDateOnly = (value) => {
     return date.toLocaleDateString();
 };
 
+const getPriorityBadgeClass = (priority) => {
+    const normalized = String(priority || 'Medium').toLowerCase();
+    if (normalized === 'high') return 'bg-danger-subtle text-danger border border-danger-subtle';
+    if (normalized === 'low') return 'bg-success-subtle text-success border border-success-subtle';
+    return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+};
+
+const getDeadlineBadgeClass = (deadline) => {
+    if (!deadline) return 'bg-light text-muted border';
+    const date = new Date(deadline);
+    if (Number.isNaN(date.getTime())) return 'bg-light text-muted border';
+    const now = new Date();
+    const diffDays = Math.ceil((date.setHours(0, 0, 0, 0) - now.setHours(0, 0, 0, 0)) / 86400000);
+    if (diffDays < 0) return 'bg-danger text-white border border-danger';
+    if (diffDays <= 3) return 'bg-warning text-dark border border-warning';
+    if (diffDays <= 7) return 'bg-info-subtle text-info border border-info-subtle';
+    return 'bg-success-subtle text-success border border-success-subtle';
+};
+
 export const BatchItemsListView = ({
     selectedBatch,
     isLoadingItems,
@@ -82,11 +101,11 @@ export const BatchItemsListView = ({
                             )}
                         </p>
                         <div className="d-flex flex-wrap align-items-center gap-2 mt-2" style={{ fontSize: '0.75rem' }}>
-                            <span className="d-inline-flex align-items-center gap-1 text-muted">
+                            <span className={`badge ${getDeadlineBadgeClass(taskDeadline)}`}>
                                 <Calendar size={12} />
                                 {t.deadline}: {formatDateOnly(taskDeadline)}
                             </span>
-                            <span className="badge bg-light text-dark border">
+                            <span className={`badge ${getPriorityBadgeClass(taskPriority)}`}>
                                 {t.priority}: {taskPriority || 'Medium'}
                             </span>
                         </div>
@@ -165,8 +184,8 @@ export const BatchItemsListView = ({
                                                     </span>
                                                 </div>
                                                 <div className="d-flex flex-wrap gap-2 mb-1" style={{ fontSize: '0.7rem' }}>
-                                                    <span className="badge bg-light text-dark border">{t.deadline}: {formatDateOnly(taskDeadline)}</span>
-                                                    <span className="badge bg-light text-dark border">{t.priority}: {taskPriority || 'Medium'}</span>
+                                                    <span className={`badge ${getDeadlineBadgeClass(taskDeadline)}`}>{t.deadline}: {formatDateOnly(taskDeadline)}</span>
+                                                    <span className={`badge ${getPriorityBadgeClass(taskPriority)}`}>{t.priority}: {taskPriority || 'Medium'}</span>
                                                 </div>
                                                 {item.completedAt && (
                                                     <div className="d-flex align-items-center gap-1 text-success" style={{ fontSize: '10px' }}>

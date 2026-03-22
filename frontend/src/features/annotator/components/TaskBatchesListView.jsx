@@ -13,6 +13,25 @@ const formatDateOnly = (value) => {
     return date.toLocaleDateString();
 };
 
+const getPriorityBadgeClass = (priority) => {
+    const normalized = String(priority || 'Medium').toLowerCase();
+    if (normalized === 'high') return 'bg-danger-subtle text-danger border border-danger-subtle';
+    if (normalized === 'low') return 'bg-success-subtle text-success border border-success-subtle';
+    return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+};
+
+const getDeadlineBadgeClass = (deadline) => {
+    if (!deadline) return 'bg-light text-muted border';
+    const date = new Date(deadline);
+    if (Number.isNaN(date.getTime())) return 'bg-light text-muted border';
+    const now = new Date();
+    const diffDays = Math.ceil((date.setHours(0, 0, 0, 0) - now.setHours(0, 0, 0, 0)) / 86400000);
+    if (diffDays < 0) return 'bg-danger text-white border border-danger';
+    if (diffDays <= 3) return 'bg-warning text-dark border border-warning';
+    if (diffDays <= 7) return 'bg-info-subtle text-info border border-info-subtle';
+    return 'bg-success-subtle text-success border border-success-subtle';
+};
+
 const BatchCard = ({ batch, onSelectBatch, t, projectDeadline }) => (
     <div key={batch.id} className="col">
         <div
@@ -80,13 +99,13 @@ const BatchCard = ({ batch, onSelectBatch, t, projectDeadline }) => (
 
                 <div className="d-flex align-items-center gap-2 mb-2">
                     <Calendar size={12} className="text-muted" />
-                    <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                    <span className={`badge ${getDeadlineBadgeClass(projectDeadline)}`} style={{ fontSize: '0.7rem' }}>
                         {t.projectDeadline}: {formatDateOnly(projectDeadline)}
                     </span>
                 </div>
 
                 <div className="d-flex align-items-center gap-2 mb-2">
-                    <span className="badge bg-light text-dark border" style={{ fontSize: '0.7rem' }}>
+                    <span className={`badge ${getPriorityBadgeClass(batch.priority)}`} style={{ fontSize: '0.7rem' }}>
                         {t.priority}: {batch.priority || 'Medium'}
                     </span>
                 </div>
