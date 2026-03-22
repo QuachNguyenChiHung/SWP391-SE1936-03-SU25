@@ -370,6 +370,7 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                     {tasks.map((t, index) => {
                                         const isTaskExpanded = !!expandedTasks[t.id];
                                         const detail = taskDetailsMap[t.id];
+                                        const hasReviewerAssigned = Boolean(t.reviewerId || t.reviewerName);
                                         return (
                                             <div key={t.id}>
                                                 <div className="bg-white p-2 rounded shadow-sm d-flex justify-content-between align-items-center border-0">
@@ -393,7 +394,9 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                                     <div className="d-flex gap-3 align-items-center">
                                                         <StatusBadge status={t.status} />
                                                         <Button variant="link" className="text-muted p-0" onClick={(e) => { e.stopPropagation(); toggleTaskInline(t.id); }}>{isTaskExpanded ? 'Hide' : 'View'}</Button>
-                                                        <Button size="sm" variant="primary" onClick={(e) => { e.stopPropagation(); openAssignReviewerForTask(t.id); }}>Assign Reviewer</Button>
+                                                        {!hasReviewerAssigned && (
+                                                            <Button size="sm" variant="primary" onClick={(e) => { e.stopPropagation(); openAssignReviewerForTask(t.id); }}>Assign Reviewer</Button>
+                                                        )}
                                                     </div>
                                                 </div>
 

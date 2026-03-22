@@ -1,7 +1,19 @@
 import { Calendar, Check, Layers } from 'lucide-react';
 import { useUI } from '../../../shared/context/UIContext.jsx';
 
-const BatchCard = ({ batch, onSelectBatch, t }) => (
+const formatDateOnly = (value) => {
+    if (!value) return '-';
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [year, month, day] = value.split('-');
+        return `${day}/${month}/${year}`;
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleDateString();
+};
+
+const BatchCard = ({ batch, onSelectBatch, t, projectDeadline }) => (
     <div key={batch.id} className="col">
         <div
             onClick={() => onSelectBatch(batch)}
@@ -66,6 +78,19 @@ const BatchCard = ({ batch, onSelectBatch, t }) => (
                     </span>
                 </div>
 
+                <div className="d-flex align-items-center gap-2 mb-2">
+                    <Calendar size={12} className="text-muted" />
+                    <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                        {t.projectDeadline}: {formatDateOnly(projectDeadline)}
+                    </span>
+                </div>
+
+                <div className="d-flex align-items-center gap-2 mb-2">
+                    <span className="badge bg-light text-dark border" style={{ fontSize: '0.7rem' }}>
+                        {t.priority}: {batch.priority || 'Medium'}
+                    </span>
+                </div>
+
                 {batch.completedAt && (
                     <div className="d-flex align-items-center gap-2">
                         <Check size={12} className="text-success" />
@@ -101,7 +126,8 @@ export const TaskBatchesListView = ({
     onPreviousPage,
     onNextPage,
     onSelectBatch,
-    onDeleteTask
+    onDeleteTask,
+    projectMetaById
 }) => {
     const { language } = useUI();
     const copy = {
@@ -130,6 +156,8 @@ export const TaskBatchesListView = ({
             manager: 'Manager',
             progress: 'Progress',
             totalItems: 'Total Items',
+            projectDeadline: 'Project deadline',
+            priority: 'Priority',
             deleteAllItemsFirst: 'Delete all items first',
             deleteTask: 'Delete task',
             delete: 'Delete'
@@ -159,6 +187,8 @@ export const TaskBatchesListView = ({
             manager: 'Quan ly',
             progress: 'Tien do',
             totalItems: 'Tong muc',
+            projectDeadline: 'Han du an',
+            priority: 'Uu tien',
             deleteAllItemsFirst: 'Xoa het muc truoc',
             deleteTask: 'Xoa task',
             delete: 'Xoa'
@@ -249,6 +279,7 @@ export const TaskBatchesListView = ({
                                         batch={batch}
                                         t={t}
                                         onSelectBatch={onSelectBatch}
+                                        projectDeadline={projectMetaById?.[batch.projectId]?.deadline}
                                         onDeleteTask={onDeleteTask}
                                     />
                                 ))}

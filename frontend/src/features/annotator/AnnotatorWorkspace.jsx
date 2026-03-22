@@ -226,6 +226,7 @@ export const AnnotatorWorkspace = ({ user }) => {
         isLoading: false,
         error: '',
     });
+    const [projectMetaById, setProjectMetaById] = useState({});
 
     // Rejected items map: taskId -> count
     const [rejectedMap, setRejectedMap] = useState({});
@@ -514,6 +515,40 @@ export const AnnotatorWorkspace = ({ user }) => {
 
         fetchRejectedForBatches();
         return () => { mounted = false; };
+    }, [taskBatches]);
+
+    useEffect(() => {
+        let mounted = true;
+
+        const fetchProjectMeta = async () => {
+            const projectIds = [...new Set(taskBatches.map((batch) => batch.projectId).filter(Boolean))];
+
+            if (projectIds.length === 0) {
+                setProjectMetaById({});
+                return;
+            }
+
+            const entries = await Promise.all(projectIds.map(async (projectId) => {
+                try {
+                    const res = await api.get(`/Projects/${projectId}`);
+                    const project = res?.data?.data ?? res?.data ?? {};
+                    return [projectId, { deadline: project.deadline || null }];
+                } catch (error) {
+                    console.warn('Failed to load project meta', projectId, error?.message || error);
+                    return [projectId, {}];
+                }
+            }));
+
+            if (mounted) {
+                setProjectMetaById(Object.fromEntries(entries));
+            }
+        };
+
+        fetchProjectMeta();
+
+        return () => {
+            mounted = false;
+        };
     }, [taskBatches]);
 
     // Auto-fetch items when batch is selected (from URL or manual selection)
@@ -1528,6 +1563,8 @@ export const AnnotatorWorkspace = ({ user }) => {
                 onBackToBatchList={handleBackToBatchList}
                 onSubmitTask={handleSubmitTask}
                 onSelectItem={handleSelectItem}
+                taskDeadline={selectedBatch?.deadline}
+                taskPriority={selectedBatch?.priority}
             />
         );
     }
@@ -1591,6 +1628,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                 onNextPage={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 onSelectBatch={handleSelectBatch}
                 onDeleteTask={handleDeleteTask}
+                projectMetaById={projectMetaById}
             />
         );
     }

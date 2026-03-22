@@ -1,5 +1,17 @@
-import { Check, ChevronLeft, Layers } from 'lucide-react';
+import { Calendar, Check, ChevronLeft, Layers } from 'lucide-react';
 import { useUI } from '../../../shared/context/UIContext.jsx';
+
+const formatDateOnly = (value) => {
+    if (!value) return '-';
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [year, month, day] = value.split('-');
+        return `${day}/${month}/${year}`;
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleDateString();
+};
 
 export const BatchItemsListView = ({
     selectedBatch,
@@ -7,7 +19,9 @@ export const BatchItemsListView = ({
     batchItems,
     onBackToBatchList,
     onSubmitTask,
-    onSelectItem
+    onSelectItem,
+    taskDeadline,
+    taskPriority
 }) => {
     const { language } = useUI();
     const copy = {
@@ -15,6 +29,8 @@ export const BatchItemsListView = ({
             backToBatches: 'Back to Batches',
             itemsCompleted: 'items completed',
             assignedBy: 'Assigned by',
+            deadline: 'Deadline',
+            priority: 'Priority',
             completeAllFirst: 'Complete all items first',
             submitForReview: 'Submit task for review',
             submitReview: 'Submit for Review',
@@ -31,6 +47,8 @@ export const BatchItemsListView = ({
             backToBatches: 'Quay lai danh sach task',
             itemsCompleted: 'muc da hoan thanh',
             assignedBy: 'Giao boi',
+            deadline: 'Han',
+            priority: 'Uu tien',
             completeAllFirst: 'Hoan thanh tat ca muc truoc',
             submitForReview: 'Nop task de review',
             submitReview: 'Nop de Review',
@@ -63,6 +81,15 @@ export const BatchItemsListView = ({
                                 <span className="ms-2">- {t.assignedBy} {selectedBatch.assignedByName}</span>
                             )}
                         </p>
+                        <div className="d-flex flex-wrap align-items-center gap-2 mt-2" style={{ fontSize: '0.75rem' }}>
+                            <span className="d-inline-flex align-items-center gap-1 text-muted">
+                                <Calendar size={12} />
+                                {t.deadline}: {formatDateOnly(taskDeadline)}
+                            </span>
+                            <span className="badge bg-light text-dark border">
+                                {t.priority}: {taskPriority || 'Medium'}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -136,6 +163,10 @@ export const BatchItemsListView = ({
                                                     <span className={`status-badge ${item.status === 'Completed' ? 'completed' : item.status === 'InProgress' ? 'in-progress' : 'pending'}`}>
                                                         {item.status || t.pending}
                                                     </span>
+                                                </div>
+                                                <div className="d-flex flex-wrap gap-2 mb-1" style={{ fontSize: '0.7rem' }}>
+                                                    <span className="badge bg-light text-dark border">{t.deadline}: {formatDateOnly(taskDeadline)}</span>
+                                                    <span className="badge bg-light text-dark border">{t.priority}: {taskPriority || 'Medium'}</span>
                                                 </div>
                                                 {item.completedAt && (
                                                     <div className="d-flex align-items-center gap-1 text-success" style={{ fontSize: '10px' }}>
