@@ -78,7 +78,7 @@ const ProjectItem = ({ project, onClick }) => {
               </div>
               <div className="d-flex align-items-center gap-1 bg-light px-2 py-1 rounded">
                 <Tag size={13} />
-                <span className="fw-medium">{project.classes?.length || 0} {t.labels}</span>
+                <span className="fw-medium">{project.labelCount ?? project.LabelCount ?? project.classes?.length ?? project.labels?.length ?? 0} {t.labels}</span>
               </div>
             </div>
           </div>

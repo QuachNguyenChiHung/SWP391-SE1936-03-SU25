@@ -87,6 +87,28 @@ export const ManagerProjects = ({ user }) => {
     const [statusFilter, setStatusFilter] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
 
+    const hydrateLabelCounts = async (items) => {
+        const list = Array.isArray(items) ? items : [];
+
+        const enriched = await Promise.all(list.map(async (project) => {
+            try {
+                const detailResponse = await api.get(`/Projects/${project.id}`);
+                const detail = detailResponse?.data?.data ?? detailResponse?.data ?? {};
+                return {
+                    ...project,
+                    labelCount: detail.labelCount ?? project.labelCount ?? project.LabelCount ?? project.classes?.length ?? project.labels?.length ?? 0,
+                };
+            } catch (error) {
+                return {
+                    ...project,
+                    labelCount: project.labelCount ?? project.LabelCount ?? project.classes?.length ?? project.labels?.length ?? 0,
+                };
+            }
+        }));
+
+        return enriched;
+    };
+
     const handleProjectClick = (project) => {
         const convertProjectId = project.id + "";
         navigate(`/manager/projects/${convertProjectId}`);
@@ -95,6 +117,7 @@ export const ManagerProjects = ({ user }) => {
     const page = param.get("page") || 1;
     useEffect(() => {
         (async () => {
+            let mounted = true;
             try {
                 let url = `/Projects/?pageNumber=${page}&pageSize=${pageLength}`;
                 if (statusFilter) {
@@ -104,11 +127,18 @@ export const ManagerProjects = ({ user }) => {
                     url += `&searchTerm=${encodeURIComponent(searchTerm)}`;
                 }
                 const p = await api.get(url);
-                setProjects(p.data.data.items);
-                console.log(p.data.data.items);
+                const items = p?.data?.data?.items || [];
+                const enrichedItems = await hydrateLabelCounts(items);
+                if (mounted) {
+                    setProjects(enrichedItems);
+                }
+                console.log(enrichedItems);
             } catch (e) {
                 console.log(e);
             }
+            return () => {
+                mounted = false;
+            };
         })();
     }, [page, statusFilter, searchTerm]);
 

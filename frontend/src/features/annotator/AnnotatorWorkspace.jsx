@@ -1601,11 +1601,23 @@ export const AnnotatorWorkspace = ({ user }) => {
         return matchStatus && matchSearch;
     });
 
+    const sortedTaskBatches = [...filteredTaskBatches].sort((a, b) => {
+        const projectA = String(a.projectName || '').toLowerCase();
+        const projectB = String(b.projectName || '').toLowerCase();
+        if (projectA !== projectB) return projectA.localeCompare(projectB);
+
+        const assignedA = Date.parse(a.assignedAt || a.createdAt || a.updatedAt || 0) || 0;
+        const assignedB = Date.parse(b.assignedAt || b.createdAt || b.updatedAt || 0) || 0;
+        if (assignedA !== assignedB) return assignedA - assignedB;
+
+        return Number(a.id || 0) - Number(b.id || 0);
+    });
+
     const ITEMS_PER_PAGE = 6;
-    const totalPages = Math.max(1, Math.ceil(filteredTaskBatches.length / ITEMS_PER_PAGE));
+    const totalPages = Math.max(1, Math.ceil(sortedTaskBatches.length / ITEMS_PER_PAGE));
     const safeCurrentPage = Math.min(currentPage, totalPages);
     const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
-    const paginatedTaskBatches = filteredTaskBatches.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    const paginatedTaskBatches = sortedTaskBatches.slice(startIndex, startIndex + ITEMS_PER_PAGE);
     const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
 
     // --- VIEW: Task Batches List ---
@@ -1615,6 +1627,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                 isLoadingBatches={isLoadingBatches}
                 taskBatches={taskBatches}
                 filteredTaskBatches={filteredTaskBatches}
+                sortedTaskBatches={sortedTaskBatches}
                 paginatedTaskBatches={paginatedTaskBatches}
                 safeCurrentPage={safeCurrentPage}
                 totalPages={totalPages}

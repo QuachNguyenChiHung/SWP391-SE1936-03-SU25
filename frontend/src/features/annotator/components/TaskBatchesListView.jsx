@@ -32,7 +32,41 @@ const getDeadlineBadgeClass = (deadline) => {
     return 'bg-success-subtle text-success border border-success-subtle';
 };
 
-const BatchCard = ({ batch, onSelectBatch, t, projectDeadline }) => (
+const getAssignmentTimestamp = (batch) => {
+    const value = batch?.assignedAt || batch?.createdAt || batch?.updatedAt || batch?.id;
+    const timestamp = Date.parse(value);
+    return Number.isNaN(timestamp) ? 0 : timestamp;
+};
+
+const getAssignmentOrderMeta = (batches) => {
+    const grouped = new Map();
+
+    (batches || []).forEach((batch) => {
+        const projectId = batch?.projectId ?? batch?.projectID ?? batch?.project?.id ?? batch?.projectName ?? 'unknown';
+        if (!grouped.has(projectId)) grouped.set(projectId, []);
+        grouped.get(projectId).push(batch);
+    });
+
+    const orderByBatchId = new Map();
+    grouped.forEach((projectBatches) => {
+        const ordered = [...projectBatches].sort((a, b) => {
+            const diff = getAssignmentTimestamp(a) - getAssignmentTimestamp(b);
+            if (diff !== 0) return diff;
+            return Number(a?.id || 0) - Number(b?.id || 0);
+        });
+
+        ordered.forEach((batch, index) => {
+            orderByBatchId.set(batch.id, {
+                order: index + 1,
+                total: ordered.length,
+            });
+        });
+    });
+
+    return orderByBatchId;
+};
+
+const BatchCard = ({ batch, onSelectBatch, t, projectDeadline, assignmentOrder }) => (
     <div key={batch.id} className="col">
         <div
             onClick={() => onSelectBatch(batch)}
@@ -149,10 +183,12 @@ export const TaskBatchesListView = ({
     projectMetaById
 }) => {
     const { language } = useUI();
+    const assignmentOrderByBatchId = getAssignmentOrderMeta(taskBatches);
     const copy = {
         en: {
             title: 'My Assigned Task Batches',
             subtitle: 'Overview of annotation batches assigned to you',
+            orderHint: 'Cards are ordered by project and assignment time. The smaller order number was assigned earlier.',
             loading: 'Loading...',
             noAssigned: 'No Task Batches Assigned',
             noAssignedDesc: "You currently don't have any task batches assigned. Check back later or contact your manager.",
@@ -184,6 +220,7 @@ export const TaskBatchesListView = ({
         vi: {
             title: 'Danh sach task duoc giao',
             subtitle: 'Tong quan cac batch gan nhan duoc giao cho ban',
+            orderHint: 'Cac card duoc xep theo du an va thoi gian giao. So nho hon la giao som hon.',
             loading: 'Dang tai...',
             noAssigned: 'Chua co batch duoc giao',
             noAssignedDesc: 'Hien tai ban chua co batch nao duoc giao. Vui long quay lai sau hoac lien he quan ly.',
@@ -221,6 +258,7 @@ export const TaskBatchesListView = ({
                 <div>
                     <h2 className="fs-4 fw-bold text-slate-900">{t.title}</h2>
                     <p className="text-muted" style={{ fontSize: '0.875rem' }}>{t.subtitle}</p>
+                    <p className="text-muted mb-0" style={{ fontSize: '0.8rem' }}>{t.orderHint}</p>
                 </div>
             </div>
 
@@ -299,6 +337,7 @@ export const TaskBatchesListView = ({
                                         t={t}
                                         onSelectBatch={onSelectBatch}
                                         projectDeadline={projectMetaById?.[batch.projectId]?.deadline}
+                                        assignmentOrder={assignmentOrderByBatchId.get(batch.id)}
                                         onDeleteTask={onDeleteTask}
                                     />
                                 ))}
