@@ -261,6 +261,11 @@ public class ReviewService : IReviewService
         var project = await _unitOfWork.Projects.GetByIdAsync(dataset.ProjectId, cancellationToken);
         if (project == null) return null;
 
+        // Get TaskItem for this DataItem (to get TaskItemId for comments)
+        var taskItems = await _unitOfWork.TaskItems.GetByDataItemIdAsync(dataItemId, cancellationToken);
+        var taskItem = taskItems.FirstOrDefault();
+        var taskItemId = taskItem?.Id ?? 0;
+
         // Get annotations
         var annotations = await _unitOfWork.Annotations.GetByDataItemIdWithLabelAsync(dataItemId, cancellationToken);
 
@@ -284,6 +289,7 @@ public class ReviewService : IReviewService
         return new ReviewEditorDto
         {
             DataItemId = dataItemId,
+            TaskItemId = taskItemId,
             ProjectId = project.Id,
             ProjectName = project.Name,
             FileName = dataItem.FileName,
