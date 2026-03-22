@@ -19,6 +19,13 @@ const getPriorityBadgeClass = (priority) => {
     return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
 };
 
+const getPriorityChipClass = (priority) => {
+    const normalized = String(priority || 'Medium').toLowerCase();
+    if (normalized === 'high') return 'bg-danger-subtle text-danger border border-danger-subtle';
+    if (normalized === 'low') return 'bg-success-subtle text-success border border-success-subtle';
+    return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+};
+
 const getDeadlineBadgeClass = (deadline) => {
     if (!deadline) return 'text-muted';
     const date = new Date(deadline);
@@ -29,6 +36,18 @@ const getDeadlineBadgeClass = (deadline) => {
     if (diffDays <= 3) return 'text-warning fw-semibold';
     if (diffDays <= 7) return 'text-info fw-semibold';
     return 'text-success';
+};
+
+const getDeadlineChipClass = (deadline) => {
+    if (!deadline) return 'bg-light text-muted border border-slate-200';
+    const date = new Date(deadline);
+    if (Number.isNaN(date.getTime())) return 'bg-light text-muted border border-slate-200';
+    const now = new Date();
+    const diffDays = Math.ceil((date.setHours(0, 0, 0, 0) - now.setHours(0, 0, 0, 0)) / 86400000);
+    if (diffDays < 0) return 'bg-danger-subtle text-danger border border-danger-subtle';
+    if (diffDays <= 3) return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+    if (diffDays <= 7) return 'bg-info-subtle text-info border border-info-subtle';
+    return 'bg-success-subtle text-success border border-success-subtle';
 };
 
 const validateDeadline = (value) => {
@@ -402,8 +421,14 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                                             </div>
                                                             <div className="text-muted small">Assigned: {t.assignedAt ? new Date(t.assignedAt).toLocaleString() : (t.createdAt ? new Date(t.createdAt).toLocaleString() : '-')}</div>
                                                             <div className="text-muted small">Reviewer: {t.reviewerName || '-'}</div>
-                                                            <div className={`small ${getDeadlineBadgeClass(t.deadline)}`}>Deadline: {formatTaskDate(t.deadline)}</div>
-                                                            <div className={`small ${getPriorityBadgeClass(t.priority)}`}>Priority: {t.priority || 'Medium'}</div>
+                                                            <div className="d-flex flex-wrap gap-2 mt-1">
+                                                                <span className={`badge rounded-pill px-2 py-1 fw-semibold ${getDeadlineChipClass(t.deadline)}`} style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>
+                                                                    Deadline: {formatTaskDate(t.deadline)}
+                                                                </span>
+                                                                <span className={`badge rounded-pill px-2 py-1 fw-semibold ${getPriorityChipClass(t.priority)}`} style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>
+                                                                    Priority: {t.priority || 'Medium'}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <div className="d-flex gap-3 align-items-center">
@@ -478,8 +503,14 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                     <div className="fw-bold">{taskDetail.projectName}</div>
                                     <div className="small text-muted">Annotator: {taskDetail.annotatorName}</div>
                                     <div className="small text-muted">Assigned by: {taskDetail.assignedByName}</div>
-                                    <div className={`small ${getDeadlineBadgeClass(taskDetail.deadline)}`}>Deadline: {formatTaskDate(taskDetail.deadline)}</div>
-                                    <div className={`small ${getPriorityBadgeClass(taskDetail.priority)}`}>Priority: {taskDetail.priority || 'Medium'}</div>
+                                    <div className="d-flex flex-wrap gap-2 mt-2">
+                                        <span className={`badge rounded-pill px-2 py-1 fw-semibold ${getDeadlineChipClass(taskDetail.deadline)}`} style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>
+                                            Deadline: {formatTaskDate(taskDetail.deadline)}
+                                        </span>
+                                        <span className={`badge rounded-pill px-2 py-1 fw-semibold ${getPriorityChipClass(taskDetail.priority)}`} style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>
+                                            Priority: {taskDetail.priority || 'Medium'}
+                                        </span>
+                                    </div>
                                 </div>
                                 <div className="text-end">
                                     <div className="small text-muted">Status</div>

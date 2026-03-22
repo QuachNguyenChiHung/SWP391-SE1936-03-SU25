@@ -169,8 +169,8 @@ export const Layout = ({ children, user, onLogout }) => {
                         <div className="brand-mark">LN</div>
                         {!sidebarCollapsed && (
                             <div className="brand-copy">
-                                <div className="brand-name">LabelNexus</div>
-                                <div className="brand-subtitle">Annotation Platform</div>
+                                <div className="brand-name">Label Nexus</div>
+                                <div className="brand-subtitle">Data Labeling System</div>
                             </div>
                         )}
                     </div>
