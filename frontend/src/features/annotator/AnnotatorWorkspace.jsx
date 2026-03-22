@@ -11,7 +11,8 @@ import {
     ChevronLeft,
     ChevronRight,
     Keyboard,
-    X
+    X,
+    AlertTriangle
 } from 'lucide-react';
 import api from '../../shared/utils/api.js';
 import { useConfirm } from '../../shared/context/ConfirmContext.jsx';
@@ -23,6 +24,7 @@ import { ProgressIndicator } from './ProgressIndicator';
 import { BatchItemsListView } from './components/BatchItemsListView';
 import { TaskBatchesListView } from './components/TaskBatchesListView';
 import { CommentsList } from '../../shared/components/CommentsList.jsx';
+import { FlagItemModal } from './components/FlagItemModal.jsx';
 import { useUI } from '../../shared/context/UIContext.jsx';
 import './AnnotatorWorkspace.css';
 
@@ -112,7 +114,13 @@ export const AnnotatorWorkspace = ({ user }) => {
             goPreviousItem: 'Go to previous item',
             moveToNext: 'Move to next item',
             acceptAndNext: 'Accept & Next',
-            contextDelete: 'Delete'
+            contextDelete: 'Delete',
+            flagItem: 'Flag Item',
+            flagItemTooltip: 'Flag this item if no suitable label exists',
+            itemFlagged: 'Item flagged successfully',
+            failedFlagItem: 'Failed to flag item',
+            noLabelsWarning: 'No labels available for this project',
+            noLabelsMessage: 'You cannot annotate this item because no labels are defined. Please flag this item to notify the manager.'
         },
         vi: {
             failedLoadProjectLabels: 'Khong tai duoc nhan du an',
@@ -195,7 +203,13 @@ export const AnnotatorWorkspace = ({ user }) => {
             goPreviousItem: 'Ve muc truoc',
             moveToNext: 'Den muc tiep theo',
             acceptAndNext: 'Chap nhan va tiep',
-            contextDelete: 'Xoa'
+            contextDelete: 'Xoa',
+            flagItem: 'Danh dau muc',
+            flagItemTooltip: 'Danh dau muc nay neu khong co nhan phu hop',
+            itemFlagged: 'Da danh dau muc thanh cong',
+            failedFlagItem: 'Danh dau muc that bai',
+            noLabelsWarning: 'Khong co nhan cho du an nay',
+            noLabelsMessage: 'Ban khong the gan nhan cho muc nay vi chua co nhan nao duoc dinh nghia. Vui long danh dau muc nay de thong bao cho quan ly.'
         }
     };
     const t = copy[language] || copy.en;
@@ -251,12 +265,44 @@ export const AnnotatorWorkspace = ({ user }) => {
     // Context menu state for annotations
     const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, annotationId: null });
 
+    // Flag item modal state
+    const [showFlagModal, setShowFlagModal] = useState(false);
+
     // Show toast notification
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
         setTimeout(() => {
             setToast({ show: false, message: '', type: 'success' });
         }, 3000);
+    };
+
+    // Handle flagging an item
+    const handleFlagItem = async (reason) => {
+        if (!selectedItem) return;
+
+        try {
+            await api.post(`/task-items/${selectedItem.id}/flag`, { reason });
+            showToast(t.itemFlagged, 'success');
+            setShowFlagModal(false);
+
+            // Update local state
+            setBatchItems(prev => prev.map(i =>
+                i.id === selectedItem.id ? { ...i, status: 'Flagged' } : i
+            ));
+
+            // Move to next item
+            const currentIndex = batchItems.findIndex(item => item.id === selectedItem.id);
+            if (currentIndex < batchItems.length - 1) {
+                await handleSelectItem(batchItems[currentIndex + 1]);
+            } else {
+                // No more items, go back to item list
+                setSelectedItem(null);
+                syncWorkspaceUrl({ taskId: selectedBatch?.id ?? null, itemId: null });
+            }
+        } catch (e) {
+            console.error('Failed to flag item:', e);
+            showToast(t.failedFlagItem, 'error');
+        }
     };
 
     const syncWorkspaceUrl = ({ taskId, itemId }) => {
@@ -1679,7 +1725,7 @@ export const AnnotatorWorkspace = ({ user }) => {
     const activeLabelCount = activeLabelId ? (labelCountsById[String(activeLabelId)] || 0) : 0;
 
     return (
-        <div className="annotator-ui d-flex flex-column animate-fade-in-zoom bg-white rounded-4 shadow-sm border border-slate-200 overflow-hidden h-100" style={{}}>
+        <div  className="annotator-ui d-flex flex-column animate-fade-in-zoom bg-white rounded-4 shadow-sm border border-slate-200 overflow-hidden" >
 
             {/* Workspace Toolbar Header */}
             <div className="border-bottom border-slate-200 bg-white flex-shrink-0" style={{ zIndex: 10 }}>
@@ -1740,7 +1786,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                         {/* Keyboard Shortcuts Button */}
                         <button
                             onClick={() => setShowShortcutsHelp(true)}
-                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                            className="btn btn-secondary btn-sm d-flex align-items-center gap-1"
                             title={t.keyboardShortcuts}
                             style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
                         >
@@ -1752,7 +1798,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                         {/* Navigation buttons */}
                         <button
                             onClick={handlePreviousItem}
-                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                            className="btn btn-secondary btn-sm d-flex align-items-center gap-1"
                             style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
                             disabled={batchItems.length <= 1}
                         >
@@ -1766,7 +1812,7 @@ export const AnnotatorWorkspace = ({ user }) => {
 
                         <button
                             onClick={handleNextItem}
-                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                            className="btn btn-secondary btn-sm d-flex align-items-center gap-1"
                             style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
                             disabled={batchItems.length <= 1}
                         >
@@ -1778,7 +1824,7 @@ export const AnnotatorWorkspace = ({ user }) => {
 
                         <button
                             onClick={() => setShowGuidelines(!showGuidelines)}
-                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                            className="btn btn-secondary btn-sm d-flex align-items-center gap-1"
                             style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
                         >
                             {showGuidelines ? t.hideLabels : t.showLabels}
@@ -1787,7 +1833,8 @@ export const AnnotatorWorkspace = ({ user }) => {
                 </div>
             </div>
 
-            <div className="d-flex flex-grow-1 overflow-hidden position-relative user-select-none">
+            {/* Main workspace area - canvas and sidebar side by side */}
+            <div style={{minHeight:'40rem'}} className="d-flex flex-grow-1 overflow-hidden position-relative user-select-none">
                 {/* Canvas Container with Toolbar on Top */}
                 <div className="d-flex flex-column flex-grow-1">
                     {/* Horizontal Toolbar */}
@@ -1863,7 +1910,14 @@ export const AnnotatorWorkspace = ({ user }) => {
                                             selectedTool === 'POLYGON' ? 'crosshair' :
                                                 'default',
                             flex: 1,
-                            overflow: 'hidden'
+                            overflow: 'hidden',
+                            position: 'relative',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#f8f9fa',
+                            width: '100%',
+                            height: '100%'
                         }}
                         onMouseDown={handleContainerMouseDown}
                         onClick={(e) => {
@@ -1884,11 +1938,13 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
                                 transformOrigin: 'center center',
                                 transition: isPanning ? 'none' : 'transform 0.1s ease-out',
-                                position: 'relative',
-                                display: 'inline-block'
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: `translate(calc(-50% + ${panOffset.x}px), calc(-50% + ${panOffset.y}px)) scale(${zoomLevel})`
                             }}
                         >
-                            <div className={`canvas-image-frame canvas-item-scene ${itemTransitionPhase !== 'idle' ? `scene-${itemTransitionPhase}` : ''}`} style={{ position: 'relative', display: 'inline-block', maxWidth: '800px', maxHeight: '600px' }}>
+                            <div className={`canvas-image-frame canvas-item-scene ${itemTransitionPhase !== 'idle' ? `scene-${itemTransitionPhase}` : ''}`} style={{ position: 'relative', display: 'inline-block' }}>
                                 <img
                                     ref={imageRef}
                                     src={selectedItem?.filePath ? import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem.filePath : selectedItem?.thumbnailPath ? import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem.thumbnailPath : 'https://via.placeholder.com/800x600?text=No+Image'}
@@ -1897,8 +1953,10 @@ export const AnnotatorWorkspace = ({ user }) => {
                                     onError={(e) => { e.target.src = 'https://via.placeholder.com/800x600?text=Image+Error'; }}
                                     style={{
                                         display: 'block',
-                                        width: '100%',
-                                        height: '100%',
+                                        maxWidth: '100%',
+                                        maxHeight: '100%',
+                                        width: 'auto',
+                                        height: 'auto',
                                         objectFit: 'contain'
                                     }}
                                 />
@@ -2142,11 +2200,33 @@ export const AnnotatorWorkspace = ({ user }) => {
 
                     {/* Action Bar (Below Canvas) */}
                     <div className="annotator-action-bar p-4 bg-white border-top border-slate-200">
+                        {/* Warning when item is flagged */}
+                        {selectedItem?.status === 'Flagged' && (
+                            <div className="alert alert-warning mb-3 d-flex align-items-center gap-2">
+                                <AlertTriangle size={20} />
+                                <div className="flex-grow-1">
+                                    <div className="fw-semibold">Item Flagged</div>
+                                    <small>This item has been flagged and cannot be completed until resolved by the manager.</small>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Warning when no labels exist */}
+                        {projectLabels.length === 0 && (
+                            <div className="alert alert-warning mb-3 d-flex align-items-center gap-2">
+                                <AlertTriangle size={20} />
+                                <div className="flex-grow-1">
+                                    <div className="fw-semibold">{t.noLabelsWarning}</div>
+                                    <small>{t.noLabelsMessage}</small>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="d-flex align-items-center gap-3" style={{ height: '3rem' }}>
                             <button
                                 onClick={handlePreviousItem}
                                 disabled={selectedBatch?.status === 'Submitted'}
-                                className="annotator-btn-secondary btn btn-outline-secondary h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                                className="annotator-btn-secondary btn btn-secondary h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
                                 style={{ fontSize: '0.875rem', opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
                                 title={selectedBatch?.status === 'Submitted' ? t.readOnlyTitle : t.goPreviousItem}
                             >
@@ -2154,12 +2234,39 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 {t.previous}
                             </button>
 
+                            {/* Flag Item Button */}
+                            {selectedItem?.status === 'Flagged' ? (
+                                <div className="alert alert-info mb-0 py-2 px-3 d-flex align-items-center gap-2" style={{ fontSize: '0.875rem' }}>
+                                    <AlertTriangle size={18} />
+                                    <span>{t.alreadyFlagged || 'This item has already been flagged and is awaiting manager review'}</span>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setShowFlagModal(true)}
+                                    disabled={selectedBatch?.status === 'Submitted'}
+                                    className="btn btn-warning h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                                    style={{ fontSize: '0.875rem' }}
+                                    title={t.flagItemTooltip}
+                                >
+                                    <AlertTriangle size={18} />
+                                    {t.flagItem}
+                                </button>
+                            )}
+
                             <button
                                 onClick={selectedItem?.status === 'Completed' ? handleNextItem : handleAcceptAndNext}
-                                disabled={selectedBatch?.status === 'Submitted'}
+                                disabled={selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Flagged'}
                                 className={`annotator-btn-primary btn flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm ${selectedItem?.status === 'Completed' ? 'btn-secondary' : 'btn-success'}`}
-                                style={{ fontSize: '0.875rem', opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
-                                title={selectedBatch?.status === 'Submitted' ? t.readOnlyTitle : selectedItem?.status === 'Completed' ? t.moveToNext : ''}
+                                style={{ 
+                                    fontSize: '0.875rem', 
+                                    opacity: (selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Flagged') ? 0.5 : 1, 
+                                    cursor: (selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Flagged') ? 'not-allowed' : 'pointer' 
+                                }}
+                                title={
+                                    selectedItem?.status === 'Flagged' ? 'This item is flagged and cannot be completed' :
+                                    selectedBatch?.status === 'Submitted' ? t.readOnlyTitle : 
+                                    selectedItem?.status === 'Completed' ? t.moveToNext : ''
+                                }
                             >
                                 <Check size={18} />
                                 {selectedItem?.status === 'Completed' ? t.next : t.acceptAndNext}
@@ -2168,37 +2275,40 @@ export const AnnotatorWorkspace = ({ user }) => {
                     </div>
                 </div>
 
-                {/* Right Sidebar */}
-                <div className="annotator-right-panel d-flex flex-column gap-3 p-3 bg-white border-start border-slate-200" style={{ width: '320px', overflowY: 'auto', minHeight: 0, flex: '0 0 320px' }}>
-                    {/* Annotation Sidebar */}
-                    <AnnotationSidebar
-                        showGuidelines={showGuidelines}
-                        setShowGuidelines={setShowGuidelines}
-                        projectClasses={projectLabels}
-                        activeLabelId={activeLabelId}
-                        setActiveLabelId={setActiveLabelId}
-                        annotations={annotations}
-                        labelCountsById={labelCountsById}
-                        totalAnnotationsCount={totalAnnotationsCount}
-                        selectedAnnotationId={selectedAnnotationId}
-                        setSelectedAnnotationId={setSelectedAnnotationId}
-                        handleDeleteAnnotation={handleDeleteAnnotation}
-                        projectGuideline={projectGuideline}
-                        onDownloadGuideline={handleDownloadGuideline}
-                    />
-
-                    {/* Comments Section - Show when item is selected */}
-                    {selectedItem?.id && (
-                        <CommentsList
-                            taskItemId={selectedItem.id}
-                            onCommentsLoaded={(count) => {
-                                // Optional: Update UI with comment count
-                                console.log(`Loaded ${count} comments for task item ${selectedItem.id}`);
-                            }}
+                {/* Right Sidebar - Labels and Guidelines only */}
+                <div className="annotator-right-panel d-flex flex-column bg-white border-start border-slate-200 overflow-auto" style={{ width: '320px', minHeight: 0, flex: '0 0 320px' }}>
+                    <div className="p-3">
+                        <AnnotationSidebar
+                            showGuidelines={showGuidelines}
+                            setShowGuidelines={setShowGuidelines}
+                            projectClasses={projectLabels}
+                            activeLabelId={activeLabelId}
+                            setActiveLabelId={setActiveLabelId}
+                            annotations={annotations}
+                            labelCountsById={labelCountsById}
+                            totalAnnotationsCount={totalAnnotationsCount}
+                            selectedAnnotationId={selectedAnnotationId}
+                            setSelectedAnnotationId={setSelectedAnnotationId}
+                            handleDeleteAnnotation={handleDeleteAnnotation}
+                            projectGuideline={projectGuideline}
+                            onDownloadGuideline={handleDownloadGuideline}
                         />
-                    )}
+                    </div>
                 </div>
             </div>
+
+            {/* Comments Section - Full width at bottom */}
+            {selectedItem?.id && (
+                <div className="border-top border-slate-200 bg-white p-3">
+                    <CommentsList
+                        taskItemId={selectedItem.id}
+                        onCommentsLoaded={(count) => {
+                            // Optional: Update UI with comment count
+                            console.log(`Loaded ${count} comments for task item ${selectedItem.id}`);
+                        }}
+                    />
+                </div>
+            )}
 
             {/* Keyboard Shortcuts Help Modal */}
             <KeyboardShortcutsHelp
@@ -2260,6 +2370,14 @@ export const AnnotatorWorkspace = ({ user }) => {
             <ToastNotification
                 toast={toast}
                 onClose={() => setToast({ ...toast, show: false })}
+            />
+
+            {/* Flag Item Modal */}
+            <FlagItemModal
+                show={showFlagModal}
+                onConfirm={handleFlagItem}
+                onCancel={() => setShowFlagModal(false)}
+                itemName={selectedItem?.fileName || `Item ${selectedItem?.id}`}
             />
         </div>
     );

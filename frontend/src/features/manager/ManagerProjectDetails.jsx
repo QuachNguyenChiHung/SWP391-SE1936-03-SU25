@@ -14,6 +14,20 @@ export const ManagerProjectDetails = ({ user }) => {
     const [activeTab, setActiveTab] = useState('Overview');
     const [expandedTaskGroups, setExpandedTaskGroups] = useState({});
 
+    // Handler for tab changes with status validation
+    const handleTabChange = async (newTab) => {
+        // Check if trying to access Tasks tab while in Draft status
+        if (newTab === 'Tasks' && project?.status === 'Draft') {
+            await showAlert(
+                'Task assignment is only available when the project is Active. Please change the project status to Active first.',
+                'Action Not Allowed',
+                'warning'
+            );
+            return; // Don't change tab
+        }
+        setActiveTab(newTab);
+    };
+
     // Import Modal States
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState([]);
@@ -62,6 +76,29 @@ export const ManagerProjectDetails = ({ user }) => {
     const [editDescription, setEditDescription] = useState('');
     const [editStatus, setEditStatus] = useState(null);
     const [editDeadline, setEditDeadline] = useState('');
+    const [deadlineError, setDeadlineError] = useState('');
+
+    // Handler for deadline change with validation
+    const handleDeadlineChange = (newDeadline) => {
+        setEditDeadline(newDeadline);
+        
+        if (newDeadline) {
+            const selectedDate = new Date(newDeadline);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const currentYear = new Date().getFullYear();
+            
+            if (selectedDate < today) {
+                setDeadlineError('Deadline cannot be in the past');
+            } else if (selectedDate.getFullYear() !== currentYear) {
+                setDeadlineError(`Deadline must be in ${currentYear}`);
+            } else {
+                setDeadlineError('');
+            }
+        } else {
+            setDeadlineError('');
+        }
+    };
 
     // --- LOGIC: Load Project ---
     useEffect(() => {
@@ -85,20 +122,22 @@ export const ManagerProjectDetails = ({ user }) => {
     }, [pid]);
 
     // Fetch data-items with paging
-    useEffect(() => {
+    const fetchDataItems = async () => {
         setDataLoading(true);
-        (async () => {
-            try {
-                const res = await api.get(`/projects/${pid}/data-items`, { params: { pageNumber: dataPage, pageSize: 10 } });
-                const payload = res.data || {};
-                setDataSet(payload);
-            } catch (err) {
-                console.warn('Failed to fetch data items', err);
-                setDataSet({ items: [], totalCount: 0, pageNumber: dataPage, pageSize: 10, totalPages: 0 });
-            } finally {
-                setDataLoading(false);
-            }
-        })();
+        try {
+            const res = await api.get(`/projects/${pid}/data-items`, { params: { pageNumber: dataPage, pageSize: 10 } });
+            const payload = res.data || {};
+            setDataSet(payload);
+        } catch (err) {
+            console.warn('Failed to fetch data items', err);
+            setDataSet({ items: [], totalCount: 0, pageNumber: dataPage, pageSize: 10, totalPages: 0 });
+        } finally {
+            setDataLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchDataItems();
     }, [pid, dataPage]);
     // --- LOGIC: Load Annotators when user opens Annotators tab ---
     useEffect(() => {
@@ -141,6 +180,10 @@ export const ManagerProjectDetails = ({ user }) => {
     };
 
     // --- LOGIC: Import File ---
+    const handleOpenImportModal = () => {
+        setIsImportModalOpen(true);
+    };
+    
     const handleFileSelect = (e) => {
         if (e.target.files) {
             const filesArray = Array.from(e.target.files);
@@ -332,9 +375,17 @@ export const ManagerProjectDetails = ({ user }) => {
         setEditName(project.name || '');
         setEditDescription(project.description || '');
         setEditStatus(project.status || null);
-        // Normalize backend deadline which may be null, DateOnly (yyyy-MM-dd) or ISO datetime
+        setDeadlineError('');
+        // Normalize backend deadline which may be null, DateOnly (yyyy-MM-dd), ISO datetime, or object
         if (project.deadline) {
-            const d = String(project.deadline).slice(0, 10); // yyyy-MM-dd
+            let deadlineStr = '';
+            // Handle if deadline is an object (e.g., {Deadline: "2024-03-22"})
+            if (typeof project.deadline === 'object' && project.deadline !== null) {
+                deadlineStr = project.deadline.Deadline || project.deadline.deadline || '';
+            } else {
+                deadlineStr = String(project.deadline);
+            }
+            const d = deadlineStr.slice(0, 10); // yyyy-MM-dd
             setEditDeadline(d);
         } else setEditDeadline('');
         setIsEditProjectOpen(true);
@@ -345,6 +396,31 @@ export const ManagerProjectDetails = ({ user }) => {
             await showAlert('Name and description are required', 'Validation', 'warning');
             return;
         }
+        
+        // Check if there's a deadline error
+        if (deadlineError) {
+            await showAlert(deadlineError, 'Invalid Deadline', 'error');
+            return;
+        }
+        
+        // Validate deadline is not in the past and is in current year
+        if (editDeadline) {
+            const selectedDate = new Date(editDeadline);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const currentYear = new Date().getFullYear();
+            
+            if (selectedDate < today) {
+                await showAlert('Deadline cannot be in the past. Please select a current or future date.', 'Invalid Deadline', 'error');
+                return;
+            }
+            
+            if (selectedDate.getFullYear() !== currentYear) {
+                await showAlert(`Deadline must be in ${currentYear}.`, 'Invalid Deadline', 'error');
+                return;
+            }
+        }
+        
         try {
             const payload = {
                 name: editName,
@@ -353,24 +429,23 @@ export const ManagerProjectDetails = ({ user }) => {
                 // send DateOnly yyyy-MM-dd or null
                 deadline: editDeadline ? String(editDeadline).slice(0, 10) : null
             };
-            const res = await api.put(`/Projects/${pid}`, payload, { headers: { 'Content-Type': 'application/json' } });
+            await api.put(`/Projects/${pid}`, payload, { headers: { 'Content-Type': 'application/json' } });
             const statuspayload = {
                 status: editStatus
             };
-            const statusRes = await api.patch(`/Projects/${pid}/status`, statuspayload, { headers: { 'Content-Type': 'application/json' } });
-            const updatedProject = res.data?.data ?? res.data ?? { ...project, ...payload };
-            setProject(updatedProject);
-            (async () => {
-                try {
-                    const response = await api.get(`/Projects/${pid}`);
-                    const listLabelsResponse = await api.get(`/projects/${pid}/labels`);
-                    const projectData = response.data?.data ?? response.data;
-                    setProject(projectData);
-                    setListLabels(listLabelsResponse.data?.data ?? listLabelsResponse.data);
-                } catch (error) {
-                    console.warn('Failed to fetch project details', error);
-                }
-            })();
+            await api.patch(`/Projects/${pid}/status`, statuspayload, { headers: { 'Content-Type': 'application/json' } });
+            
+            // Refresh project data
+            try {
+                const response = await api.get(`/Projects/${pid}`);
+                const listLabelsResponse = await api.get(`/projects/${pid}/labels`);
+                const projectData = response.data?.data ?? response.data;
+                setProject(projectData);
+                setListLabels(listLabelsResponse.data?.data ?? listLabelsResponse.data);
+            } catch (error) {
+                console.warn('Failed to fetch project details', error);
+            }
+            
             await showAlert('Project updated', 'Success', 'success');
         } catch (error) {
             console.warn('Update failed', error);
@@ -492,12 +567,13 @@ export const ManagerProjectDetails = ({ user }) => {
             project={project}
             onBack={handleBackToProjects}
             activeTab={activeTab}
-            setActiveTab={setActiveTab}
+            setActiveTab={handleTabChange}
             dataSet={dataSet}
             dataLoading={dataLoading}
             dataPage={dataPage}
             setDataPage={setDataPage}
             handleDeleteDataItem={handleDeleteDataItem}
+            onRefreshDataItems={fetchDataItems}
 
             // Delete project
             showDeleteModal={showDeleteModal}
@@ -506,7 +582,7 @@ export const ManagerProjectDetails = ({ user }) => {
 
             // Import modal handlers
             isImportModalOpen={isImportModalOpen}
-            openImportModal={() => setIsImportModalOpen(true)}
+            openImportModal={handleOpenImportModal}
             closeImportModal={() => setIsImportModalOpen(false)}
             uploadProgress={uploadProgress}
             selectedFiles={selectedFiles}
@@ -541,7 +617,8 @@ export const ManagerProjectDetails = ({ user }) => {
             editStatus={editStatus}
             setEditStatus={setEditStatus}
             editDeadline={editDeadline}
-            setEditDeadline={setEditDeadline}
+            setEditDeadline={handleDeadlineChange}
+            deadlineError={deadlineError}
             handleSaveProjectUpdate={handleSaveProjectUpdate}
 
             // Labels

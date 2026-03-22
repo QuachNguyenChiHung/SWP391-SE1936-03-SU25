@@ -28,6 +28,7 @@ export default function ManagerProjectDetails(props) {
         dataPage,
         setDataPage,
         handleDeleteDataItem,
+        onRefreshDataItems,
 
         // Import modal props
         isImportModalOpen,
@@ -67,6 +68,7 @@ export default function ManagerProjectDetails(props) {
         setEditStatus,
         editDeadline,
         setEditDeadline,
+        deadlineError,
         handleSaveProjectUpdate,
 
         // Delete project
@@ -144,7 +146,7 @@ export default function ManagerProjectDetails(props) {
                     <OverviewPanel project={project} openImportModal={openImportModal} openGuidelines={openGuidelines} openEditProject={openEditProject} onDeleteProject={() => setShowDeleteModal(true)} />
                 )}
                 {activeTab === 'Data Items' && (
-                    <DataItemsPanel dataSet={dataSet} dataLoading={dataLoading} dataPage={dataPage} setDataPage={setDataPage} onDeleteItem={handleDeleteDataItem} />
+                    <DataItemsPanel dataSet={dataSet} dataLoading={dataLoading} dataPage={dataPage} setDataPage={setDataPage} onDeleteItem={handleDeleteDataItem} onRefresh={onRefreshDataItems} />
                 )}
                 {activeTab === 'Labels' && (
                     <LabelsPanel listLabels={listLabels} openAddLabel={openAddLabel} openEditLabelModal={openEditLabelModal} openDeleteLabelModal={openDeleteLabelModal} />
@@ -197,6 +199,7 @@ export default function ManagerProjectDetails(props) {
                 setEditStatus={setEditStatus}
                 editDeadline={editDeadline}
                 setEditDeadline={setEditDeadline}
+                deadlineError={deadlineError}
                 onSave={handleSaveProjectUpdate}
             />
 

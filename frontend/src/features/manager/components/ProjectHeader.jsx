@@ -68,7 +68,22 @@ const ProjectHeader = ({ project, onBack }) => {
         <div className="d-flex align-items-center gap-2">
           <span className="text-muted small border-end pe-2 me-1">{project?.type}</span>
           {project?.deadline && (
-            <span className="text-muted small ms-2">{t.deadline}: {new Date(project.deadline).toLocaleDateString()}</span>
+            <span className="text-muted small ms-2">
+              {t.deadline}: {(() => {
+                // Handle deadline that might be a string, object, or Date
+                let deadlineStr = '';
+                if (typeof project.deadline === 'object' && project.deadline !== null) {
+                  deadlineStr = project.deadline.Deadline || project.deadline.deadline || '';
+                } else {
+                  deadlineStr = String(project.deadline);
+                }
+                try {
+                  return new Date(deadlineStr).toLocaleDateString();
+                } catch {
+                  return deadlineStr;
+                }
+              })()}
+            </span>
           )}
         </div>
       </div>

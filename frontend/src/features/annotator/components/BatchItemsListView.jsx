@@ -114,16 +114,28 @@ export const BatchItemsListView = ({
 
                 <div className="d-flex align-items-center gap-2">
                     {selectedBatch.status !== 'Submitted' && selectedBatch.status !== 'Completed' && (
-                        <button
-                            onClick={() => onSubmitTask(selectedBatch.id)}
-                            className="btn btn-primary d-flex align-items-center gap-2"
-                            style={{ fontSize: '0.875rem' }}
-                            disabled={selectedBatch.completedItems !== selectedBatch.totalItems}
-                            title={selectedBatch.completedItems !== selectedBatch.totalItems ? t.completeAllFirst : t.submitForReview}
-                        >
-                            <Check size={16} />
-                            {t.submitReview}
-                        </button>
+                        <>
+                            {(() => {
+                                const flaggedCount = batchItems.filter(item => item.status === 'Flagged').length;
+                                const isDisabled = selectedBatch.completedItems !== selectedBatch.totalItems || flaggedCount > 0;
+                                const tooltipText = flaggedCount > 0 
+                                    ? `Cannot submit. ${flaggedCount} item(s) are flagged and need manager resolution.`
+                                    : (selectedBatch.completedItems !== selectedBatch.totalItems ? t.completeAllFirst : t.submitForReview);
+                                
+                                return (
+                                    <button
+                                        onClick={() => onSubmitTask(selectedBatch.id)}
+                                        className="btn btn-primary d-flex align-items-center gap-2"
+                                        style={{ fontSize: '0.875rem' }}
+                                        disabled={isDisabled}
+                                        title={tooltipText}
+                                    >
+                                        <Check size={16} />
+                                        {t.submitReview}
+                                    </button>
+                                );
+                            })()}
+                        </>
                     )}
                 </div>
             </div>

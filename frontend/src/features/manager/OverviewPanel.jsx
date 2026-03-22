@@ -76,9 +76,20 @@ export default function OverviewPanel({ project, openImportModal, openGuidelines
                     <div className="card-body">
                         <h5 className="fw-bold mb-3">Quick Actions</h5>
                         <div className="d-grid gap-2">
-                            <Button variant="primary" className="text-start d-flex justify-content-between align-items-center p-3 border text-white" onClick={openImportModal}>
-                                <span className="d-flex align-items-center gap-2">Import Dataset</span>
+                            <Button 
+                                variant="primary"
+                                className="text-start d-flex justify-content-between align-items-center p-3 border text-white" 
+                                onClick={openImportModal}
+                            >
+                                <span className="d-flex align-items-center gap-2">
+                                    Import Dataset
+                                </span>
                             </Button>
+                            {project.status === 'Draft' && (
+                                <small className="text-muted px-2">
+                                    💡 Upload your dataset, then change status to Active to assign tasks.
+                                </small>
+                            )}
                             <Button variant="primary" className="text-start d-flex justify-content-between align-items-center p-3 border text-white" onClick={openGuidelines}>
                                 <span className="d-flex align-items-center gap-2">Guidelines</span>
                             </Button>

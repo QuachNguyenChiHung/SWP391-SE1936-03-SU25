@@ -80,6 +80,7 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
     const [showReviewersModal, setShowReviewersModal] = useState(false);
     const [loadingReviewers, setLoadingReviewers] = useState(false);
     const [reviewerTargetTaskId, setReviewerTargetTaskId] = useState(null);
+    const [reviewerTargetTask, setReviewerTargetTask] = useState(null); // Store full task for context
     const [assigningReviewer, setAssigningReviewer] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [selectedAssignee, setSelectedAssignee] = useState(null);
@@ -119,6 +120,38 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         fetchReviewers();
     }, []);
 
+    // Re-enrich tasks when reviewers are loaded
+    useEffect(() => {
+        if (reviewers.length > 0 && tasksPage.items.length > 0) {
+            const reviewerMap = {};
+            reviewers.forEach(r => {
+                reviewerMap[r.id] = r;
+            });
+            
+            const enrichedItems = tasksPage.items.map(task => {
+                if (task.reviewerId && reviewerMap[task.reviewerId]) {
+                    return {
+                        ...task,
+                        reviewerSpecializedIn: reviewerMap[task.reviewerId].specializedIn
+                    };
+                }
+                return task;
+            });
+            
+            // Only update if enrichment actually added data
+            const hasNewData = enrichedItems.some((item, idx) => 
+                item.reviewerSpecializedIn && !tasksPage.items[idx].reviewerSpecializedIn
+            );
+            
+            if (hasNewData) {
+                setTasksPage(prev => ({
+                    ...prev,
+                    items: enrichedItems
+                }));
+            }
+        }
+    }, [reviewers, tasksPage.items.length]);
+
     const fetchAnnotators = async () => {
         try {
             const res = await api.get('/Tasks/annotators');
@@ -151,8 +184,25 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
             const res = await api.get('/Tasks', { params: { projectId: pId, pageNumber, pageSize } });
             const body = res?.data || {};
             const items = body.items || [];
+            
+            // Enrich tasks with reviewer specialization
+            const reviewerMap = {};
+            reviewers.forEach(r => {
+                reviewerMap[r.id] = r;
+            });
+            
+            const enrichedItems = items.map(task => {
+                if (task.reviewerId && reviewerMap[task.reviewerId]) {
+                    return {
+                        ...task,
+                        reviewerSpecializedIn: reviewerMap[task.reviewerId].specializedIn
+                    };
+                }
+                return task;
+            });
+            
             setTasksPage({
-                items,
+                items: enrichedItems,
                 totalCount: body.totalCount || 0,
                 pageNumber: body.pageNumber || pageNumber,
                 pageSize: body.pageSize || pageSize,
@@ -191,7 +241,14 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         const pId = getProjectIdFromPropsOrPath(projectIdProp);
         setLoadingItems(true);
         try {
-            const res = await api.get(`/projects/${pId}/data-items`, { params: { pageNumber, pageSize } });
+            // Only fetch pending items for assignment
+            const res = await api.get(`/projects/${pId}/data-items`, { 
+                params: { 
+                    pageNumber, 
+                    pageSize,
+                    status: 'Pending' // Only show pending items in assignment modal
+                } 
+            });
             // Use full response so UI can show status, dimensions, assignedAnnotator, thumbnails
             if (res?.data) {
                 setDataItems({
@@ -220,8 +277,9 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         await fetchDataItems(1, DEFAULT_PAGE_SIZE);
     }
 
-    const openAssignReviewerForTask = (taskId) => {
-        setReviewerTargetTaskId(taskId);
+    const openAssignReviewerForTask = (task) => {
+        setReviewerTargetTaskId(task.id);
+        setReviewerTargetTask(task);
         setShowReviewersModal(true);
     }
 
@@ -229,7 +287,6 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         if (!taskId || !reviewerId) return;
         setAssigningReviewer(true);
         try {
-            await showAlert(`Assigning reviewer ${reviewerId} to task ${taskId}...`, 'Info', 'info');
             await api.put(`/Tasks/${taskId}/reviewer`, { reviewerId }, { headers: { 'Content-Type': 'application/json' } });
             setAssigningReviewer(false);
             setShowReviewersModal(false);
@@ -301,14 +358,27 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         tasksByAnnotator[aId].push(it);
     });
 
-    const pendingDataItems = dataItems.items.filter((item) => item.status === 'Pending');
+    // Since we're fetching only pending items from API, all items are pending
+    const pendingDataItems = dataItems.items;
     const selectedPendingCount = selectedDataItemIds.length;
     const pendingTotalCount = pendingDataItems.length;
     const canAssignItems = !!selectedAssignee && selectedPendingCount > 0 && !assigning && !taskDeadlineError && !!taskDeadline;
 
     // Combine annotators fetched from /Tasks/annotators with annotator info present in the tasks response
     const annotatorMap = {};
-    (annotators || []).forEach(a => { annotatorMap[a.id] = { ...a }; });
+    // First, add all annotators from the API with their full data including specializedIn
+    (annotators || []).forEach(a => { 
+        annotatorMap[a.id] = { 
+            id: a.id,
+            name: a.name,
+            email: a.email,
+            specializedIn: a.specializedIn, // Direct mapping from API
+            activeTaskCount: a.activeTaskCount, // From API
+            activeReviewCount: a.activeReviewCount,
+            otherProjectAssignedTaskCount: a.otherProjectAssignedTaskCount
+        }; 
+    });
+    // Then, add any annotators found in tasks that weren't in the annotators list
     (tasksPage.items || []).forEach(it => {
         const aId = it.annotatorId ?? 0;
         if (!annotatorMap[aId]) {
@@ -316,13 +386,15 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                 id: aId,
                 name: it.annotatorName || (aId === 0 ? 'Unassigned' : `Annotator ${aId}`),
                 email: it.annotatorEmail || it.annotatorName || '',
-                specializedIn: it.annotatorSpecializedIn || it.specializedIn || it.specializeIn || undefined,
-                activeReviewCount: it.annotatorActiveReviewCount ?? undefined,
-                otherProjectAssignedTaskCount: it.otherProjectAssignedTaskCount ?? undefined
+                specializedIn: it.annotatorSpecializedIn || it.specializedIn,
+                activeTaskCount: it.activeTaskCount,
+                activeReviewCount: it.annotatorActiveReviewCount,
+                otherProjectAssignedTaskCount: it.otherProjectAssignedTaskCount
             };
         }
     });
     const combinedAnnotators = Object.values(annotatorMap).sort((x, y) => (x.name || '').localeCompare(y.name || ''));
+    
     return (
         <div className="d-flex flex-column gap-3">
             <div className="d-flex justify-content-between align-items-center mb-2">
@@ -338,6 +410,7 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                     <div className="text-muted small">Page {tasksPage.pageNumber} / {tasksPage.totalPages}</div>
                 </div>
             </div>
+
             {combinedAnnotators.map((assignee) => {
                 const getTime = (t) => {
                     const d = t?.assignedAt ?? t?.createdAt ?? null;
@@ -371,13 +444,29 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                         <div className="fw-bold mb-0 lh-1 text-dark">
                                             {assignee ? assignee.name : "Unassigned"}
                                             {isUnassigned && <span className="badge bg-warning text-dark ms-2">No Tasks</span>}
+                                            {assignee && assignee.specializedIn && (
+                                                <span 
+                                                    className="badge bg-info text-white ms-2" 
+                                                    title={`Specialized in: ${assignee.specializedIn}`}
+                                                    style={{ 
+                                                        maxWidth: '200px', 
+                                                        overflow: 'hidden', 
+                                                        textOverflow: 'ellipsis', 
+                                                        whiteSpace: 'nowrap',
+                                                        display: 'inline-block',
+                                                        verticalAlign: 'middle'
+                                                    }}
+                                                >
+                                                    🎯 {assignee.specializedIn}
+                                                </span>
+                                            )}
                                         </div>
                                         <small className="text-muted">
                                             {assignee?.email && `${assignee.email} • `}
-                                            {tasks.length} tasks
+                                            {tasks.length} tasks in this project
+                                            {assignee && (typeof assignee.activeTaskCount !== 'undefined') && ` • ${assignee.activeTaskCount} active total`}
                                             {assignee && (typeof assignee.activeReviewCount !== 'undefined') && ` • ${assignee.activeReviewCount} reviews`}
-                                            {assignee && (typeof assignee.otherProjectAssignedTaskCount !== 'undefined') && ` • ${assignee.otherProjectAssignedTaskCount} other`}
-                                            {assignee && assignee.specializedIn && ` • Specialized in: ${assignee.specializedIn}`}
+                                            {assignee && (typeof assignee.otherProjectAssignedTaskCount !== 'undefined') && ` • ${assignee.otherProjectAssignedTaskCount} other projects`}
                                         </small>
                                     </div>
                                 </div>
@@ -420,7 +509,25 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                                                 <span>{t.progressPercent ?? Math.round(((t.completedItems || 0) / (t.totalItems || 1)) * 100)}%</span>
                                                             </div>
                                                             <div className="text-muted small">Assigned: {t.assignedAt ? new Date(t.assignedAt).toLocaleString() : (t.createdAt ? new Date(t.createdAt).toLocaleString() : '-')}</div>
-                                                            <div className="text-muted small">Reviewer: {t.reviewerName || '-'}</div>
+                                                            
+                                                            <div className="text-muted small d-flex align-items-center gap-2 flex-wrap">
+                                                                <span>Reviewer: {t.reviewerName || '-'}</span>
+                                                                {t.reviewerSpecializedIn && (
+                                                                    <span 
+                                                                        className="badge bg-info text-white" 
+                                                                        style={{ 
+                                                                            fontSize: '0.65rem',
+                                                                            maxWidth: '150px',
+                                                                            overflow: 'hidden',
+                                                                            textOverflow: 'ellipsis',
+                                                                            whiteSpace: 'nowrap'
+                                                                        }}
+                                                                        title={`Reviewer specialized in: ${t.reviewerSpecializedIn}`}
+                                                                    >
+                                                                        🎯 {t.reviewerSpecializedIn}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <div className="d-flex flex-wrap gap-2 mt-1">
                                                                 <span className={`badge rounded-pill px-2 py-1 fw-semibold ${getDeadlineChipClass(t.deadline)}`} style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>
                                                                     Deadline: {formatTaskDate(t.deadline)}
@@ -434,8 +541,10 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                                     <div className="d-flex gap-3 align-items-center">
                                                         <StatusBadge status={t.status} />
                                                         <Button variant="link" className="text-muted p-0" onClick={(e) => { e.stopPropagation(); toggleTaskInline(t.id); }}>{isTaskExpanded ? 'Hide' : 'View'}</Button>
-                                                        {!hasReviewerAssigned && (
-                                                            <Button size="sm" variant="primary" onClick={(e) => { e.stopPropagation(); openAssignReviewerForTask(t.id); }}>Assign Reviewer</Button>
+                                                        {!hasReviewerAssigned ? (
+                                                            <Button size="sm" variant="primary" onClick={(e) => { e.stopPropagation(); openAssignReviewerForTask(t); }}>Assign Reviewer</Button>
+                                                        ) : (
+                                                            <Button size="sm" variant="warning" onClick={(e) => { e.stopPropagation(); openAssignReviewerForTask(t); }}>Reassign Reviewer</Button>
                                                         )}
                                                     </div>
                                                 </div>
@@ -565,9 +674,11 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
             <Modal show={showAssignModal} onHide={closeAssignModal} size="xl" centered scrollable dialogClassName="assign-items-modal-dialog">
                 <Modal.Header closeButton className="border-0 pb-2">
                     <div className="d-flex flex-column gap-1 w-100 pe-4">
-                        <Modal.Title className="mb-0">Assign items {selectedAssignee ? `to ${selectedAssignee.name}` : ''}</Modal.Title>
+                        <Modal.Title className="mb-0">
+                            Assign items {selectedAssignee ? `to ${selectedAssignee.name}` : ''}
+                        </Modal.Title>
                         <div className="text-muted small">
-                            Choose pending files, set a deadline, then assign them in one step.
+                            Showing only pending (unassigned) items. Set a deadline and assign them.
                         </div>
                     </div>
                 </Modal.Header>
@@ -614,12 +725,12 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                     <tbody>
                                         {dataItems.items.map(item => {
                                             const checked = selectedDataItemIds.includes(item.id);
-                                            const isSelectable = item.status === 'Pending';
+                                            // All items are pending since we filter on API level
+                                            const isSelectable = true;
                                             return (
                                                 <tr key={item.id} className={checked ? 'table-primary' : ''}>
                                                     <td>
-                                                        <input type="checkbox" disabled={!isSelectable} checked={checked} onChange={(e) => {
-                                                            if (!isSelectable) return;
+                                                        <input type="checkbox" checked={checked} onChange={(e) => {
                                                             if (e.target.checked) setSelectedDataItemIds(prev => [...prev, item.id]);
                                                             else setSelectedDataItemIds(prev => prev.filter(id => id !== item.id));
                                                         }} />
@@ -752,11 +863,23 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
             </Modal>
 
             {/* Reviewers modal */}
-            <Modal show={showReviewersModal} onHide={() => { setShowReviewersModal(false); setReviewerTargetTaskId(null); }} size="md">
+            <Modal show={showReviewersModal} onHide={() => { setShowReviewersModal(false); setReviewerTargetTaskId(null); setReviewerTargetTask(null); }} size="md">
                 <Modal.Header closeButton>
-                    <Modal.Title>Reviewers</Modal.Title>
+                    <Modal.Title>
+                        {reviewerTargetTask?.reviewerName ? 'Reassign Reviewer' : 'Assign Reviewer'}
+                    </Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
+                    {reviewerTargetTask?.reviewerName && (
+                        <div className="alert alert-info mb-3">
+                            <small className="d-block mb-1"><strong>Current Reviewer:</strong> {reviewerTargetTask.reviewerName}</small>
+                            {reviewerTargetTask.reviewerSpecializedIn && (
+                                <small className="d-block">
+                                    <strong>Specialization:</strong> {reviewerTargetTask.reviewerSpecializedIn}
+                                </small>
+                            )}
+                        </div>
+                    )}
                     {loadingReviewers ? (
                         <div className="d-flex justify-content-center py-4"><Spinner animation="border" /></div>
                     ) : (
@@ -769,17 +892,29 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                             {r.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
                                         </div>
                                         <div>
-                                            <div className="fw-bold small mb-0">{r.email || r.name}</div>
-                                            <div className="small text-muted gap-2" style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <div className='d-flex gap-2'>
-                                                    <span>Active: <strong>{r.activeReviewCount}</strong></span>
-                                                    <span>Other projects: <strong>{r.otherProjectAssignedTaskCount ?? 0}</strong></span>
-                                                </div>
-
-                                                <div>
-                                                    {r.specializedIn && <span>Specialized in: <strong>{r.specializedIn}</strong></span>}
-                                                </div>
-
+                                            <div className="fw-bold small mb-0 d-flex align-items-center gap-2">
+                                                {r.name}
+                                                {r.specializedIn && (
+                                                    <span 
+                                                        className="badge bg-info text-white" 
+                                                        style={{ 
+                                                            fontSize: '0.7rem',
+                                                            maxWidth: '150px',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            whiteSpace: 'nowrap'
+                                                        }}
+                                                        title={`Specialized in: ${r.specializedIn}`}
+                                                    >
+                                                        🎯 {r.specializedIn}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="small text-muted">{r.email}</div>
+                                            <div className="small text-muted d-flex gap-2 mt-1">
+                                                <span>Active: <strong>{r.activeReviewCount}</strong></span>
+                                                <span>•</span>
+                                                <span>Other projects: <strong>{r.otherProjectAssignedTaskCount ?? 0}</strong></span>
                                             </div>
                                         </div>
                                     </div>

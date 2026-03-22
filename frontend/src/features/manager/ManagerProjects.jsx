@@ -214,6 +214,18 @@ export const ManagerProjects = ({ user }) => {
         if (!value) return 'Deadline is required';
         const dt = new Date(`${value}T00:00:00`);
         if (Number.isNaN(dt.getTime())) return 'Invalid date';
+        
+        // Check if date is in the past
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (dt < today) return 'Deadline cannot be in the past';
+        
+        // Check if date is in current year (2026)
+        const currentYear = new Date().getFullYear();
+        if (dt.getFullYear() !== currentYear) {
+            return `Deadline must be in ${currentYear}`;
+        }
+        
         return '';
     };
 
@@ -335,11 +347,17 @@ export const ManagerProjects = ({ user }) => {
                                                 setProjectDeadline(e.target.value);
                                                 setDeadlineError(validateDeadline(e.target.value));
                                             }}
-                                            className="form-control"
+                                            className={`form-control ${deadlineError ? 'is-invalid' : ''}`}
                                             placeholder={t.deadlinePlaceholder}
                                             style={{ borderRadius: '8px', padding: '10px' }}
+                                            min={new Date().toISOString().split('T')[0]}
+                                            max={`${new Date().getFullYear()}-12-31`}
                                         />
-                                        {deadlineError && <div className="text-danger small mt-1">{deadlineError}</div>}
+                                        {deadlineError ? (
+                                            <div className="invalid-feedback d-block">{deadlineError}</div>
+                                        ) : (
+                                            <div className="form-text">Deadline must be in {new Date().getFullYear()} and not in the past</div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
