@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Button from 'react-bootstrap/Button';
 import { Edit, AlertTriangle } from 'lucide-react';
 import api from '../../../shared/utils/api.js';
+import Avatar from '../../../shared/components/Avatar.jsx';
 
 export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setDataPage, onDeleteItem, onRefresh }) {
     const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -57,13 +58,27 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
             try {
                 const response = await api.get(`/data-items/${item.id}/comments`);
                 const commentsData = response.data?.data || [];
-                setComments(commentsData);
+                // Sort by createdAt descending (latest first)
+                const sortedComments = commentsData.sort((a, b) => 
+                    new Date(b.createdAt) - new Date(a.createdAt)
+                );
+                setComments(sortedComments);
             } catch (error) {
                 console.error('Failed to fetch comments:', error);
             }
         }
         
         setShowUpdateModal(true);
+    };
+
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
     };
 
     const handleUpdateItem = async () => {
@@ -223,13 +238,18 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                                     {comments.slice(0, showAllComments ? comments.length : 4).map((comment, index) => (
                                                         <div key={comment.id || index} className="bg-white p-3 rounded border mb-2">
                                                             <div className="d-flex justify-content-between align-items-start mb-2">
-                                                                <div className="small">
-                                                                    <strong className="text-primary">{comment.authorName}</strong>
-                                                                    <span className="badge bg-secondary ms-2">{comment.authorRole}</span>
+                                                                <div className="d-flex align-items-center gap-2">
+                                                                    <Avatar name={comment.authorName} size={32} />
+                                                                    <div>
+                                                                        <div className="small">
+                                                                            <strong className="text-primary">{comment.authorName}</strong>
+                                                                            <span className="badge bg-secondary ms-2">{comment.authorRole}</span>
+                                                                        </div>
+                                                                        <span className="text-muted small">
+                                                                            {formatDate(comment.createdAt)}
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
-                                                                <span className="text-muted small">
-                                                                    {new Date(comment.createdAt).toLocaleString()}
-                                                                </span>
                                                             </div>
                                                             <div className="mt-2 p-2 bg-light rounded">
                                                                 <strong className="small text-muted d-block mb-1">Issue Description:</strong>
