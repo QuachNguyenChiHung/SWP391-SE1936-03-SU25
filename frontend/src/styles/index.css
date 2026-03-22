@@ -439,6 +439,8 @@ textarea {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   box-shadow: 4px 0 24px rgba(15, 23, 42, 0.12);
+  transition: width 240ms var(--ease-soft), box-shadow 240ms var(--ease-soft), background-color 240ms var(--ease-soft);
+  overflow: hidden;
 }
 
 body.theme-light .app-sidebar {
@@ -450,12 +452,32 @@ body.theme-dark .app-sidebar {
   background: rgba(22, 27, 34, 0.92);
 }
 
+.app-shell-collapsed .app-sidebar {
+  width: 5.25rem;
+}
+
+.sidebar-collapse-button {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.sidebar-logout-button {
+  margin-left: auto;
+}
+
 .sidebar-brand {
   display: flex;
   align-items: center;
   gap: 0.9rem;
   padding: 1.25rem 1.2rem;
   border-bottom: 1px solid var(--border-soft);
+  transition: padding 240ms var(--ease-soft);
+}
+
+.app-shell-collapsed .sidebar-brand {
+  padding: 0.85rem 0.55rem;
+  gap: 0.35rem;
+  justify-content: space-between;
 }
 
 .brand-mark {
@@ -473,6 +495,13 @@ body.theme-dark .app-sidebar {
   flex-shrink: 0;
 }
 
+.app-shell-collapsed .brand-mark {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.7rem;
+  font-size: 0.78rem;
+}
+
 .brand-mark-sm {
   width: 2.15rem;
   height: 2.15rem;
@@ -481,6 +510,7 @@ body.theme-dark .app-sidebar {
 
 .brand-copy {
   min-width: 0;
+  transition: opacity 180ms var(--ease-standard), transform 180ms var(--ease-standard);
 }
 
 .brand-name {
@@ -531,6 +561,14 @@ body.theme-dark .app-sidebar {
   flex-direction: column;
   gap: 0.35rem;
 }
+.sidebar-link-label,
+.sidebar-section-label,
+.sidebar-user-copy,
+.annotator-nav-collapsed .sidebar-link span.flex-fill,
+.annotator-nav-collapsed .sidebar-section > p,
+.brand-copy {
+  transition: opacity 180ms var(--ease-standard), transform 180ms var(--ease-standard), max-width 180ms var(--ease-standard), margin 180ms var(--ease-standard);
+}
 
 .sidebar-link {
   display: flex;
@@ -558,6 +596,27 @@ body.theme-dark .app-sidebar {
   text-decoration: none;
 }
 
+.app-shell-collapsed .sidebar-link,
+.app-shell-collapsed .annotator-nav-collapsed .sidebar-link {
+  justify-content: center;
+  gap: 0;
+  padding-left: 0.7rem;
+  padding-right: 0.7rem;
+}
+
+.app-shell-collapsed .sidebar-link svg,
+.app-shell-collapsed .annotator-nav-collapsed .sidebar-link svg {
+  flex-shrink: 0;
+}
+
+.app-shell-collapsed .sidebar-link-label,
+.app-shell-collapsed .sidebar-section-label,
+.app-shell-collapsed .sidebar-user-copy,
+.app-shell-collapsed .annotator-nav-collapsed .sidebar-link span.flex-fill,
+.app-shell-collapsed .annotator-nav-collapsed .sidebar-section > p {
+  display: none !important;
+}
+
 .sidebar-link-active {
   background: linear-gradient(135deg, rgba(79, 70, 229, 0.96), rgba(37, 99, 235, 0.96));
   color: #fff !important;
@@ -583,6 +642,16 @@ body.theme-dark .app-sidebar {
   border-radius: 1rem;
   background: var(--surface-elevated);
   border: 1px solid var(--border-soft);
+}
+
+.app-shell-collapsed .sidebar-user-card {
+  margin: auto 0.65rem 0.75rem;
+  padding: 0.75rem;
+  justify-content: center;
+}
+
+.app-shell-collapsed .sidebar-user-card .sidebar-user-link {
+  display: none;
 }
 
 .sidebar-user-link {
@@ -660,12 +729,43 @@ body.theme-dark .app-sidebar {
   background: var(--surface-elevated);
   color: var(--text-secondary);
   box-shadow: none !important;
+  transition: transform 180ms var(--ease-standard), background-color 180ms var(--ease-standard), color 180ms var(--ease-standard), border-color 180ms var(--ease-standard);
 }
 
 .sidebar-icon-button:hover,
 .sidebar-icon-button:focus-visible {
   background: var(--surface-hover);
   color: var(--text-primary);
+  transform: translateY(-1px);
+}
+.sidebar-collapse-button {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 999px;
+  margin-left: auto;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.96));
+  border-color: rgba(99, 102, 241, 0.16);
+  color: var(--accent-strong);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08) !important;
+}
+
+.app-shell-collapsed .sidebar-collapse-button {
+  width: 1.95rem;
+  height: 1.95rem;
+  border-radius: 999px;
+  margin-left: auto;
+}
+.sidebar-collapse-button:hover,
+.sidebar-collapse-button:focus-visible {
+  transform: scale(1.03);
+}
+.app-shell-collapsed .sidebar-user-card {
+  margin-top: auto;
+  justify-content: center;
+  padding: 0.9rem 0.75rem 1rem;
+}
+.app-shell-collapsed .sidebar-user-card .sidebar-icon-button {
+  margin-left: 0;
 }
 
 .app-content-shell {

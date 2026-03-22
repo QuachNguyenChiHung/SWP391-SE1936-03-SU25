@@ -130,23 +130,6 @@ export const Profile = () => {
         }
     };
 
-    // Avatar upload handler (UI -> API)
-    const handleAvatarUpload = async (file) => {
-        if (!file) return;
-        const form = new FormData();
-        form.append('avatar', file);
-        try {
-            const res = await api.post('/profile/avatar', form, { headers: { 'Content-Type': 'multipart/form-data' } });
-            if (res?.data?.success && res.data.data) {
-                // refresh profile or update avatar field
-                fetchProfile();
-            }
-        } catch (e) {
-            console.error('Avatar upload failed', e);
-            await showAlert(e?.response?.data?.message || 'Failed to upload avatar', 'Error', 'error');
-        }
-    };
-
     if (isLoading) return (
         <div className="container py-5 text-center">
             <div className="spinner-border text-primary" role="status"></div>
@@ -186,7 +169,6 @@ export const Profile = () => {
                                 onEditToggle={() => setIsEditing(!isEditing)}
                                 onUpdateName={handleUpdateName}
                                 getRoleBadgeColor={getRoleBadgeColor}
-                                onAvatarUpload={handleAvatarUpload}
                             />
 
                             <ProfileDetails profile={profile} />

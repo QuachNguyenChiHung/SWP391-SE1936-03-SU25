@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { UserRole } from '../shared/types/types.js';
 import {
     CheckCircle,
+    ChevronLeft,
+    ChevronRight,
     Layers,
     LayoutDashboard,
     LogOut,
@@ -73,6 +75,7 @@ const stringToBackground = (str) => {
 
 export const Layout = ({ children, user, onLogout }) => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
     const location = useLocation();
     const { language } = useUI();
     const t = (key) => dictionary[language]?.[key] || key;
@@ -96,63 +99,61 @@ export const Layout = ({ children, user, onLogout }) => {
         setMobileMenuOpen(false);
     }, [location.pathname]);
 
+    useEffect(() => {
+        const saved = window.localStorage.getItem('labelnexus.sidebarCollapsed');
+        if (saved !== null) {
+            setSidebarCollapsed(saved === 'true');
+        }
+    }, []);
+
+    const toggleSidebarCollapsed = () => {
+        setSidebarCollapsed((current) => {
+            const nextValue = !current;
+            window.localStorage.setItem('labelnexus.sidebarCollapsed', String(nextValue));
+            return nextValue;
+        });
+    };
+
     const isActive = (path) => location.pathname === path || location.pathname.startsWith(`${path}/`);
 
     const navLinkClass = (path) =>
         `sidebar-link ${isActive(path) ? 'sidebar-link-active' : 'sidebar-link-inactive'}`;
+
+    const renderSidebarLink = (to, icon, label, ariaLabel) => (
+        <Link to={to} className={navLinkClass(to)} aria-label={sidebarCollapsed ? ariaLabel : undefined} title={sidebarCollapsed ? ariaLabel : undefined}>
+            {icon}
+            {!sidebarCollapsed && <span className="sidebar-link-label">{label}</span>}
+        </Link>
+    );
 
     const renderSidebarLinks = () => {
         switch (user.user.roleName) {
             case UserRole.MANAGER:
                 return (
                     <>
-                        <Link to="/manager/dashboard" className={navLinkClass('/manager/dashboard')}>
-                            <LayoutDashboard size={18} />
-                            {t('dashboard')}
-                        </Link>
-                        <Link to="/manager/projects" className={navLinkClass('/manager/projects')}>
-                            <Layers size={18} />
-                            {t('projects')}
-                        </Link>
+                        {renderSidebarLink('/manager/dashboard', <LayoutDashboard size={18} />, t('dashboard'), t('dashboard'))}
+                        {renderSidebarLink('/manager/projects', <Layers size={18} />, t('projects'), t('projects'))}
                     </>
                 );
             case UserRole.ANNOTATOR:
                 return (
                     <>
-                        <Link to="/annotator/dashboard" className={navLinkClass('/annotator/dashboard')}>
-                            <LayoutDashboard size={18} />
-                            {t('dashboard')}
-                        </Link>
-                        <Link to="/annotator/workspace" className={navLinkClass('/annotator/workspace')}>
-                            <PenTool size={18} />
-                            {t('myTasks')}
-                        </Link>
+                        {renderSidebarLink('/annotator/dashboard', <LayoutDashboard size={18} />, t('dashboard'), t('dashboard'))}
+                        {renderSidebarLink('/annotator/workspace', <PenTool size={18} />, t('myTasks'), t('myTasks'))}
                     </>
                 );
             case UserRole.REVIEWER:
                 return (
                     <>
-                        <Link to="/reviewer/dashboard" className={navLinkClass('/reviewer/dashboard')}>
-                            <LayoutDashboard size={18} />
-                            {t('dashboard')}
-                        </Link>
-                        <Link to="/reviewer/reviews" className={navLinkClass('/reviewer/reviews')}>
-                            <CheckCircle size={18} />
-                            {t('reviewQueue')}
-                        </Link>
+                        {renderSidebarLink('/reviewer/dashboard', <LayoutDashboard size={18} />, t('dashboard'), t('dashboard'))}
+                        {renderSidebarLink('/reviewer/reviews', <CheckCircle size={18} />, t('reviewQueue'), t('reviewQueue'))}
                     </>
                 );
             case UserRole.ADMIN:
                 return (
                     <>
-                        <Link to="/admin/dashboard" className={navLinkClass('/admin/dashboard')}>
-                            <LayoutDashboard size={18} />
-                            {t('dashboard')}
-                        </Link>
-                        <Link to="/admin/users" className={navLinkClass('/admin/users')}>
-                            <Settings size={18} />
-                            {t('adminPanel')}
-                        </Link>
+                        {renderSidebarLink('/admin/dashboard', <LayoutDashboard size={18} />, t('dashboard'), t('dashboard'))}
+                        {renderSidebarLink('/admin/users', <Settings size={18} />, t('adminPanel'), t('adminPanel'))}
                     </>
                 );
             default:
@@ -161,59 +162,78 @@ export const Layout = ({ children, user, onLogout }) => {
     };
 
     return (
-        <div className="app-shell app-shell-light">
+        <div className={`app-shell app-shell-light ${sidebarCollapsed ? 'app-shell-collapsed' : 'app-shell-expanded'}`}>
             <aside className="app-sidebar d-none d-md-flex flex-column">
                 <div className="sidebar-brand">
-                    <div className="brand-mark">LN</div>
-                    <div className="brand-copy">
-                        <div className="brand-name">LabelNexus</div>
-                        <div className="brand-subtitle">Annotation Platform</div>
+                    <div className="d-flex align-items-center gap-2 min-w-0">
+                        <div className="brand-mark">LN</div>
+                        {!sidebarCollapsed && (
+                            <div className="brand-copy">
+                                <div className="brand-name">LabelNexus</div>
+                                <div className="brand-subtitle">Annotation Platform</div>
+                            </div>
+                        )}
                     </div>
+                    <button
+                        type="button"
+                        onClick={toggleSidebarCollapsed}
+                        className="sidebar-icon-button sidebar-collapse-button"
+                        title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    >
+                        {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                    </button>
                 </div>
 
                 <div className="sidebar-scroll flex-fill custom-scrollbar">
                     {user.user.roleName === UserRole.ANNOTATOR ? (
-                        <AnnotatorNavigation />
+                        <AnnotatorNavigation collapsed={sidebarCollapsed} />
                     ) : (
                         <div className="sidebar-sections">
                             <div className="sidebar-section">
-                                <div className="sidebar-section-label">{t('workspace')}</div>
+                                {!sidebarCollapsed && <div className="sidebar-section-label">{t('workspace')}</div>}
                                 <div className="sidebar-link-group">{renderSidebarLinks()}</div>
                             </div>
 
                             <div className="sidebar-section">
-                                <div className="sidebar-section-label">{t('account')}</div>
-                                <Link to="/profile" className={navLinkClass('/profile')}>
-                                    <User size={18} />
-                                    {t('profile')}
-                                </Link>
+                                {!sidebarCollapsed && (
+                                    <>
+                                        <div className="sidebar-section-label">{t('account')}</div>
+                                        <Link to="/profile" className={navLinkClass('/profile')}>
+                                            <User size={18} />
+                                            <span className="sidebar-link-label">{t('profile')}</span>
+                                        </Link>
+                                    </>
+                                )}
                             </div>
                         </div>
                     )}
                 </div>
 
                 <div className="sidebar-user-card">
-                    <Link to="/profile" className="sidebar-user-link">
-                        <div className="sidebar-avatar-wrap">
-                            {user?.avatarUrl ? (
-                                <img src={user.avatarUrl} alt="User" className="sidebar-avatar" />
-                            ) : (
-                                <div className="sidebar-avatar" style={{ background: stringToBackground(user?.user?.name) }}>
-                                    {getInitial(user?.user?.name)}
-                                </div>
-                            )}
-                            <span className="sidebar-status-dot" />
-                        </div>
-                        <div className="sidebar-user-copy">
-                            <div className="sidebar-user-name">{user.user.name}</div>
-                            <div className="sidebar-user-role">{roleName}</div>
-                        </div>
-                    </Link>
+                    {!sidebarCollapsed && (
+                        <Link to="/profile" className="sidebar-user-link">
+                            <div className="sidebar-avatar-wrap">
+                                {user?.avatarUrl ? (
+                                    <img src={user.avatarUrl} alt="User" className="sidebar-avatar" />
+                                ) : (
+                                    <div className="sidebar-avatar" style={{ background: stringToBackground(user?.user?.name) }}>
+                                        {getInitial(user?.user?.name)}
+                                    </div>
+                                )}
+                                <span className="sidebar-status-dot" />
+                            </div>
+                            <div className="sidebar-user-copy">
+                                <div className="sidebar-user-name">{user.user.name}</div>
+                                <div className="sidebar-user-role">{roleName}</div>
+                            </div>
+                        </Link>
+                    )}
 
                     <button
                         type="button"
                         onClick={onLogout}
-                        className="sidebar-icon-button"
+                        className="sidebar-icon-button sidebar-logout-button"
                         title={t('signOut')}
                         aria-label={t('signOut')}
                     >
