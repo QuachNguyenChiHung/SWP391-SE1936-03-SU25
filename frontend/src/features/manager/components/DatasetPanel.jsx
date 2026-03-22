@@ -4,7 +4,7 @@ import { Edit, AlertTriangle } from 'lucide-react';
 import api from '../../../shared/utils/api.js';
 import Avatar from '../../../shared/components/Avatar.jsx';
 
-export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setDataPage, onDeleteItem, onRefresh }) {
+export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setDataPage, onDeleteItem, onRefresh, searchTerm, setSearchTerm }) {
     const [showUpdateModal, setShowUpdateModal] = useState(false);
     const [updateItem, setUpdateItem] = useState(null);
     const [updateFile, setUpdateFile] = useState(null);
@@ -118,10 +118,54 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
         }
     };
 
+    // Filter items based on search term
+    const filteredItems = dataSet?.items || [];
+
     return (
         <div className="card border-0 shadow-sm">
-            <div className="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
-                <small className="text-muted">Showing {dataSet?.totalCount ?? 0} items</small>
+            <div className="card-header bg-white border-bottom py-3">
+                <div className="d-flex justify-content-between align-items-center">
+                    <small className="text-muted">Showing {dataSet?.totalCount ?? 0} items</small>
+                    
+                    <div className="d-flex gap-2">
+                        <div className="input-group" style={{ width: '400px' }}>
+                            <input
+                                type="text"
+                                className="form-control p-2"
+                                placeholder="Search by image name or annotator..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                        // Trigger search on Enter key
+                                        if (onRefresh) onRefresh();
+                                    }
+                                }}
+                            />
+                            {searchTerm && (
+                                <button 
+                                    className="btn btn-outline-secondary" 
+                                    onClick={() => {
+                                        setSearchTerm('');
+                                        if (onRefresh) onRefresh();
+                                    }}
+                                    title="Clear search"
+                                >
+                                    ×
+                                </button>
+                            )}
+                            <button 
+                                className="btn btn-primary" 
+                                onClick={() => {
+                                    if (onRefresh) onRefresh();
+                                }}
+                                title="Search"
+                            >
+                                🔍
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div className="table-responsive">
                 <table className="table table-hover align-middle mb-0">
@@ -136,7 +180,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                     <tbody>
                         {dataLoading ? (
                             <tr><td colSpan={4} className="text-center py-5"><div className="spinner-border text-primary" /></td></tr>
-                        ) : (dataSet?.items && dataSet.items.length > 0) ? dataSet.items.map(item => {
+                        ) : (filteredItems && filteredItems.length > 0) ? filteredItems.map(item => {
                             const base = (import.meta.env.VITE_URL_UPLOADS || '').replace(/\/$/, '');
                             const thumb = item.thumbnailPath ? `${base}/${item.thumbnailPath.replace(/^\//, '')}` : '';
                             const full = item.filePath ? `${base}/${item.filePath.replace(/^\//, '')}` : '';
@@ -178,7 +222,13 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                     </td>
                                 </tr>
                             )
-                        }) : <tr><td colSpan={4} className="text-center py-5 text-muted">No items found</td></tr>}
+                        }) : (
+                            <tr>
+                                <td colSpan={4} className="text-center py-5 text-muted">
+                                    {searchTerm ? `No items found matching "${searchTerm}"` : 'No items found'}
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>

@@ -99,6 +99,8 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
     const [loadingTaskDetail, setLoadingTaskDetail] = useState(false);
     const [showImageModal, setShowImageModal] = useState(false);
     const [selectedImage, setSelectedImage] = useState({ url: '', fileName: '' });
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
     /**
      *   {
         "id": 41,
@@ -177,11 +179,15 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         }
     }
 
-    const fetchTasks = async (pageNumber = 1, pageSize = 10, projectIdProp) => {
+    const fetchTasks = async (pageNumber = 1, pageSize = 10, projectIdProp, search = '') => {
         const pId = getProjectIdFromPropsOrPath(projectIdProp);
         setLoadingTasks(true);
         try {
-            const res = await api.get('/Tasks', { params: { projectId: pId, pageNumber, pageSize } });
+            const params = { projectId: pId, pageNumber, pageSize };
+            if (search) {
+                params.search = search;
+            }
+            const res = await api.get('/Tasks', { params });
             const body = res?.data || {};
             const items = body.items || [];
             
@@ -215,8 +221,19 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
             setTasksPage({ items: [], totalCount: 0, pageNumber, pageSize, totalPages: 1, hasPreviousPage: false, hasNextPage: false });
         } finally {
             setLoadingTasks(false);
+            setIsSearching(false);
         }
     }
+
+    const handleSearch = () => {
+        setIsSearching(true);
+        fetchTasks(1, tasksPage.pageSize, undefined, searchTerm);
+    };
+
+    const handleClearSearch = () => {
+        setSearchTerm('');
+        fetchTasks(1, tasksPage.pageSize, undefined, '');
+    };
 
     const getProjectIdFromPropsOrPath = (propId) => {
         if (propId) return propId;
@@ -403,9 +420,42 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                     <small className="text-muted">Track assignments • Showing {tasksPage.items.length} of {tasksPage.totalCount}</small>
                 </div>
                 <div className="d-flex gap-2 align-items-center">
+                    <div className="input-group" style={{ width: '350px' }}>
+                        <input
+                            type="text"
+                            className="form-control form-control-sm"
+                            placeholder="Search by annotator, reviewer, or image name..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                    handleSearch();
+                                }
+                            }}
+                        />
+                        {searchTerm && (
+                            <Button 
+                                variant="outline-secondary" 
+                                size="sm"
+                                onClick={handleClearSearch}
+                                title="Clear search"
+                            >
+                                ×
+                            </Button>
+                        )}
+                        <Button 
+                            variant="primary" 
+                            size="sm"
+                            onClick={handleSearch}
+                            disabled={isSearching}
+                            title="Search"
+                        >
+                            {isSearching ? '⏳' : '🔍'}
+                        </Button>
+                    </div>
                     <div className="d-flex align-items-center gap-2">
-                        <Button variant="secondary" size="sm" disabled={!tasksPage.hasPreviousPage} onClick={() => fetchTasks(Math.max(1, tasksPage.pageNumber - 1), tasksPage.pageSize)}>Prev</Button>
-                        <Button variant="secondary" size="sm" disabled={!tasksPage.hasNextPage} onClick={() => fetchTasks(Math.min(tasksPage.totalPages || 1, tasksPage.pageNumber + 1), tasksPage.pageSize)}>Next</Button>
+                        <Button variant="secondary" size="sm" disabled={!tasksPage.hasPreviousPage} onClick={() => fetchTasks(Math.max(1, tasksPage.pageNumber - 1), tasksPage.pageSize, undefined, searchTerm)}>Prev</Button>
+                        <Button variant="secondary" size="sm" disabled={!tasksPage.hasNextPage} onClick={() => fetchTasks(Math.min(tasksPage.totalPages || 1, tasksPage.pageNumber + 1), tasksPage.pageSize, undefined, searchTerm)}>Next</Button>
                     </div>
                     <div className="text-muted small">Page {tasksPage.pageNumber} / {tasksPage.totalPages}</div>
                 </div>

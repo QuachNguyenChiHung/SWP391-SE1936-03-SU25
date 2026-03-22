@@ -63,6 +63,7 @@ export const ManagerProjectDetails = ({ user }) => {
     const [dataSet, setDataSet] = useState([]);
     const [dataPage, setDataPage] = useState(1);
     const [dataLoading, setDataLoading] = useState(true);
+    const [dataSearchTerm, setDataSearchTerm] = useState('');
     // Annotators
     const [annotators, setAnnotators] = useState([]);
     const [annotatorsLoading, setAnnotatorsLoading] = useState(false);
@@ -121,11 +122,15 @@ export const ManagerProjectDetails = ({ user }) => {
         })();
     }, [pid]);
 
-    // Fetch data-items with paging
-    const fetchDataItems = async () => {
+    // Fetch data-items with paging and search
+    const fetchDataItems = async (searchTerm = '') => {
         setDataLoading(true);
         try {
-            const res = await api.get(`/projects/${pid}/data-items`, { params: { pageNumber: dataPage, pageSize: 10 } });
+            const params = { pageNumber: dataPage, pageSize: 10 };
+            if (searchTerm) {
+                params.search = searchTerm;
+            }
+            const res = await api.get(`/projects/${pid}/data-items`, { params });
             const payload = res.data || {};
             setDataSet(payload);
         } catch (err) {
@@ -137,7 +142,8 @@ export const ManagerProjectDetails = ({ user }) => {
     };
 
     useEffect(() => {
-        fetchDataItems();
+        // Only fetch on page change, not on search term change
+        fetchDataItems(dataSearchTerm);
     }, [pid, dataPage]);
     // --- LOGIC: Load Annotators when user opens Annotators tab ---
     useEffect(() => {
@@ -574,6 +580,8 @@ export const ManagerProjectDetails = ({ user }) => {
             setDataPage={setDataPage}
             handleDeleteDataItem={handleDeleteDataItem}
             onRefreshDataItems={fetchDataItems}
+            searchTerm={dataSearchTerm}
+            setSearchTerm={setDataSearchTerm}
 
             // Delete project
             showDeleteModal={showDeleteModal}

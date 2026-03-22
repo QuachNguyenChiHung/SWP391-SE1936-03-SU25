@@ -258,14 +258,42 @@ export const ManagerProjects = ({ user }) => {
                     <div className="row g-3">
                         <div className="col-md-6">
                             <label className="form-label fw-semibold small text-dark">{t.searchLabel}</label>
-                            <input
-                                type="text"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="form-control"
-                                placeholder={t.searchPlaceholder}
-                                style={{ borderRadius: '8px', padding: '10px' }}
-                            />
+                            <div className="input-group">
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onKeyPress={(e) => {
+                                        if (e.key === 'Enter') {
+                                            // Trigger search on Enter - useEffect will handle it
+                                        }
+                                    }}
+                                    className="form-control p-2"
+                                    placeholder={t.searchPlaceholder}
+                                    style={{ borderRadius: '8px 0 0 8px' }}
+                                />
+                                {searchTerm && (
+                                    <button 
+                                        className="btn btn-outline-secondary" 
+                                        onClick={() => setSearchTerm('')}
+                                        title="Clear search"
+                                        style={{ borderRadius: 0 }}
+                                    >
+                                        ×
+                                    </button>
+                                )}
+                                <button 
+                                    className="btn btn-primary" 
+                                    onClick={() => {
+                                        // Force re-fetch by updating a dummy state or just rely on searchTerm
+                                        setSearchTerm(searchTerm);
+                                    }}
+                                    title="Search"
+                                    style={{ borderRadius: searchTerm ? 0 : '0 8px 8px 0' }}
+                                >
+                                    🔍
+                                </button>
+                            </div>
                         </div>
                         <div className="col-md-6">
                             <label className="form-label fw-semibold small text-dark">{t.filterLabel}</label>

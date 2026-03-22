@@ -29,6 +29,8 @@ export default function ManagerProjectDetails(props) {
         setDataPage,
         handleDeleteDataItem,
         onRefreshDataItems,
+        searchTerm: dataSearchTerm,
+        setSearchTerm: setDataSearchTerm,
 
         // Import modal props
         isImportModalOpen,
