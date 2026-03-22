@@ -41,18 +41,18 @@ html {
 }
 
 /* Press feedback */
-:where(.btn, button, a, [role='button'], .page-link):active {
-  transform: scale(0.985);
+:where(a, [role='button'], .page-link):active {
+  transform: scale(0.99);
 }
 
 .layout-container aside a:active,
 .layout-container aside button:active,
 .layout-container aside div[role='button']:active {
-  transform: scale(0.985) !important;
+  transform: none !important;
 }
 
 /* Better hover feel for action controls */
-:where(.btn, button, .page-link):hover {
+:where(a, [role='button'], .page-link):hover {
   filter: brightness(1.02);
 }
 

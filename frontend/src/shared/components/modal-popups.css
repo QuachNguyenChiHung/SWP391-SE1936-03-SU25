@@ -20,13 +20,19 @@
 
 .nl-modal-overlay,
 .modal-overlay {
-  z-index: 1055;
+  z-index: 2050;
+}
+
+.modal-backdrop.show {
+  z-index: 1040;
 }
 
 .nl-modal-dialog,
 .modal.show .modal-dialog,
 .modal.fade.show.d-block .modal-dialog {
   animation: nlDialogIn 260ms cubic-bezier(0.2, 0.85, 0.32, 1);
+  position: relative;
+  z-index: 2051;
 }
 
 .nl-modal-content,
@@ -38,6 +44,8 @@
   overflow: hidden;
   box-shadow: var(--nl-modal-shadow);
   background: #ffffff;
+  position: relative;
+  z-index: 2051;
 }
 
 .nl-modal-header,
@@ -78,6 +86,8 @@
   border-radius: 10px;
   padding: 0.48rem 1rem;
   font-weight: 600;
+  border: 1px solid transparent;
+  box-shadow: none;
   transition: transform 140ms ease, box-shadow 180ms ease, filter 180ms ease;
 }
 
@@ -85,15 +95,15 @@
 .modal.show .modal-footer .btn:hover,
 .modal.fade.show.d-block .modal-footer .btn:hover,
 .modal-content-custom .btn:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.02);
+  transform: none;
+  filter: brightness(1.01);
 }
 
 .nl-modal-footer .btn:active,
 .modal.show .modal-footer .btn:active,
 .modal.fade.show.d-block .modal-footer .btn:active,
 .modal-content-custom .btn:active {
-  transform: translateY(0);
+  transform: translateY(1px);
 }
 
 .nl-modal-footer .btn:focus-visible,
@@ -275,6 +285,7 @@
 .nl-password-actions .btn-primary {
   background: linear-gradient(135deg, #1f7de2 0%, #3c96f0 100%);
   border: 0;
+  box-shadow: none;
 }
 
 .nl-password-actions .btn-primary:hover {

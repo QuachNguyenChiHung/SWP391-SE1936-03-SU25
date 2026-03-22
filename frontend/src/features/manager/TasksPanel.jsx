@@ -267,6 +267,11 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
         tasksByAnnotator[aId].push(it);
     });
 
+    const pendingDataItems = dataItems.items.filter((item) => item.status === 'Pending');
+    const selectedPendingCount = selectedDataItemIds.length;
+    const pendingTotalCount = pendingDataItems.length;
+    const canAssignItems = !!selectedAssignee && selectedPendingCount > 0 && !assigning && !taskDeadlineError && !!taskDeadline;
+
     // Combine annotators fetched from /Tasks/annotators with annotator info present in the tasks response
     const annotatorMap = {};
     (annotators || []).forEach(a => { annotatorMap[a.id] = { ...a }; });
@@ -508,97 +513,119 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                 </Modal.Footer>
             </Modal>
             {/* Assign modal */}
-            <Modal show={showAssignModal} onHide={closeAssignModal} size="lg">
-                <Modal.Header closeButton>
-                    <Modal.Title>Assign items {selectedAssignee ? `to ${selectedAssignee.name}` : ''}</Modal.Title>
+            <Modal show={showAssignModal} onHide={closeAssignModal} size="xl" centered scrollable dialogClassName="assign-items-modal-dialog">
+                <Modal.Header closeButton className="border-0 pb-2">
+                    <div className="d-flex flex-column gap-1 w-100 pe-4">
+                        <Modal.Title className="mb-0">Assign items {selectedAssignee ? `to ${selectedAssignee.name}` : ''}</Modal.Title>
+                        <div className="text-muted small">
+                            Choose pending files, set a deadline, then assign them in one step.
+                        </div>
+                    </div>
                 </Modal.Header>
-                <Modal.Body>
+                <Modal.Body className="pt-0">
                     {loadingItems ? (
-                        <div className="d-flex justify-content-center py-4"><Spinner animation="border" /></div>
+                        <div className="d-flex justify-content-center align-items-center py-5">
+                            <Spinner animation="border" />
+                        </div>
                     ) : (
-                        <Table hover responsive>
-                            <thead>
-                                <tr>
-                                    <th style={{ width: 48 }}>
-                                        <input
-                                            type="checkbox"
-                                            onChange={(e) => {
-                                                if (e.target.checked) {
-                                                    const pendingIds = dataItems.items.filter(i => i.status === 'Pending').map(i => i.id);
-                                                    setSelectedDataItemIds(pendingIds);
-                                                } else setSelectedDataItemIds([]);
-                                            }}
-                                            checked={dataItems.items.length > 0 && dataItems.items.filter(i => i.status === 'Pending').length > 0 && selectedDataItemIds.length === dataItems.items.filter(i => i.status === 'Pending').length}
-                                        />
-                                    </th>
-                                    <th>File</th>
-                                    <th>Size (KB)</th>
-                                    <th>Dims</th>
-                                    <th>Status</th>
-                                    <th>Assigned</th>
-                                    <th>Created</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {dataItems.items.map(item => {
-                                    const checked = selectedDataItemIds.includes(item.id);
-                                    const isSelectable = item.status === 'Pending';
-                                    return (
-                                        <tr key={item.id}>
-                                            <td>
-                                                <input type="checkbox" disabled={!isSelectable} checked={checked} onChange={(e) => {
-                                                    if (!isSelectable) return;
-                                                    if (e.target.checked) setSelectedDataItemIds(prev => [...prev, item.id]);
-                                                    else setSelectedDataItemIds(prev => prev.filter(id => id !== item.id));
-                                                }} />
-                                            </td>
-                                            <td style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-                                                <img src={buildUploadsUrl(item.thumbnailPath || item.filePath)} alt="thumb" style={{ width: 64, height: 48, objectFit: 'cover', flexShrink: 0 }} />
-                                                <div title={item.fileName} style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', minWidth: 0, flex: 1, position: 'relative' }}>
-                                                    <span
-                                                        style={{ display: 'inline-block' }}
-                                                        onMouseEnter={(e) => {
-                                                            const parent = e.currentTarget.parentElement;
-                                                            if (e.currentTarget.scrollWidth > parent.clientWidth) {
-                                                                const distance = e.currentTarget.scrollWidth - parent.clientWidth + 20;
-                                                                e.currentTarget.style.setProperty('--scroll-distance', `-${distance}px`);
-                                                                e.currentTarget.style.animation = 'scroll-text 30s linear infinite';
-                                                            }
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            e.currentTarget.style.animation = 'none';
-                                                        }}
-                                                    >
-                                                        {item.fileName}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td>{item.fileSizeKB}</td>
-                                            <td>{item.width}×{item.height}</td>
-                                            <td><StatusBadge status={item.status} /></td>
-                                            <td>{item.assignedAnnotatorName || '-'}</td>
-                                            <td>{new Date(item.createdAt).toLocaleString()}</td>
-                                            <td><Button variant="outline-primary" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedImage({ url: buildUploadsUrl(item.filePath), fileName: item.fileName }); setShowImageModal(true); }}>View</Button></td>
+                        <div className="border rounded-4 overflow-hidden bg-white">
+                            <div className="px-3 py-2 border-bottom bg-light d-flex align-items-center justify-content-between">
+                                <div className="small text-muted">
+                                    {pendingTotalCount} pending items available
+                                </div>
+                                <div className="small text-muted">
+                                    Selected {selectedPendingCount}
+                                </div>
+                            </div>
+                            <div style={{ maxHeight: '52vh', overflow: 'auto' }}>
+                                <Table hover responsive className="mb-0 align-middle assign-items-table">
+                                    <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                                        <tr>
+                                            <th style={{ width: 48 }}>
+                                                <input
+                                                    type="checkbox"
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            const pendingIds = pendingDataItems.map(i => i.id);
+                                                            setSelectedDataItemIds(pendingIds);
+                                                        } else setSelectedDataItemIds([]);
+                                                    }}
+                                                    checked={pendingTotalCount > 0 && selectedPendingCount === pendingTotalCount}
+                                                />
+                                            </th>
+                                            <th>File</th>
+                                            <th className="text-nowrap">Size (KB)</th>
+                                            <th className="text-nowrap">Dims</th>
+                                            <th>Status</th>
+                                            <th>Assigned</th>
+                                            <th className="text-nowrap">Created</th>
+                                            <th>Actions</th>
                                         </tr>
-                                    )
-                                })}
-                            </tbody>
-                        </Table>
+                                    </thead>
+                                    <tbody>
+                                        {dataItems.items.map(item => {
+                                            const checked = selectedDataItemIds.includes(item.id);
+                                            const isSelectable = item.status === 'Pending';
+                                            return (
+                                                <tr key={item.id} className={checked ? 'table-primary' : ''}>
+                                                    <td>
+                                                        <input type="checkbox" disabled={!isSelectable} checked={checked} onChange={(e) => {
+                                                            if (!isSelectable) return;
+                                                            if (e.target.checked) setSelectedDataItemIds(prev => [...prev, item.id]);
+                                                            else setSelectedDataItemIds(prev => prev.filter(id => id !== item.id));
+                                                        }} />
+                                                    </td>
+                                                    <td>
+                                                        <div className="d-flex align-items-center gap-3 min-w-0">
+                                                            <img src={buildUploadsUrl(item.thumbnailPath || item.filePath)} alt="thumb" style={{ width: 52, height: 40, objectFit: 'cover', flexShrink: 0, borderRadius: 10 }} />
+                                                            <div title={item.fileName} className="min-w-0" style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1, position: 'relative' }}>
+                                                                <span
+                                                                    style={{ display: 'inline-block', fontWeight: 600 }}
+                                                                    onMouseEnter={(e) => {
+                                                                        const parent = e.currentTarget.parentElement;
+                                                                        if (e.currentTarget.scrollWidth > parent.clientWidth) {
+                                                                            const distance = e.currentTarget.scrollWidth - parent.clientWidth + 20;
+                                                                            e.currentTarget.style.setProperty('--scroll-distance', `-${distance}px`);
+                                                                            e.currentTarget.style.animation = 'scroll-text 30s linear infinite';
+                                                                        }
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.animation = 'none';
+                                                                    }}
+                                                                >
+                                                                    {item.fileName}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td>{item.fileSizeKB}</td>
+                                                    <td>{item.width}×{item.height}</td>
+                                                    <td><StatusBadge status={item.status} /></td>
+                                                    <td>{item.assignedAnnotatorName || '-'}</td>
+                                                    <td>{new Date(item.createdAt).toLocaleString()}</td>
+                                                    <td><Button variant="outline-primary" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedImage({ url: buildUploadsUrl(item.filePath), fileName: item.fileName }); setShowImageModal(true); }}>View</Button></td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </Table>
+                            </div>
+                        </div>
                     )}
                 </Modal.Body>
-                <Modal.Footer>
-                    <div className="d-flex align-items-center gap-2 w-100 justify-content-between">
-                        <div>
-                            <Button variant="secondary" size="sm" disabled={dataItems.pageNumber <= 1 || loadingItems} onClick={() => fetchDataItems(Math.max(1, dataItems.pageNumber - 1), dataItems.pageSize)}>Prev</Button>
-                            <Button variant="secondary" size="sm" className="ms-2" disabled={dataItems.pageNumber >= dataItems.totalPages || loadingItems} onClick={() => fetchDataItems(Math.min(dataItems.totalPages, dataItems.pageNumber + 1), dataItems.pageSize)}>Next</Button>
+                <Modal.Footer className="d-flex flex-column gap-3 align-items-stretch">
+                    <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 w-100">
+                        <div className="d-flex align-items-center gap-2">
+                            <Button variant="light" size="sm" disabled={dataItems.pageNumber <= 1 || loadingItems} onClick={() => fetchDataItems(Math.max(1, dataItems.pageNumber - 1), dataItems.pageSize)}>Prev</Button>
+                            <Button variant="light" size="sm" disabled={dataItems.pageNumber >= dataItems.totalPages || loadingItems} onClick={() => fetchDataItems(Math.min(dataItems.totalPages, dataItems.pageNumber + 1), dataItems.pageSize)}>Next</Button>
                         </div>
                         <div className="text-muted small">Page {dataItems.pageNumber} / {dataItems.totalPages} • {dataItems.totalCount} items</div>
                     </div>
-                    <div className="ms-3 d-flex flex-column gap-2 w-100">
+
+                    <div className="p-3 bg-light rounded-4 border w-100">
                         <div className="d-flex flex-wrap gap-3">
                             <div style={{ minWidth: 240 }} className="flex-grow-1">
-                                <Form.Label className="small fw-semibold mb-1">Deadline (dd/mm/yyyy)</Form.Label>
+                                <Form.Label className="small fw-semibold mb-1 text-uppercase text-muted">Deadline (dd/mm/yyyy)</Form.Label>
                                 <Form.Control
                                     type="text"
                                     placeholder="dd/mm/yyyy"
@@ -608,52 +635,65 @@ export default function TasksPanel({ expandedTaskGroups, toggleGroup, StatusBadg
                                         setTaskDeadline(value);
                                         setTaskDeadlineError(validateDeadline(value));
                                     }}
+                                    className="shadow-none"
                                 />
                                 {taskDeadlineError && <div className="text-danger small mt-1">{taskDeadlineError}</div>}
                             </div>
                             <div style={{ minWidth: 180 }}>
-                                <Form.Label className="small fw-semibold mb-1">Priority</Form.Label>
-                                <Form.Select value={taskPriority} onChange={(e) => setTaskPriority(e.target.value)}>
+                                <Form.Label className="small fw-semibold mb-1 text-uppercase text-muted">Priority</Form.Label>
+                                <Form.Select value={taskPriority} onChange={(e) => setTaskPriority(e.target.value)} className="shadow-none">
                                     {PRIORITY_OPTIONS.map((priority) => (
                                         <option key={priority} value={priority}>{priority}</option>
                                     ))}
                                 </Form.Select>
                             </div>
                         </div>
-                        <div className="d-flex justify-content-end">
-                            <Button variant="primary" size="sm" disabled={!selectedAssignee || selectedDataItemIds.length === 0 || assigning || Boolean(taskDeadlineError) || !taskDeadline} onClick={async () => {
-                                if (!selectedAssignee) return;
-                                const deadlineError = validateDeadline(taskDeadline);
-                                if (deadlineError) {
-                                    setTaskDeadlineError(deadlineError);
-                                    await showAlert('Please choose a deadline before assigning tasks', 'Validation', 'warning');
-                                    return;
-                                }
-                                const pId = Number(getProjectIdFromPropsOrPath());
-                                const payload = {
-                                    projectId: pId,
-                                    annotatorId: Number(selectedAssignee.id),
-                                    deadline: toIsoStringFromDdMmYyyy(taskDeadline),
-                                    priority: taskPriority,
-                                    dataItemIds: selectedDataItemIds.map(id => Number(id))
-                                };
-                                try {
-                                    console.log('Assigning with payload:', payload);
-                                    setAssigning(true);
-                                    await api.post('/Tasks', payload, { headers: { 'Content-Type': 'application/json' } });
-                                    setAssigning(false);
-                                    setShowAssignModal(false);
-                                    setSelectedDataItemIds([]);
-                                    await showAlert('Assigned successfully', 'Success', 'success');
-                                    // refresh tasks list and annotators
-                                    fetchTasks(tasksPage.pageNumber, tasksPage.pageSize);
-                                    fetchAnnotators();
-                                } catch (err) {
-                                    console.error('Failed to assign items', err.message || err || err.response);
-                                    setAssigning(false);
-                                    await showAlert('Failed to assign items', 'Error', 'error');
-                                }
-                            }}>{assigning ? 'Assigning...' : `Assign Selected (${selectedDataItemIds.length})`}</Button>
+
+                        <div className="d-flex align-items-center justify-content-between gap-3 mt-3">
+                            <div className="small text-muted">
+                                {selectedPendingCount > 0 ? `${selectedPendingCount} items selected` : 'Select at least one pending item'}
+                            </div>
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                disabled={!canAssignItems}
+                                className="px-4 fw-semibold"
+                                onClick={async () => {
+                                    if (!selectedAssignee) return;
+                                    const deadlineError = validateDeadline(taskDeadline);
+                                    if (deadlineError) {
+                                        setTaskDeadlineError(deadlineError);
+                                        await showAlert('Please choose a deadline before assigning tasks', 'Validation', 'warning');
+                                        return;
+                                    }
+                                    const pId = Number(getProjectIdFromPropsOrPath());
+                                    const payload = {
+                                        projectId: pId,
+                                        annotatorId: Number(selectedAssignee.id),
+                                        deadline: toIsoStringFromDdMmYyyy(taskDeadline),
+                                        priority: taskPriority,
+                                        dataItemIds: selectedDataItemIds.map(id => Number(id))
+                                    };
+                                    try {
+                                        console.log('Assigning with payload:', payload);
+                                        setAssigning(true);
+                                        await api.post('/Tasks', payload, { headers: { 'Content-Type': 'application/json' } });
+                                        setAssigning(false);
+                                        setShowAssignModal(false);
+                                        setSelectedDataItemIds([]);
+                                        await showAlert('Assigned successfully', 'Success', 'success');
+                                        // refresh tasks list and annotators
+                                        fetchTasks(tasksPage.pageNumber, tasksPage.pageSize);
+                                        fetchAnnotators();
+                                    } catch (err) {
+                                        console.error('Failed to assign items', err.message || err || err.response);
+                                        setAssigning(false);
+                                        await showAlert('Failed to assign items', 'Error', 'error');
+                                    }
+                                }}
+                            >
+                                {assigning ? 'Assigning...' : `Assign Selected (${selectedDataItemIds.length})`}
+                            </Button>
                         </div>
                     </div>
                 </Modal.Footer>

@@ -41,24 +41,25 @@ body.homepage-active {
   font-size: 0.9375rem;
   font-weight: 600;
   border-radius: 0.75rem;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, filter 0.2s ease;
   text-decoration: none;
 }
 
 .btn-primary {
   background: var(--primary-gradient) !important;
   color: white !important;
-  box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+  border-color: rgba(59, 130, 246, 0.35);
 }
 
 .btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 28px rgba(102, 126, 234, 0.35);
+  transform: none;
+  filter: brightness(1.03);
 }
 
 .btn-outline {
@@ -70,6 +71,7 @@ body.homepage-active {
 .btn-outline:hover {
   background: var(--primary-color);
   color: white;
+  transform: none;
 }
 
 .btn-lg {
@@ -234,8 +236,8 @@ body.homepage-active {
 }
 
 .login-btn-fixed:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 12px 28px rgba(102, 126, 234, 0.35) !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 @media (min-width: 992px) {

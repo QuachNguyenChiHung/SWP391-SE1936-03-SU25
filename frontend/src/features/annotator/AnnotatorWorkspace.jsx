@@ -27,7 +27,7 @@ import { useUI } from '../../shared/context/UIContext.jsx';
 import './AnnotatorWorkspace.css';
 
 export const AnnotatorWorkspace = ({ user }) => {
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { showConfirm } = useConfirm();
     const { language } = useUI();
     const copy = {
@@ -247,6 +247,28 @@ export const AnnotatorWorkspace = ({ user }) => {
         }, 3000);
     };
 
+    const syncWorkspaceUrl = ({ taskId, itemId }) => {
+        const nextParams = new URLSearchParams(searchParams);
+
+        if (taskId !== undefined) {
+            if (taskId === null) {
+                nextParams.delete('taskId');
+            } else {
+                nextParams.set('taskId', String(taskId));
+            }
+        }
+
+        if (itemId !== undefined) {
+            if (itemId === null) {
+                nextParams.delete('itemId');
+            } else {
+                nextParams.set('itemId', String(itemId));
+            }
+        }
+
+        setSearchParams(nextParams, { replace: true });
+    };
+
     // Refs for drag state
     const containerRef = useRef(null);
     const imageRef = useRef(null);
@@ -397,6 +419,7 @@ export const AnnotatorWorkspace = ({ user }) => {
         const fetchBatchItems = async () => {
             if (!selectedBatch?.id) {
                 setBatchItems([]);
+                setSelectedItem(null);
                 return;
             }
 
@@ -409,10 +432,19 @@ export const AnnotatorWorkspace = ({ user }) => {
                 // Extract items from response
                 const items = taskData?.items || [];
                 setBatchItems(items);
+
+                const itemIdFromUrl = searchParams.get('itemId');
+                if (itemIdFromUrl) {
+                    const itemToSelect = items.find(item => item.id === parseInt(itemIdFromUrl));
+                    setSelectedItem(itemToSelect || null);
+                } else {
+                    setSelectedItem(null);
+                }
             } catch (e) {
                 console.error('Failed to fetch batch items:', e?.message || e);
                 showToast('Failed to load task items', 'error');
                 setBatchItems([]);
+                setSelectedItem(null);
             } finally {
                 setIsLoadingItems(false);
             }
@@ -426,11 +458,13 @@ export const AnnotatorWorkspace = ({ user }) => {
     const handleSelectBatch = async (batch) => {
         // Just set the selected batch, the useEffect will handle fetching items
         setSelectedBatch(batch);
+        syncWorkspaceUrl({ taskId: batch?.id ?? null, itemId: null });
     };
 
     // Initialize workspace when item is selected
     const handleSelectItem = async (item) => {
         setSelectedItem(item);
+        syncWorkspaceUrl({ taskId: selectedBatch?.id ?? null, itemId: item?.id ?? null });
         setIsDrawing(false);
         setIsDraggingBox(false);
         dragRef.current = null;
@@ -912,6 +946,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                 setSelectedBatch(null);
                 setBatchItems([]);
                 setSelectedItem(null);
+                syncWorkspaceUrl({ taskId: null, itemId: null });
             }
 
             showToast(t.taskDeleted, 'success');
@@ -925,6 +960,7 @@ export const AnnotatorWorkspace = ({ user }) => {
         setSelectedBatch(null);
         setSelectedItem(null);
         setBatchItems([]);
+        syncWorkspaceUrl({ taskId: null, itemId: null });
     };
 
     const handleBackToItemList = async () => {
@@ -950,6 +986,7 @@ export const AnnotatorWorkspace = ({ user }) => {
 
         // Finally clear selected item to show list
         setSelectedItem(null);
+        syncWorkspaceUrl({ taskId: selectedBatch?.id ?? null, itemId: null });
     };
 
     // Zoom functions
@@ -1975,7 +2012,7 @@ export const AnnotatorWorkspace = ({ user }) => {
 
                     {/* Comments Section - Show when item is selected */}
                     {selectedItem?.id && (
-                        <CommentsList 
+                        <CommentsList
                             taskItemId={selectedItem.id}
                             onCommentsLoaded={(count) => {
                                 // Optional: Update UI with comment count

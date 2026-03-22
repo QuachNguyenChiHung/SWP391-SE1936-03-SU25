@@ -452,7 +452,7 @@
 .btn-submit {
     background-color: var(--color-indigo-600);
     color: white;
-    box-shadow: 0 1px 3px 0 rgba(99, 102, 241, 0.3);
+    box-shadow: none;
 }
 
 .btn-submit:hover {
@@ -957,13 +957,13 @@
 .annotator-ui .btn-tool:hover:not(:disabled) {
     background: #eef2ff;
     color: #3730a3;
-    transform: translateY(-1px);
+    transform: none;
 }
 
 .annotator-ui .btn-tool.active {
     background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
     color: #fff;
-    box-shadow: 0 10px 18px -12px rgba(67, 56, 202, 0.8);
+    box-shadow: none;
 }
 
 .annotator-ui .canvas-area {
@@ -1038,7 +1038,7 @@
 .annotator-ui .annotator-btn-primary.btn-success {
     border: none;
     background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-    box-shadow: 0 14px 24px -14px rgba(21, 128, 61, 0.9) !important;
+    box-shadow: none !important;
 }
 
 .annotator-ui .annotator-btn-primary.btn-success:hover {
@@ -1048,7 +1048,7 @@
 .annotator-ui .annotator-btn-primary.btn-secondary {
     border: none;
     background: linear-gradient(135deg, #64748b 0%, #475569 100%);
-    box-shadow: 0 14px 24px -14px rgba(71, 85, 105, 0.9) !important;
+    box-shadow: none !important;
 }
 
 .annotator-ui .annotator-right-panel {

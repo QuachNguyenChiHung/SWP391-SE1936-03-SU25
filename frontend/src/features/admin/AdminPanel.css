@@ -188,11 +188,11 @@
 }
 
 .btn:hover {
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .btn:active {
-  transform: scale(0.98);
+  transform: translateY(1px);
 }
 
 .card {
