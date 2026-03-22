@@ -281,6 +281,24 @@ export const AnnotatorWorkspace = ({ user }) => {
         setSearchParams(nextParams, { replace: true });
     };
 
+    const transitionToItem = async (nextItem, action) => {
+        if (itemTransitionTimerRef.current) {
+            clearTimeout(itemTransitionTimerRef.current);
+            itemTransitionTimerRef.current = null;
+        }
+
+        setItemTransitionPhase('leaving');
+        await new Promise((resolve) => setTimeout(resolve, 110));
+
+        await action(nextItem);
+
+        setItemTransitionPhase('entering');
+        itemTransitionTimerRef.current = window.setTimeout(() => {
+            setItemTransitionPhase('idle');
+            itemTransitionTimerRef.current = null;
+        }, 160);
+    };
+
     // Refs for drag state
     const containerRef = useRef(null);
     const imageRef = useRef(null);
@@ -299,6 +317,8 @@ export const AnnotatorWorkspace = ({ user }) => {
     const [isDraggingBox, setIsDraggingBox] = useState(false);
     const dragRef = useRef(null);
     const dragToastShownRef = useRef(false);
+    const [itemTransitionPhase, setItemTransitionPhase] = useState('idle');
+    const itemTransitionTimerRef = useRef(null);
 
     // Auto-save debounce ref
     const autoSaveTimerRef = useRef(null);
@@ -600,100 +620,102 @@ export const AnnotatorWorkspace = ({ user }) => {
 
     // Initialize workspace when item is selected
     const handleSelectItem = async (item) => {
-        setSelectedItem(item);
-        syncWorkspaceUrl({ taskId: selectedBatch?.id ?? null, itemId: item?.id ?? null });
-        setIsDrawing(false);
-        setIsDraggingBox(false);
-        dragRef.current = null;
+        await transitionToItem(item, async (nextItem) => {
+            setSelectedItem(nextItem);
+            syncWorkspaceUrl({ taskId: selectedBatch?.id ?? null, itemId: nextItem?.id ?? null });
+            setIsDrawing(false);
+            setIsDraggingBox(false);
+            dragRef.current = null;
 
-        // Reset zoom and pan
-        setZoomLevel(1);
-        setPanOffset({ x: 0, y: 0 });
+            // Reset zoom and pan
+            setZoomLevel(1);
+            setPanOffset({ x: 0, y: 0 });
 
-        // Mark task item as started if not already
-        if (item.id && item.status === 'Assigned') {
-            try {
-                await api.post(`/task-items/${item.id}/start`);
-                // Update local state
-                setBatchItems(prev => prev.map(i =>
-                    i.id === item.id ? { ...i, status: 'InProgress' } : i
-                ));
-            } catch (e) {
-                console.error('Failed to start task item:', e);
+            // Mark task item as started if not already
+            if (nextItem.id && nextItem.status === 'Assigned') {
+                try {
+                    await api.post(`/task-items/${nextItem.id}/start`);
+                    // Update local state
+                    setBatchItems(prev => prev.map(i =>
+                        i.id === nextItem.id ? { ...i, status: 'InProgress' } : i
+                    ));
+                } catch (e) {
+                    console.error('Failed to start task item:', e);
+                }
             }
-        }
 
-        // Fetch annotations for this item
-        if (item.dataItemId) {
-            try {
-                const res = await api.get(`/data-items/${item.dataItemId}/annotations`);
-                const annotationsData = res?.data || [];
+            // Fetch annotations for this item
+            if (nextItem.dataItemId) {
+                try {
+                    const res = await api.get(`/data-items/${nextItem.dataItemId}/annotations`);
+                    const annotationsData = res?.data || [];
 
-                // Transform API data to internal format
-                const transformedAnnotations = annotationsData.map(ann => {
-                    // Parse coordinates JSON string
-                    const coords = JSON.parse(ann.coordinates);
+                    // Transform API data to internal format
+                    const transformedAnnotations = annotationsData.map(ann => {
+                        // Parse coordinates JSON string
+                        const coords = JSON.parse(ann.coordinates);
 
-                    let processedCoordinates;
-                    if (coords.type === 'bbox') {
-                        // Handle both old format (x, y, width, height) and new format (points array)
-                        if (Array.isArray(coords.points) && coords.points.length === 2) {
-                            // New format: already in [{x1, y1}, {x2, y2}] format
+                        let processedCoordinates;
+                        if (coords.type === 'bbox') {
+                            // Handle both old format (x, y, width, height) and new format (points array)
+                            if (Array.isArray(coords.points) && coords.points.length === 2) {
+                                // New format: already in [{x1, y1}, {x2, y2}] format
+                                processedCoordinates = {
+                                    type: 'bbox',
+                                    points: coords.points
+                                };
+                            } else if (Array.isArray(coords) && coords.length === 2) {
+                                // Alternative new format where coords itself is the array
+                                processedCoordinates = {
+                                    type: 'bbox',
+                                    points: coords
+                                };
+                            } else {
+                                // Old format: convert from {x, y, width, height} to [{x1, y1}, {x2, y2}]
+                                processedCoordinates = {
+                                    type: 'bbox',
+                                    points: [
+                                        { x: coords.x, y: coords.y },
+                                        { x: coords.x + coords.width, y: coords.y + coords.height }
+                                    ]
+                                };
+                            }
+                        } else {
+                            // Polygon format stays the same
                             processedCoordinates = {
-                                type: 'bbox',
+                                type: 'polygon',
                                 points: coords.points
                             };
-                        } else if (Array.isArray(coords) && coords.length === 2) {
-                            // Alternative new format where coords itself is the array
-                            processedCoordinates = {
-                                type: 'bbox',
-                                points: coords
-                            };
-                        } else {
-                            // Old format: convert from {x, y, width, height} to [{x1, y1}, {x2, y2}]
-                            processedCoordinates = {
-                                type: 'bbox',
-                                points: [
-                                    { x: coords.x, y: coords.y },
-                                    { x: coords.x + coords.width, y: coords.y + coords.height }
-                                ]
-                            };
                         }
-                    } else {
-                        // Polygon format stays the same
-                        processedCoordinates = {
-                            type: 'polygon',
-                            points: coords.points
+
+                        return {
+                            id: ann.id,
+                            labelId: ann.labelId,
+                            labelName: ann.labelName,
+                            labelColor: ann.labelColor,
+                            coordinates: processedCoordinates,
+                            createdBy: ann.createdByName,
+                            createdAt: ann.createdAt
                         };
+                    });
+
+                    setAnnotations(transformedAnnotations);
+
+                    // Set active label to first available if exists
+                    if (transformedAnnotations.length > 0) {
+                        setActiveLabelId(transformedAnnotations[0].labelId);
+                    } else if (projectLabels.length > 0) {
+                        setActiveLabelId(projectLabels[0].id);
                     }
-
-                    return {
-                        id: ann.id,
-                        labelId: ann.labelId,
-                        labelName: ann.labelName,
-                        labelColor: ann.labelColor,
-                        coordinates: processedCoordinates,
-                        createdBy: ann.createdByName,
-                        createdAt: ann.createdAt
-                    };
-                });
-
-                setAnnotations(transformedAnnotations);
-
-                // Set active label to first available if exists
-                if (transformedAnnotations.length > 0) {
-                    setActiveLabelId(transformedAnnotations[0].labelId);
-                } else if (projectLabels.length > 0) {
-                    setActiveLabelId(projectLabels[0].id);
+                } catch (e) {
+                    console.error('Failed to fetch annotations:', e);
+                    showToast(t.failedLoadAnnotations, 'error');
+                    setAnnotations([]);
                 }
-            } catch (e) {
-                console.error('Failed to fetch annotations:', e);
-                showToast(t.failedLoadAnnotations, 'error');
+            } else {
                 setAnnotations([]);
             }
-        } else {
-            setAnnotations([]);
-        }
+        });
     };
 
     // Create new annotation via API
@@ -1866,7 +1888,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 display: 'inline-block'
                             }}
                         >
-                            <div className="canvas-image-frame" style={{ position: 'relative', display: 'inline-block', maxWidth: '800px', maxHeight: '600px' }}>
+                            <div className={`canvas-image-frame canvas-item-scene ${itemTransitionPhase !== 'idle' ? `scene-${itemTransitionPhase}` : ''}`} style={{ position: 'relative', display: 'inline-block', maxWidth: '800px', maxHeight: '600px' }}>
                                 <img
                                     ref={imageRef}
                                     src={selectedItem?.filePath ? import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem.filePath : selectedItem?.thumbnailPath ? import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem.thumbnailPath : 'https://via.placeholder.com/800x600?text=No+Image'}
