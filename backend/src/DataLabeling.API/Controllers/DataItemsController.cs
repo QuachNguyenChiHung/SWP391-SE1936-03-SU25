@@ -302,6 +302,119 @@ public class DataItemsController : ControllerBase
         await _dataItemService.BulkUpdateStatusAsync(request.Ids, request.Status, cancellationToken);
         return NoContent();
     }
+
+    /// <summary>
+    /// Replace/update the image file for a data item (Admin/Manager only).
+    /// Useful for fixing reported items with poor quality images.
+    /// </summary>
+    [HttpPut("data-items/{id:int}/image")]
+    [Authorize(Roles = "Admin,Manager")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    [RequestSizeLimit(10 * 1024 * 1024)] // 10MB limit for single image
+    public async Task<IActionResult> ReplaceImage(
+        int id,
+        IFormFile file,
+        CancellationToken cancellationToken = default)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { success = false, message = "No file uploaded" });
+
+        var dataItem = await _uow.DataItems.GetByIdAsync(id, cancellationToken);
+        if (dataItem == null)
+            return NotFound(new { success = false, message = "Data item not found" });
+
+        // Get dataset to check project ownership
+        var dataset = await _uow.Datasets.GetByIdAsync(dataItem.DatasetId, cancellationToken);
+        if (dataset == null)
+            return NotFound(new { success = false, message = "Dataset not found" });
+
+        var project = await _uow.Projects.GetByIdAsync(dataset.ProjectId, cancellationToken);
+        if (project == null)
+            return NotFound(new { success = false, message = "Project not found" });
+
+        var userId = GetUserId();
+        var role = GetUserRole();
+
+        // Check permission (only owner or admin can replace image)
+        if (project.CreatedById != userId && role != UserRole.Admin)
+            return Forbid();
+
+        try
+        {
+            // Replace the image file
+            var result = await _dataItemService.ReplaceImageAsync(id, file, cancellationToken);
+            
+            return Ok(new { 
+                success = true, 
+                message = "Image replaced successfully",
+                data = result
+            });
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Get comments/notes for a data item (useful for seeing why it was flagged).
+    /// </summary>
+    [HttpGet("data-items/{id:int}/comments")]
+    [ProducesResponseType(typeof(IEnumerable<CommentDto>), 200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<IEnumerable<CommentDto>>> GetDataItemComments(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var dataItem = await _uow.DataItems.GetByIdAsync(id, cancellationToken);
+        if (dataItem == null)
+            return NotFound(new { success = false, message = "Data item not found" });
+
+        // Get all task items for this data item
+        var taskItems = await _uow.TaskItems.GetByDataItemIdAsync(id, cancellationToken);
+        
+        // Get all comments from these task items
+        var comments = new List<CommentDto>();
+        foreach (var taskItem in taskItems)
+        {
+            var taskItemComments = await _uow.Comments.GetCommentsByTaskItemIdAsync(taskItem.Id);
+            foreach (var comment in taskItemComments)
+            {
+                comments.Add(new CommentDto
+                {
+                    Id = comment.Id,
+                    Content = comment.Content,
+                    AuthorId = comment.AuthorId,
+                    AuthorName = comment.Author?.Name ?? "Unknown",
+                    AuthorRole = comment.AuthorRole.ToString(),
+                    CreatedAt = comment.CreatedAt
+                });
+            }
+        }
+
+        return Ok(new { success = true, data = comments });
+    }
+}
+
+/// <summary>
+/// DTO for comment information.
+/// </summary>
+public class CommentDto
+{
+    public int Id { get; set; }
+    public string Content { get; set; } = string.Empty;
+    public int AuthorId { get; set; }
+    public string AuthorName { get; set; } = string.Empty;
+    public string AuthorRole { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
 }
 
 /// <summary>

@@ -217,6 +217,14 @@ public class TasksController : ControllerBase
                 $"Cannot submit. {incompleteItems} item(s) not yet completed."));
         }
 
+        // Check if any items are flagged
+        var flaggedItems = task.TaskItems.Count(ti => ti.Status == TaskItemStatus.Flagged);
+        if (flaggedItems > 0)
+        {
+            return BadRequest(ApiResponse.FailureResponse(
+                $"Cannot submit. {flaggedItems} item(s) are flagged and need to be resolved by the manager."));
+        }
+
         // Update task status
         task.Status = AnnotationTaskStatus.Submitted;
         task.SubmittedAt = DateTime.UtcNow;

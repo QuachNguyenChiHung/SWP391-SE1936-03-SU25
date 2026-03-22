@@ -15,5 +15,6 @@ public enum AnnotationTaskStatus
     Submitted = 3,
 
     /// <summary>Completed - all items approved by reviewer</summary>
-    Completed = 4
+    Completed = 4,
+
 }

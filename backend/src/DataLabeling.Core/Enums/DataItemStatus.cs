@@ -24,5 +24,11 @@ public enum DataItemStatus
     Rejected = 6,
 
     /// <summary>InReview - assigned to a reviewer, locked for review</summary>
-    InReview = 7
+    InReview = 7,
+
+    /// <summary>Reported - flagged by annotator as having issues (no suitable label, poor quality, etc.)</summary>
+    Reported = 8,
+
+    /// <summary>Resolved - manager resolved a reported issue, ready for re-assignment</summary>
+    Resolved = 9
 }
