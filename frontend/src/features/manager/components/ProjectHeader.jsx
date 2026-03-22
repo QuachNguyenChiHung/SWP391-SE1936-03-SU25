@@ -3,6 +3,20 @@ import PropTypes from 'prop-types';
 import { ArrowLeft } from 'lucide-react';
 import api from '../../../shared/utils/api.js';
 import { useAlert } from '../../../shared/context/AlertContext.jsx';
+import { useUI } from '../../../shared/context/UIContext.jsx';
+
+const copy = {
+  en: {
+    export: 'Export (COCO, Approved Data items)',
+    exporting: 'Exporting…',
+    deadline: 'Deadline',
+  },
+  vi: {
+    export: 'Xuat (COCO, du lieu da duyet)',
+    exporting: 'Dang xuat…',
+    deadline: 'Han chot',
+  },
+};
 
 // Props:
 // - project: object
@@ -11,6 +25,8 @@ const ProjectHeader = ({ project, onBack }) => {
   const [exporting, setExporting] = useState(false);
   const [exportResult, setExportResult] = useState(null);
   const { showAlert } = useAlert();
+  const { language } = useUI();
+  const t = copy[language] || copy.en;
 
   const handleExport = useCallback(async () => {
     if (!project?.id) return;
@@ -52,14 +68,14 @@ const ProjectHeader = ({ project, onBack }) => {
         <div className="d-flex align-items-center gap-2">
           <span className="text-muted small border-end pe-2 me-1">{project?.type}</span>
           {project?.deadline && (
-            <span className="text-muted small ms-2">Deadline: {new Date(project.deadline).toLocaleDateString()}</span>
+            <span className="text-muted small ms-2">{t.deadline}: {new Date(project.deadline).toLocaleDateString()}</span>
           )}
         </div>
       </div>
 
       <div className="ms-auto d-flex align-items-center gap-2">
         <button className="btn btn-primary" onClick={handleExport} disabled={exporting}>
-          {exporting ? 'Exporting…' : 'Export (COCO, Approved Data items)'}
+          {exporting ? t.exporting : t.export}
         </button>
       </div>
     </div>

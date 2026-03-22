@@ -1,6 +1,26 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Calendar, Tag, Trash2 } from 'lucide-react';
+import { useUI } from '../../../shared/context/UIContext.jsx';
+
+const copy = {
+  en: {
+    type: 'Type',
+    progress: 'Progress',
+    deadline: 'Deadline',
+    labels: 'Labels',
+    delete: 'Delete',
+    objectDetection: 'Object Detection',
+  },
+  vi: {
+    type: 'Loai',
+    progress: 'Tien do',
+    deadline: 'Han chot',
+    labels: 'Nhan',
+    delete: 'Xoa',
+    objectDetection: 'Phat hien doi tuong',
+  },
+};
 
 // Props:
 // - project: object
@@ -8,18 +28,20 @@ import { Calendar, Tag, Trash2 } from 'lucide-react';
 // - onDelete: func(projectId, e)
 const ProjectItem = ({ project, onClick, onDelete }) => {
   const progress = project.totalItems > 0 ? Math.round((project.finishedItems / project.totalItems) * 100) : 0;
+  const { language } = useUI();
+  const t = copy[language] || copy.en;
 
   return (
     <div className="col-12 col-md-6 col-xl-4">
       <div
         onClick={() => onClick?.(project)}
-        className="card h-100 border-0 bg-white"
+        className="card h-100 border-0 manager-project-card"
         style={{ borderRadius: '16px', cursor: 'pointer' }}
       >
         <div className="card-body p-4 d-flex flex-column">
           <div className="d-flex justify-content-between align-items-start mb-3">
             <div className="p-2 rounded-3" style={{ backgroundColor: project.type === 'IMAGE_BOUNDING_BOX' ? '#eff6ff' : '#f5f3ff', color: project.type === 'IMAGE_BOUNDING_BOX' ? '#2563eb' : '#7c3aed' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 13h8V3H3v10zM3 21h8v-6H3v6zM13 21h8V11h-8v10zM13 3v6h8V3h-8z" fill="currentColor"/></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 13h8V3H3v10zM3 21h8v-6H3v6zM13 21h8V11h-8v10zM13 3v6h8V3h-8z" fill="currentColor" /></svg>
             </div>
             <div className="text-end">
               <span className="badge rounded-pill bg-light text-muted border px-2 py-1">{project.status}</span>
@@ -34,10 +56,10 @@ const ProjectItem = ({ project, onClick, onDelete }) => {
 
           <div className="mt-auto">
             <div className='text-muted small mb-1 fw-medium'>
-              <span>Type: {project.type === 'ObjectDetection' ? 'Object Detection' : project.type}</span>
+              <span>{t.type}: {project.type === 'ObjectDetection' ? t.objectDetection : project.type}</span>
             </div>
             <div className="d-flex justify-content-between text-muted small mb-1 fw-medium">
-              <span>Progress</span>
+              <span>{t.progress}</span>
               <span className="text-dark">{progress}% ({project.finishedItems}/{project.totalItems})</span>
             </div>
             <div className="progress" style={{ height: '6px', backgroundColor: '#f1f5f9', borderRadius: '10px' }}>
@@ -53,11 +75,11 @@ const ProjectItem = ({ project, onClick, onDelete }) => {
             <div className="d-flex gap-3">
               <div className="d-flex align-items-center gap-1">
                 <Calendar size={14} />
-                <span>Deadline:{project.deadline ? new Date(project.deadline).toLocaleDateString() : '—'}</span>
+                <span>{t.deadline}: {project.deadline ? new Date(project.deadline).toLocaleDateString() : '—'}</span>
               </div>
               <div className="d-flex align-items-center gap-1 bg-light px-2 py-1 rounded">
                 <Tag size={13} />
-                <span className="fw-medium">{project.classes?.length || 0} Labels</span>
+                <span className="fw-medium">{project.classes?.length || 0} {t.labels}</span>
               </div>
             </div>
           </div>
@@ -65,7 +87,7 @@ const ProjectItem = ({ project, onClick, onDelete }) => {
           <div className="d-flex justify-content-end mt-2">
             <button onClick={(e) => { e.stopPropagation(); onDelete?.(project.id, e); }} className="btn btn-sm btn-danger d-flex align-items-center gap-2">
               <Trash2 size={14} />
-              <span className="d-none d-sm-inline">Delete</span>
+              <span className="d-none d-sm-inline">{t.delete}</span>
             </button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Plus, Calendar, Tag, Layers, Clock, CheckCircle2, AlertCircle, XCircle, Trash2 } from 'lucide-react';
 import { ProjectStatus } from '../../shared/types/types.js';
@@ -9,11 +9,71 @@ import StatusBadge from '../../shared/components/StatusBadge.jsx';
 import ProjectList from './components/ProjectList';
 import { useAlert } from '../../shared/context/AlertContext.jsx';
 import { useConfirm } from '../../shared/context/ConfirmContext.jsx';
+import { useUI } from '../../shared/context/UIContext.jsx';
+
+const copy = {
+    en: {
+        title: 'All Projects',
+        subtitle: 'Manage annotation initiatives and datasets.',
+        create: 'Create New Project',
+        createShort: 'Create',
+        searchLabel: 'Search Projects',
+        searchPlaceholder: 'Search by project name...',
+        filterLabel: 'Filter by Status',
+        allStatus: 'All Status',
+        createModalTitle: 'Create New Project',
+        projectName: 'Project Name',
+        projectNamePlaceholder: 'Enter project name...',
+        description: 'Description',
+        descriptionPlaceholder: 'Describe the project objectives...',
+        projectType: 'Project Type',
+        deadline: 'Deadline (dd/mm/yyyy)',
+        deadlinePlaceholder: 'dd/mm/yyyy',
+        cancel: 'Cancel',
+        save: 'Create Project',
+        typeClassification: 'Classification',
+        typeObjectDetection: 'Object Detection',
+        typeSegmentation: 'Segmentation',
+        validateDeadline: 'Please enter a valid deadline in dd/mm/yyyy format',
+        successCreate: 'Project created successfully',
+        successDelete: 'Project deleted',
+        deleteLabel: 'Delete',
+    },
+    vi: {
+        title: 'Tat ca du an',
+        subtitle: 'Quan ly cac du an gan nhan va tap du lieu.',
+        create: 'Tao du an moi',
+        createShort: 'Tao',
+        searchLabel: 'Tim du an',
+        searchPlaceholder: 'Tim theo ten du an...',
+        filterLabel: 'Loc theo trang thai',
+        allStatus: 'Tat ca trang thai',
+        createModalTitle: 'Tao du an moi',
+        projectName: 'Ten du an',
+        projectNamePlaceholder: 'Nhap ten du an...',
+        description: 'Mo ta',
+        descriptionPlaceholder: 'Mo ta muc tieu du an...',
+        projectType: 'Loai du an',
+        deadline: 'Han chot (dd/mm/yyyy)',
+        deadlinePlaceholder: 'dd/mm/yyyy',
+        cancel: 'Huy',
+        save: 'Tao du an',
+        typeClassification: 'Phan loai',
+        typeObjectDetection: 'Phat hien doi tuong',
+        typeSegmentation: 'Phan vung',
+        validateDeadline: 'Vui long nhap han chot theo dinh dang dd/mm/yyyy',
+        successCreate: 'Tao du an thanh cong',
+        successDelete: 'Du an da xoa',
+        deleteLabel: 'Xoa',
+    },
+};
 
 export const ManagerProjects = ({ user }) => {
     const navigate = useNavigate();
     const { showAlert } = useAlert();
     const { showConfirm } = useConfirm();
+    const { language, theme } = useUI();
+    const t = useMemo(() => copy[language] || copy.en, [language]);
     const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
     const [projectName, setProjectName] = useState('');
     const [projectDescription, setProjectDescription] = useState('');
@@ -55,7 +115,7 @@ export const ManagerProjects = ({ user }) => {
     const handleCreateProject = async () => {
         try {
             if (!projectDeadline.trim() || deadlineError) {
-                await showAlert('Please enter a valid deadline in dd/mm/yyyy format', 'Validation', 'warning');
+                await showAlert(t.validateDeadline, 'Validation', 'warning');
                 return;
             }
 
@@ -85,7 +145,7 @@ export const ManagerProjects = ({ user }) => {
             setProjectDeadline('');
             setDeadlineError('');
 
-            await showAlert('Project created successfully', 'Success', 'success');
+            await showAlert(t.successCreate, 'Success', 'success');
 
             let url = `/Projects/?pageNumber=${page}&pageSize=${pageLength}`;
             if (statusFilter) {
@@ -114,7 +174,7 @@ export const ManagerProjects = ({ user }) => {
         try {
             await api.delete(`/Projects/${projectId}`);
             setProjects(prev => prev.filter(p => p.id !== projectId));
-            await showAlert('Project deleted', 'Success', 'success');
+            await showAlert(t.successDelete, 'Success', 'success');
         } catch (err) {
             console.error('Delete project failed', err.response || err.message);
             await showAlert('Failed to delete project', 'Error', 'error');
@@ -135,13 +195,16 @@ export const ManagerProjects = ({ user }) => {
     };
 
     return (
-        <div className="container-fluid py-4" style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+        <div
+            className="container-fluid py-4 manager-page-surface"
+            data-theme={theme}
+        >
 
             {/* Header Section */}
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-5">
                 <div>
-                    <h2 className="h3 fw-bold text-dark mb-1">All Projects</h2>
-                    <p className="text-secondary mb-0">Manage annotation initiatives and datasets.</p>
+                    <h2 className="h3 fw-bold text-dark mb-1">{t.title}</h2>
+                    <p className="text-secondary mb-0">{t.subtitle}</p>
                 </div>
                 <button
                     onClick={() => setIsCreateProjectModalOpen(true)}
@@ -149,8 +212,8 @@ export const ManagerProjects = ({ user }) => {
                     style={{ borderRadius: '10px', fontWeight: 500 }}
                 >
                     <Plus size={18} />
-                    <span className="d-none d-sm-inline">Create New Project</span>
-                    <span className="d-inline d-sm-none">Create</span>
+                    <span className="d-none d-sm-inline">{t.create}</span>
+                    <span className="d-inline d-sm-none">{t.createShort}</span>
                 </button>
             </div>
 
@@ -159,25 +222,25 @@ export const ManagerProjects = ({ user }) => {
                 <div className="card-body p-4">
                     <div className="row g-3">
                         <div className="col-md-6">
-                            <label className="form-label fw-semibold small text-dark">Search Projects</label>
+                            <label className="form-label fw-semibold small text-dark">{t.searchLabel}</label>
                             <input
                                 type="text"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="form-control"
-                                placeholder="Search by project name..."
+                                placeholder={t.searchPlaceholder}
                                 style={{ borderRadius: '8px', padding: '10px' }}
                             />
                         </div>
                         <div className="col-md-6">
-                            <label className="form-label fw-semibold small text-dark">Filter by Status</label>
+                            <label className="form-label fw-semibold small text-dark">{t.filterLabel}</label>
                             <select
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
                                 className="form-select"
                                 style={{ borderRadius: '8px', padding: '10px' }}
                             >
-                                <option value="">All Status</option>
+                                <option value="">{t.allStatus}</option>
                                 <option value="Draft">Draft</option>
                                 <option value="Active">Active</option>
                                 <option value="Completed">Completed</option>
@@ -197,51 +260,51 @@ export const ManagerProjects = ({ user }) => {
                     <div className="modal-dialog modal-dialog-centered nl-modal-dialog" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-content nl-modal-content border-0 shadow-lg" style={{ borderRadius: '16px' }}>
                             <div className="modal-header border-bottom-0 pb-0 pt-4 px-4">
-                                <h5 className="modal-title fw-bold h5">Create New Project</h5>
+                                <h5 className="modal-title fw-bold h5">{t.createModalTitle}</h5>
                                 <button onClick={() => setIsCreateProjectModalOpen(false)} className="btn-close shadow-none"></button>
                             </div>
 
                             <div className="modal-body p-4">
                                 <div className="d-flex flex-column gap-3">
                                     <div>
-                                        <label className="form-label fw-semibold small text-dark">Project Name</label>
+                                        <label className="form-label fw-semibold small text-dark">{t.projectName}</label>
                                         <input
                                             type="text"
                                             value={projectName}
                                             onChange={(e) => setProjectName(e.target.value)}
                                             className="form-control"
-                                            placeholder="Enter project name..."
+                                            placeholder={t.projectNamePlaceholder}
                                             style={{ borderRadius: '8px', padding: '10px' }}
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="form-label fw-semibold small text-dark">Description</label>
+                                        <label className="form-label fw-semibold small text-dark">{t.description}</label>
                                         <textarea
                                             value={projectDescription}
                                             onChange={(e) => setProjectDescription(e.target.value)}
                                             className="form-control"
                                             rows="3"
-                                            placeholder="Describe the project objectives..."
+                                            placeholder={t.descriptionPlaceholder}
                                             style={{ borderRadius: '8px', padding: '10px', resize: 'none' }}
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="form-label fw-semibold small text-dark">Project Type</label>
+                                        <label className="form-label fw-semibold small text-dark">{t.projectType}</label>
                                         <select
                                             value={projectType}
                                             onChange={(e) => setProjectType(e.currentTarget.value)}
                                             className="form-select"
                                             style={{ borderRadius: '8px', padding: '10px' }}
                                         >
-                                            <option value="Classification">Classification</option>
-                                            <option value="ObjectDetection">Object Detection</option>
-                                            <option value="Segmentation">Segmentation</option>
+                                            <option value="Classification">{t.typeClassification}</option>
+                                            <option value="ObjectDetection">{t.typeObjectDetection}</option>
+                                            <option value="Segmentation">{t.typeSegmentation}</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="form-label fw-semibold small text-dark">Deadline (dd/mm/yyyy)</label>
+                                        <label className="form-label fw-semibold small text-dark">{t.deadline}</label>
                                         <input
                                             type="text"
                                             value={projectDeadline}
@@ -250,7 +313,7 @@ export const ManagerProjects = ({ user }) => {
                                                 setDeadlineError(validateDeadline(e.target.value));
                                             }}
                                             className="form-control"
-                                            placeholder="dd/mm/yyyy"
+                                            placeholder={t.deadlinePlaceholder}
                                             style={{ borderRadius: '8px', padding: '10px' }}
                                         />
                                         {deadlineError && <div className="text-danger small mt-1">{deadlineError}</div>}
@@ -264,7 +327,7 @@ export const ManagerProjects = ({ user }) => {
                                     className="btn btn-light text-muted fw-medium px-4"
                                     style={{ borderRadius: '8px' }}
                                 >
-                                    Cancel
+                                    {t.cancel}
                                 </button>
                                 <button
                                     onClick={handleCreateProject}
@@ -273,7 +336,7 @@ export const ManagerProjects = ({ user }) => {
                                     style={{ borderRadius: '8px' }}
                                 >
                                     <Plus size={18} />
-                                    Create Project
+                                    {t.save}
                                 </button>
                             </div>
                         </div>

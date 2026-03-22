@@ -1,371 +1,305 @@
-import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { UserRole } from '../shared/types/types.js';
 import {
-  LayoutDashboard,
-  PenTool,
-  CheckCircle,
-  Settings,
-  LogOut,
-  Layers,
-  Users,
-  Bell,
-  Menu,
-  X,
-  Search,
-  PieChart,
-  User,
-  Mail,
-  Shield,
-  CreditCard,
-  Languages,
-  Moon,
-  Sun
+    CheckCircle,
+    Layers,
+    LayoutDashboard,
+    LogOut,
+    Menu,
+    PenTool,
+    Settings,
+    User,
+    X,
 } from 'lucide-react';
 import { AnnotatorNavigation } from '../features/annotator/AnnotatorNavigation.jsx';
-import { SearchBar } from '../shared/components/SearchBar.jsx';
 import { NotificationDropdown } from '../shared/components/NotificationDropdown.jsx';
 import { useUI } from '../shared/context/UIContext.jsx';
 
-export const Layout = ({ children, user, onLogout }) => {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { language, toggleLanguage, theme, toggleTheme } = useUI();
-
-  const isDark = theme === 'dark';
-
-  const dictionary = {
+const dictionary = {
     en: {
-      dashboard: 'Dashboard',
-      projects: 'Projects',
-      workspace: 'Workspace',
-      reviewQueue: 'Review Queue',
-      userManagement: 'User Management',
-      notifications: 'Notifications',
-      settings: 'Settings',
-      profile: 'Profile',
-      myTasks: 'My Tasks',
-      adminPanel: 'Admin Panel',
-      account: 'Account',
-      signOut: 'Sign Out',
-      theme: 'Theme',
-      language: 'Language',
-      light: 'Light',
-      dark: 'Dark',
+        dashboard: 'Dashboard',
+        projects: 'Projects',
+        workspace: 'Workspace',
+        reviewQueue: 'Review Queue',
+        userManagement: 'User Management',
+        notifications: 'Notifications',
+        settings: 'Settings',
+        profile: 'Profile',
+        myTasks: 'My Tasks',
+        adminPanel: 'Admin Panel',
+        account: 'Account',
+        signOut: 'Sign Out',
+        theme: 'Theme',
+        language: 'Language',
+        light: 'Light',
+        dark: 'Dark',
     },
     vi: {
-      dashboard: 'Bang dieu khien',
-      projects: 'Du an',
-      workspace: 'Khong gian lam viec',
-      reviewQueue: 'Hang doi duyet',
-      userManagement: 'Quan ly nguoi dung',
-      notifications: 'Thong bao',
-      settings: 'Cai dat',
-      profile: 'Ho so',
-      myTasks: 'Nhiem vu cua toi',
-      adminPanel: 'Bang quan tri',
-      account: 'Tai khoan',
-      signOut: 'Dang xuat',
-      theme: 'Giao dien',
-      language: 'Ngon ngu',
-      light: 'Sang',
-      dark: 'Toi',
+        dashboard: 'Bang dieu khien',
+        projects: 'Du an',
+        workspace: 'Khong gian lam viec',
+        reviewQueue: 'Hang doi duyet',
+        userManagement: 'Quan ly nguoi dung',
+        notifications: 'Thong bao',
+        settings: 'Cai dat',
+        profile: 'Ho so',
+        myTasks: 'Nhiem vu cua toi',
+        adminPanel: 'Bang quan tri',
+        account: 'Tai khoan',
+        signOut: 'Dang xuat',
+        theme: 'Giao dien',
+        language: 'Ngon ngu',
+        light: 'Sang',
+        dark: 'Toi',
     },
-  };
-
-  const t = (key) => dictionary[language]?.[key] || key;
-
-  const getInitial = () => (user?.user?.name?.charAt(0) || '?').toUpperCase();
-  const stringToBackground = (str) => {
-    if (!str) return 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)';
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const hue = Math.abs(hash) % 360;
-    return `linear-gradient(135deg, hsl(${hue} 70% 45%) 0%, hsl(${(hue + 40) % 360} 65% 55%) 100%)`;
-  };
-
-  // Helper function to check if a path is active
-  const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
-
-  // Get page title based on current route
-  const getPageTitle = () => {
-    const path = location.pathname;
-    if (path.includes('/dashboard')) return t('dashboard');
-    if (path.includes('/projects')) return t('projects');
-    if (path.includes('/workspace')) return t('workspace');
-    if (path.includes('/reviews')) return t('reviewQueue');
-    if (path.includes('/users')) return t('userManagement');
-    if (path.includes('/notifications')) return t('notifications');
-    if (path.includes('/settings')) return t('settings');
-    if (path.includes('/profile')) return t('profile');
-    return t('dashboard');
-  };
-
-  // Render Sidebar Links based on Role
-  const renderSidebarLinks = () => {
-    const linkClass = (path) =>
-      `w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 small fw-medium text-decoration-none sidebar-link ${isActive(path)
-        ? 'bg-indigo-600 text-white sidebar-link-active'
-        : 'text-slate-400'
-      }`;
-
-    switch (user.user.roleName) {
-      case UserRole.MANAGER:
-        return (
-          <>
-            <Link to="/manager/dashboard" className={linkClass('/manager/dashboard')}>
-              <LayoutDashboard size={18} />
-              {t('dashboard')}
-            </Link>
-            <Link to="/manager/projects" className={linkClass('/manager/projects')}>
-              <Layers size={18} />
-              {t('projects')}
-            </Link>
-          </>
-        );
-      case UserRole.ANNOTATOR:
-        return (
-          <>
-            <Link to="/annotator/dashboard" className={linkClass('/annotator/dashboard')}>
-              <LayoutDashboard size={18} />
-              {t('dashboard')}
-            </Link>
-            <Link to="/annotator/workspace" className={linkClass('/annotator/workspace')}>
-              <PenTool size={18} />
-              {t('myTasks')}
-            </Link>
-          </>
-        );
-      case UserRole.REVIEWER:
-        return (
-          <>
-            <Link to="/reviewer/dashboard" className={linkClass('/reviewer/dashboard')}>
-              <LayoutDashboard size={18} />
-              {t('dashboard')}
-            </Link>
-            <Link to="/reviewer/reviews" className={linkClass('/reviewer/reviews')}>
-              <CheckCircle size={18} />
-              {t('reviewQueue')}
-            </Link>
-          </>
-        );
-      case UserRole.ADMIN:
-        return (
-          <>
-            <Link to="/admin/dashboard" className={linkClass('/admin/dashboard')}>
-              <LayoutDashboard size={18} />
-              {t('dashboard')}
-            </Link>
-            <Link to="/admin/users" className={linkClass('/admin/users')}>
-              <Settings size={18} />
-              {t('adminPanel')}
-            </Link>
-          </>
-        );
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="layout-container d-flex vh-100 overflow-hidden" style={{ backgroundColor: isDark ? '#0b1220' : '#f8fafc' }}>
-
-      {/* Desktop Sidebar */}
-      <aside className="d-none d-md-flex flex-column text-slate-300" style={{ width: '16rem', zIndex: 50, background: 'linear-gradient(180deg, #0f172a 0%, #0f172a 100%)', boxShadow: '4px 0 24px rgba(0,0,0,0.18)', borderRight: '1px solid #1e293b' }}>
-        {/* Logo */}
-        <div className="d-flex align-items-center gap-3 px-4 border-bottom border-slate-800" style={{ paddingTop: '1.25rem', paddingBottom: '1.25rem' }}>
-          <div className="d-flex align-items-center justify-content-center text-white fw-bold rounded-3" style={{ width: '34px', height: '34px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', boxShadow: '0 4px 12px rgba(99,102,241,0.45)', flexShrink: 0, fontSize: '15px', letterSpacing: '-1px' }}>
-            LN
-          </div>
-          <div>
-            <span className="fw-bold text-white" style={{ fontSize: '1rem', letterSpacing: '-0.3px' }}>LabelNexus</span>
-            <p className="mb-0 text-slate-500" style={{ fontSize: '10px', letterSpacing: '0.5px' }}>ANNOTATION PLATFORM</p>
-          </div>
-        </div>
-
-        <div className="flex-fill px-3 overflow-y-auto custom-scrollbar" style={{ paddingTop: '1rem', paddingBottom: '1rem' }}>
-          {user.user.roleName === UserRole.ANNOTATOR ? (
-            <AnnotatorNavigation />
-          ) : (
-            <div className="d-flex flex-column" style={{ gap: '1.5rem' }}>
-              <div className="d-flex flex-column gap-1">
-                <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>{t('workspace')}</p>
-                {renderSidebarLinks()}
-              </div>
-              <div className="d-flex flex-column gap-1">
-                <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>{t('account')}</p>
-                <Link to="/profile" className={`w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 small fw-medium text-decoration-none sidebar-link ${isActive('/profile') ? 'bg-indigo-600 text-white sidebar-link-active' : 'text-slate-400'
-                  }`}>
-                  <User size={18} />
-                  {t('profile')}
-                </Link>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* User Profile Snippet */}
-        <div className="border-top border-slate-800" style={{ padding: '0.75rem', background: 'rgba(15,23,42,0.8)' }}>
-          <div className="d-flex align-items-center gap-2 rounded-3 px-2 py-2" style={{ background: 'rgba(30,41,59,0.6)' }}>
-            <div
-              className="d-flex align-items-center gap-2 flex-fill sidebar-link rounded-3"
-              onClick={() => navigate('/profile')}
-              style={{ cursor: 'pointer', padding: '0.375rem 0.5rem', minWidth: 0 }}
-              title="View Profile"
-            >
-              <div className="position-relative" style={{ flexShrink: 0 }}>
-                {user?.avatarUrl ? (
-                  <img
-                    src={user.avatarUrl}
-                    alt="User"
-                    style={{ width: '34px', height: '34px', display: 'block' }}
-                    className="rounded-circle border border-2 border-slate-700 bg-slate-800"
-                  />
-                ) : (
-                  <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: stringToBackground(user?.user?.name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontWeight: 700, fontSize: '14px' }}>
-                    {getInitial()}
-                  </div>
-                )}
-                <span className="position-absolute bottom-0 end-0 rounded-circle border border-2 border-slate-800" style={{ width: '10px', height: '10px', background: '#10b981' }}></span>
-              </div>
-              <div className="flex-fill text-start" style={{ minWidth: 0 }}>
-                <p className="small fw-semibold text-white mb-0 text-truncate" style={{ lineHeight: 1.3 }}>{user.user.name}</p>
-                <p className="text-uppercase fw-bold text-slate-500 mb-0" style={{ fontSize: '10px', letterSpacing: '0.06em', lineHeight: 1.3 }}>{user.user.roleName}</p>
-              </div>
-            </div>
-            <button
-              onClick={onLogout}
-              className="btn btn-link text-slate-500 d-flex align-items-center justify-content-center rounded-2"
-              title={t('signOut')}
-              style={{ flexShrink: 0, width: '32px', height: '32px', padding: 0, minWidth: 'auto' }}
-            >
-              <LogOut size={15} />
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Mobile Drawer (Overlay) */}
-      {mobileMenuOpen && (
-        <div className="position-fixed top-0 start-0 bottom-0 end-0 d-md-none" style={{ zIndex: 1050, backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(2px)' }} onClick={() => setMobileMenuOpen(false)}>
-          <div className="position-absolute start-0 top-0 bottom-0 shadow-lg" style={{ width: 'min(75%, 300px)', background: 'linear-gradient(180deg, #0f172a 0%, #0f172a 100%)', borderRight: '1px solid #1e293b' }} onClick={e => e.stopPropagation()}>
-            {/* Mobile Header */}
-            <div className="d-flex align-items-center justify-content-between px-4 border-bottom border-slate-800" style={{ paddingTop: '1.25rem', paddingBottom: '1.25rem' }}>
-              <div className="d-flex align-items-center gap-3">
-                <div className="d-flex align-items-center justify-content-center text-white fw-bold rounded-3" style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', boxShadow: '0 4px 12px rgba(99,102,241,0.4)', flexShrink: 0, fontSize: '13px' }}>LN</div>
-                <span className="fw-bold text-white" style={{ fontSize: '0.95rem' }}>LabelNexus</span>
-              </div>
-              <button onClick={() => setMobileMenuOpen(false)} className="btn btn-link text-slate-400 p-1">
-                <X size={22} />
-              </button>
-            </div>
-            {/* Mobile Nav */}
-            <div className="px-3 overflow-y-auto custom-scrollbar" style={{ paddingTop: '1rem', paddingBottom: '1rem' }}>
-              <div onClick={() => setMobileMenuOpen(false)}>
-                {user.user.roleName === UserRole.ANNOTATOR ? (
-                  <AnnotatorNavigation />
-                ) : (
-                  <div className="d-flex flex-column" style={{ gap: '1.5rem' }}>
-                    <div className="d-flex flex-column gap-1">
-                      <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>{t('workspace')}</p>
-                      {renderSidebarLinks()}
-                    </div>
-                    <div className="d-flex flex-column gap-1">
-                      <p className="px-3 mb-1 fw-bold text-slate-500 text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>{t('account')}</p>
-                      <button
-                        onClick={() => navigate('/profile')}
-                        className="w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 text-slate-400 small fw-medium btn btn-link text-decoration-none text-start sidebar-link"
-                      >
-                        <User size={18} />
-                        {t('profile')}
-                      </button>
-                      <button onClick={onLogout} className="w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 text-slate-400 small fw-medium btn btn-link text-decoration-none text-start sidebar-link">
-                        <LogOut size={18} />
-                        {t('signOut')}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content Area */}
-      <div className="flex-fill d-flex flex-column min-w-0 h-100 position-relative">
-        {/* Header */}
-        <header className="flex-shrink-0 d-flex align-items-center justify-content-between px-3 px-sm-4 shadow-sm" style={{ height: '4rem', zIndex: 30, backgroundColor: isDark ? '#0f172a' : '#ffffff', borderBottom: `1px solid ${isDark ? '#1e293b' : '#e2e8f0'}` }}>
-          <div className="d-flex align-items-center gap-3">
-            <button className="btn btn-link d-md-none text-slate-500 p-2" onClick={() => setMobileMenuOpen(true)}>
-              <Menu size={24} />
-            </button>
-            <h1 className="fs-5 fw-semibold truncate mb-0" style={{ color: isDark ? '#e2e8f0' : '#1e293b' }}>{getPageTitle()}</h1>
-          </div>
-
-          <div className="d-flex align-items-center gap-2 gap-sm-3">
-            <div className="d-none d-md-flex align-items-center gap-2">
-              <button
-                type="button"
-                className="btn btn-sm d-flex align-items-center gap-1"
-                onClick={toggleLanguage}
-                title={t('language')}
-                style={{
-                  border: `1px solid ${isDark ? '#334155' : '#cbd5e1'}`,
-                  color: isDark ? '#e2e8f0' : '#334155',
-                  backgroundColor: isDark ? '#111827' : '#ffffff'
-                }}
-              >
-                <Languages size={14} />
-                {language.toUpperCase()}
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm d-flex align-items-center gap-1"
-                onClick={toggleTheme}
-                title={t('theme')}
-                style={{
-                  border: `1px solid ${isDark ? '#334155' : '#cbd5e1'}`,
-                  color: isDark ? '#e2e8f0' : '#334155',
-                  backgroundColor: isDark ? '#111827' : '#ffffff'
-                }}
-              >
-                {isDark ? <Sun size={14} /> : <Moon size={14} />}
-                {isDark ? t('light') : t('dark')}
-              </button>
-            </div>
-
-            {/* Search Bar */}
-            <div className="d-none d-sm-block">
-
-            </div>
-
-            {/* Notification Dropdown */}
-            <NotificationDropdown />
-
-            <div className="d-none d-md-block" style={{ height: '2rem', width: '1px', backgroundColor: isDark ? '#334155' : '#e2e8f0' }}></div>
-
-            <div className="d-none d-md-flex align-items-center gap-2">
-              <span className="badge text-uppercase fw-semibold" style={{ fontSize: '0.68rem', letterSpacing: '0.06em', padding: '0.35rem 0.75rem', background: isDark ? 'linear-gradient(90deg, #1e293b, #334155)' : 'linear-gradient(90deg, #eef2ff, #e0e7ff)', color: isDark ? '#e2e8f0' : '#4338ca', border: `1px solid ${isDark ? '#475569' : '#c7d2fe'}`, borderRadius: '999px' }}>
-                {user.user.roleName || user.role}
-              </span>
-            </div>
-          </div>
-        </header>
-
-        {/* Scrollable Content */}
-        <main className="flex-fill overflow-auto p-3 p-sm-4 p-lg-5 position-relative" style={{ backgroundColor: isDark ? '#0b1220' : 'rgba(248, 250, 252, 0.5)', color: isDark ? '#e2e8f0' : '#0f172a' }}>
-          {children}
-        </main>
-      </div>
-    </div>
-  );
 };
 
+const getInitial = (name) => (name?.charAt(0) || '?').toUpperCase();
 
+const stringToBackground = (str) => {
+    if (!str) {
+        return 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)';
+    }
 
+    let hash = 0;
+    for (let i = 0; i < str.length; i += 1) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
 
+    const hue = Math.abs(hash) % 360;
+    return `linear-gradient(135deg, hsl(${hue} 62% 42%) 0%, hsl(${(hue + 32) % 360} 58% 52%) 100%)`;
+};
 
+export const Layout = ({ children, user, onLogout }) => {
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const location = useLocation();
+    const { language } = useUI();
+    const t = (key) => dictionary[language]?.[key] || key;
+    const roleName = user?.user?.roleName || user?.role || '';
+    const pageTitle = useMemo(() => {
+        const path = location.pathname;
+
+        if (path.includes('/dashboard')) return t('dashboard');
+        if (path.includes('/projects')) return t('projects');
+        if (path.includes('/workspace')) return t('workspace');
+        if (path.includes('/reviews')) return t('reviewQueue');
+        if (path.includes('/users')) return t('userManagement');
+        if (path.includes('/notifications')) return t('notifications');
+        if (path.includes('/settings')) return t('settings');
+        if (path.includes('/profile')) return t('profile');
+
+        return t('dashboard');
+    }, [location.pathname, language]);
+
+    useEffect(() => {
+        setMobileMenuOpen(false);
+    }, [location.pathname]);
+
+    const isActive = (path) => location.pathname === path || location.pathname.startsWith(`${path}/`);
+
+    const navLinkClass = (path) =>
+        `sidebar-link ${isActive(path) ? 'sidebar-link-active' : 'sidebar-link-inactive'}`;
+
+    const renderSidebarLinks = () => {
+        switch (user.user.roleName) {
+            case UserRole.MANAGER:
+                return (
+                    <>
+                        <Link to="/manager/dashboard" className={navLinkClass('/manager/dashboard')}>
+                            <LayoutDashboard size={18} />
+                            {t('dashboard')}
+                        </Link>
+                        <Link to="/manager/projects" className={navLinkClass('/manager/projects')}>
+                            <Layers size={18} />
+                            {t('projects')}
+                        </Link>
+                    </>
+                );
+            case UserRole.ANNOTATOR:
+                return (
+                    <>
+                        <Link to="/annotator/dashboard" className={navLinkClass('/annotator/dashboard')}>
+                            <LayoutDashboard size={18} />
+                            {t('dashboard')}
+                        </Link>
+                        <Link to="/annotator/workspace" className={navLinkClass('/annotator/workspace')}>
+                            <PenTool size={18} />
+                            {t('myTasks')}
+                        </Link>
+                    </>
+                );
+            case UserRole.REVIEWER:
+                return (
+                    <>
+                        <Link to="/reviewer/dashboard" className={navLinkClass('/reviewer/dashboard')}>
+                            <LayoutDashboard size={18} />
+                            {t('dashboard')}
+                        </Link>
+                        <Link to="/reviewer/reviews" className={navLinkClass('/reviewer/reviews')}>
+                            <CheckCircle size={18} />
+                            {t('reviewQueue')}
+                        </Link>
+                    </>
+                );
+            case UserRole.ADMIN:
+                return (
+                    <>
+                        <Link to="/admin/dashboard" className={navLinkClass('/admin/dashboard')}>
+                            <LayoutDashboard size={18} />
+                            {t('dashboard')}
+                        </Link>
+                        <Link to="/admin/users" className={navLinkClass('/admin/users')}>
+                            <Settings size={18} />
+                            {t('adminPanel')}
+                        </Link>
+                    </>
+                );
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <div className="app-shell app-shell-light">
+            <aside className="app-sidebar d-none d-md-flex flex-column">
+                <div className="sidebar-brand">
+                    <div className="brand-mark">LN</div>
+                    <div className="brand-copy">
+                        <div className="brand-name">LabelNexus</div>
+                        <div className="brand-subtitle">Annotation Platform</div>
+                    </div>
+                </div>
+
+                <div className="sidebar-scroll flex-fill custom-scrollbar">
+                    {user.user.roleName === UserRole.ANNOTATOR ? (
+                        <AnnotatorNavigation />
+                    ) : (
+                        <div className="sidebar-sections">
+                            <div className="sidebar-section">
+                                <div className="sidebar-section-label">{t('workspace')}</div>
+                                <div className="sidebar-link-group">{renderSidebarLinks()}</div>
+                            </div>
+
+                            <div className="sidebar-section">
+                                <div className="sidebar-section-label">{t('account')}</div>
+                                <Link to="/profile" className={navLinkClass('/profile')}>
+                                    <User size={18} />
+                                    {t('profile')}
+                                </Link>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="sidebar-user-card">
+                    <Link to="/profile" className="sidebar-user-link">
+                        <div className="sidebar-avatar-wrap">
+                            {user?.avatarUrl ? (
+                                <img src={user.avatarUrl} alt="User" className="sidebar-avatar" />
+                            ) : (
+                                <div className="sidebar-avatar" style={{ background: stringToBackground(user?.user?.name) }}>
+                                    {getInitial(user?.user?.name)}
+                                </div>
+                            )}
+                            <span className="sidebar-status-dot" />
+                        </div>
+                        <div className="sidebar-user-copy">
+                            <div className="sidebar-user-name">{user.user.name}</div>
+                            <div className="sidebar-user-role">{roleName}</div>
+                        </div>
+                    </Link>
+
+                    <button
+                        type="button"
+                        onClick={onLogout}
+                        className="sidebar-icon-button"
+                        title={t('signOut')}
+                        aria-label={t('signOut')}
+                    >
+                        <LogOut size={16} />
+                    </button>
+                </div>
+            </aside>
+
+            {mobileMenuOpen && (
+                <div className="mobile-drawer-overlay d-md-none" onClick={() => setMobileMenuOpen(false)}>
+                    <div className="mobile-drawer" onClick={(event) => event.stopPropagation()}>
+                        <div className="mobile-drawer-header">
+                            <div className="d-flex align-items-center gap-3">
+                                <div className="brand-mark brand-mark-sm">LN</div>
+                                <div className="brand-name">LabelNexus</div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="sidebar-icon-button"
+                                aria-label="Close menu"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="mobile-drawer-body custom-scrollbar">
+                            {user.user.roleName === UserRole.ANNOTATOR ? (
+                                <AnnotatorNavigation />
+                            ) : (
+                                <div className="sidebar-sections">
+                                    <div className="sidebar-section">
+                                        <div className="sidebar-section-label">{t('workspace')}</div>
+                                        <div className="sidebar-link-group">{renderSidebarLinks()}</div>
+                                    </div>
+
+                                    <div className="sidebar-section">
+                                        <div className="sidebar-section-label">{t('account')}</div>
+                                        <Link to="/profile" className={navLinkClass('/profile')}>
+                                            <User size={18} />
+                                            {t('profile')}
+                                        </Link>
+                                        <button type="button" onClick={onLogout} className="sidebar-link sidebar-link-inactive text-start">
+                                            <LogOut size={18} />
+                                            {t('signOut')}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="app-content-shell">
+                <header className="app-topbar">
+                    <div className="d-flex align-items-center gap-3 min-w-0">
+                        <button
+                            type="button"
+                            className="sidebar-icon-button d-md-none"
+                            onClick={() => setMobileMenuOpen(true)}
+                            aria-label="Open menu"
+                        >
+                            <Menu size={22} />
+                        </button>
+                        <div className="topbar-title-wrap">
+                            <div className="topbar-title">{pageTitle}</div>
+                            <div className="topbar-subtitle">{roleName}</div>
+                        </div>
+                    </div>
+
+                    <div className="d-flex align-items-center gap-2 gap-sm-3">
+                        <NotificationDropdown />
+
+                        <div className="d-none d-md-flex align-items-center gap-2">
+                            <span className="role-pill">{roleName}</span>
+                        </div>
+                    </div>
+                </header>
+
+                <main className="app-main">
+                    <div key={location.pathname} className="page-transition-surface">
+                        {children}
+                    </div>
+                </main>
+            </div>
+        </div>
+    );
+};

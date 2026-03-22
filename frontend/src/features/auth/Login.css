@@ -90,7 +90,7 @@
   width: 100%;
   max-width: 56rem;
   border-radius: 1rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -166,7 +166,7 @@
   font-size: 2rem;
   font-weight: bold;
   margin: 0 auto 1.5rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
 }
 
 @media (min-width: 768px) {
@@ -210,7 +210,7 @@
 
 .branding-feature:hover {
   background-color: rgba(255, 255, 255, 0.15);
-  transform: translateX(5px);
+  transform: translateX(2px);
 }
 
 .branding-feature-icon {
