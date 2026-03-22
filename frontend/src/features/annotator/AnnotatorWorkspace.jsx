@@ -22,6 +22,7 @@ import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { ProgressIndicator } from './ProgressIndicator';
 import { BatchItemsListView } from './components/BatchItemsListView';
 import { TaskBatchesListView } from './components/TaskBatchesListView';
+import { CommentsList } from '../../shared/components/CommentsList.jsx';
 import { useUI } from '../../shared/context/UIContext.jsx';
 import './AnnotatorWorkspace.css';
 
@@ -1971,6 +1972,17 @@ export const AnnotatorWorkspace = ({ user }) => {
                         setSelectedAnnotationId={setSelectedAnnotationId}
                         handleDeleteAnnotation={handleDeleteAnnotation}
                     />
+
+                    {/* Comments Section - Show when item is selected */}
+                    {selectedItem?.id && (
+                        <CommentsList 
+                            taskItemId={selectedItem.id}
+                            onCommentsLoaded={(count) => {
+                                // Optional: Update UI with comment count
+                                console.log(`Loaded ${count} comments for task item ${selectedItem.id}`);
+                            }}
+                        />
+                    )}
                 </div>
             </div>
 

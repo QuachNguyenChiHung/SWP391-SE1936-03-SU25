@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { X, Flag, Check } from 'lucide-react';
+import { CommentInput } from '../../../shared/components/CommentInput.jsx';
 
 const ActionBar = ({
     actionState,
@@ -10,8 +11,24 @@ const ActionBar = ({
     rejectReason,
     setRejectReason,
     submitReview,
-    isSubmittingReview
+    isSubmittingReview,
+    taskItemId,
+    userRole,
+    onCommentAdded
 }) => {
+    const [showCommentInput, setShowCommentInput] = useState(false);
+
+    const handleRejectWithComment = () => {
+        setShowCommentInput(true);
+    };
+
+    const handleCommentAdded = (comment, successMessage) => {
+        if (onCommentAdded) {
+            onCommentAdded(comment, successMessage);
+        }
+        // Keep comment input visible after adding comment
+    };
+
     return (
         <div className="p-4 bg-white border-top">
             {actionState === 'REJECTING' ? (
@@ -30,9 +47,53 @@ const ActionBar = ({
                             </button>
                         ))}
                     </div>
+
+                    {/* Comment Input Section */}
+                    {showCommentInput && taskItemId && (
+                        <div className="mb-3">
+                            <CommentInput
+                                taskItemId={taskItemId}
+                                userRole={userRole}
+                                onCommentAdded={handleCommentAdded}
+                                onError={(error) => {
+                                    if (submitError !== error) {
+                                        // Show error via parent component
+                                        console.error('Comment error:', error);
+                                    }
+                                }}
+                            />
+                        </div>
+                    )}
+
                     <div className="d-flex align-items-center gap-3">
-                        <button onClick={() => setActionState('IDLE')} className="btn btn-link text-muted fw-medium" style={{ fontSize: '14px' }}>Cancel</button>
-                        <button disabled={!rejectReason || isSubmittingReview} onClick={() => submitReview('Rejected')} className="btn btn-danger flex-fill fw-semibold shadow-sm" style={{ fontSize: '14px' }}>{isSubmittingReview ? 'Submitting...' : 'Confirm Rejection'}</button>
+                        <button 
+                            onClick={() => {
+                                setActionState('IDLE');
+                                setShowCommentInput(false);
+                            }} 
+                            className="btn btn-link text-muted fw-medium" 
+                            style={{ fontSize: '14px' }}
+                        >
+                            Cancel
+                        </button>
+                        {!showCommentInput && (
+                            <button 
+                                disabled={!rejectReason || isSubmittingReview} 
+                                onClick={handleRejectWithComment}
+                                className="btn btn-outline-primary flex-fill fw-semibold" 
+                                style={{ fontSize: '14px' }}
+                            >
+                                Add Comment
+                            </button>
+                        )}
+                        <button 
+                            disabled={!rejectReason || isSubmittingReview} 
+                            onClick={() => submitReview('Rejected')} 
+                            className="btn btn-danger flex-fill fw-semibold shadow-sm" 
+                            style={{ fontSize: '14px' }}
+                        >
+                            {isSubmittingReview ? 'Submitting...' : 'Confirm Rejection'}
+                        </button>
                     </div>
                 </div>
             ) : (
@@ -57,7 +118,10 @@ ActionBar.propTypes = {
     rejectReason: PropTypes.string,
     setRejectReason: PropTypes.func,
     submitReview: PropTypes.func,
-    isSubmittingReview: PropTypes.bool
+    isSubmittingReview: PropTypes.bool,
+    taskItemId: PropTypes.number,
+    userRole: PropTypes.string,
+    onCommentAdded: PropTypes.func
 };
 
 ActionBar.defaultProps = {
@@ -68,7 +132,10 @@ ActionBar.defaultProps = {
     rejectReason: '',
     setRejectReason: () => { },
     submitReview: () => { },
-    isSubmittingReview: false
+    isSubmittingReview: false,
+    taskItemId: null,
+    userRole: null,
+    onCommentAdded: null
 };
 
 export default ActionBar;
