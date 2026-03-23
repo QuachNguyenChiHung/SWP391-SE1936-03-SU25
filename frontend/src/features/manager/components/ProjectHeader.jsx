@@ -40,15 +40,16 @@ const ProjectHeader = ({ project, onBack }) => {
       const res = await api.post(`/projects/${project.id}/export`, payload, { headers: { 'Content-Type': 'application/json' } });
       const data = res.data?.data ?? res.data;
       setExportResult(data);
-      // open the download in a new tab if available
+      // download the file with auth token
       if (data?.downloadUrl) {
-        console.log('Opening download URL:', data.downloadUrl);
-        const base = import.meta.env.VITE_URL
-          ? String(import.meta.env.VITE_URL).replace(/\/api\/?$/, '')
-          : window.location.origin;;
-        let url = String(data.downloadUrl).startsWith('http') ? data.downloadUrl : `${base}${data.downloadUrl}`;
-        url = url.replace('/api', '');
-        window.open(url, '_blank');
+        const dlUrl = String(data.downloadUrl).replace(/^\/api/, '');
+        const downloadRes = await api.get(dlUrl, { responseType: 'blob' });
+        const blob = new Blob([downloadRes.data], { type: 'application/zip' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = data.fileName || 'export.zip';
+        link.click();
+        URL.revokeObjectURL(link.href);
       }
     } catch (err) {
       console.error('Export failed', err);
