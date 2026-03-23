@@ -171,7 +171,7 @@ export const Layout = ({ children, user, onLogout }) => {
                             <div className="brand-copy">
                                 <div className="brand-name">Label Nexus</div>
                                 <div className="brand-subtitle">Data Labeling System</div>
-                            </div>
+                            </div> 
                         )}
                     </div>
                     <button
