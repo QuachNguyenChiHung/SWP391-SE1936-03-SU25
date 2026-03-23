@@ -261,6 +261,11 @@ public class ReviewService : IReviewService
         var project = await _unitOfWork.Projects.GetByIdAsync(dataset.ProjectId, cancellationToken);
         if (project == null) return null;
 
+        // Get TaskItem for this DataItem (to get TaskItemId for comments)
+        var taskItems = await _unitOfWork.TaskItems.GetByDataItemIdAsync(dataItemId, cancellationToken);
+        var taskItem = taskItems.FirstOrDefault();
+        var taskItemId = taskItem?.Id ?? 0;
+
         // Get annotations
         var annotations = await _unitOfWork.Annotations.GetByDataItemIdWithLabelAsync(dataItemId, cancellationToken);
 
@@ -284,6 +289,7 @@ public class ReviewService : IReviewService
         return new ReviewEditorDto
         {
             DataItemId = dataItemId,
+            TaskItemId = taskItemId,
             ProjectId = project.Id,
             ProjectName = project.Name,
             FileName = dataItem.FileName,
@@ -495,10 +501,25 @@ public class ReviewService : IReviewService
 
         foreach (var taskItem in taskItems)
         {
-            // Reset TaskItem status to InProgress (annotator needs to re-work)
-            taskItem.Status = TaskItemStatus.InProgress;
+            // Set status to Rejected
+            taskItem.Status = TaskItemStatus.Rejected;
             taskItem.CompletedAt = null;
             _unitOfWork.TaskItems.Update(taskItem);
+
+            // Add reviewer comment if not already exists
+            var hasReviewerComment = await _unitOfWork.Comments.HasReviewerCommentAsync(taskItem.Id);
+            if (!hasReviewerComment)
+            {
+                var comment = new Comment
+                {
+                    TaskItemId = taskItem.Id,
+                    AuthorId = 0, // System comment - set when reviewer context is available
+                    AuthorRole = UserRole.Reviewer,
+                    Content = "Task bị reject, vui lòng kiểm tra lại.",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.Comments.AddAsync(comment, cancellationToken);
+            }
 
             // Get the task and reset its status if needed
             var task = await _unitOfWork.AnnotationTasks.GetByIdAsync(taskItem.TaskId, cancellationToken);

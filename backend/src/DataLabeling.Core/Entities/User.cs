@@ -96,6 +96,11 @@ public class User : BaseEntity
     /// </summary>
     public string? RejectionReason { get; set; }
 
+    /// <summary>
+    /// Areas of specialization for the user (e.g., 'vehicle bounding boxes', 'medical images').
+    /// </summary>
+    public string? SpecializeIn { get; set; }
+
     // ==================== Navigation Properties ====================
 
     /// <summary>

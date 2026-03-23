@@ -37,7 +37,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasConversion<string>()
             .HasMaxLength(20)
-            .HasDefaultValue(UserStatus.Active);
+            .HasDefaultValue(UserStatus.Active)
+            .HasSentinel(UserStatus.Active);
 
         builder.Property(u => u.FailedLoginAttempts)
             .HasDefaultValue(0);

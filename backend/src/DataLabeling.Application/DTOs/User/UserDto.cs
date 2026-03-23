@@ -51,4 +51,9 @@ public class UserDto
     /// When the user last logged in.
     /// </summary>
     public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>
+    /// Areas of specialization for the user (e.g., 'vehicle bounding boxes', 'medical images').
+    /// </summary>
+    public string? SpecializeIn { get; set; }
 }

@@ -44,6 +44,7 @@ public interface IDataItemService
         int pageNumber,
         int pageSize,
         DataItemStatus? status = null,
+        string? searchTerm = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -80,4 +81,9 @@ public interface IDataItemService
     /// Deletes a single data item.
     /// </summary>
     Task DeleteDataItemAsync(int dataItemId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Replaces the image file for a data item.
+    /// </summary>
+    Task<DataItemDto> ReplaceImageAsync(int dataItemId, IFormFile file, CancellationToken cancellationToken = default);
 }

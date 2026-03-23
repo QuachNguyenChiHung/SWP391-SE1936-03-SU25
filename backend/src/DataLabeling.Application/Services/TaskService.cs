@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AutoMapper;
+using DataLabeling.Application.DTOs.Comments;
 using DataLabeling.Application.DTOs.Common;
 using DataLabeling.Application.DTOs.Tasks;
 using DataLabeling.Application.Interfaces;
@@ -47,25 +48,14 @@ public class TaskService : ITaskService
         if (annotator.Status != UserStatus.Active)
             throw new ValidationException("Selected annotator is not active");
 
-        // Validate reviewer if provided
-        if (request.ReviewerId.HasValue)
-        {
-            var reviewer = await _unitOfWork.Users.GetByIdAsync(request.ReviewerId.Value, cancellationToken);
-            if (reviewer == null)
-                throw new NotFoundException("Reviewer", request.ReviewerId.Value);
-            if (reviewer.Role != UserRole.Reviewer)
-                throw new ValidationException("Selected user is not a reviewer");
-            if (reviewer.Status != UserStatus.Active)
-                throw new ValidationException("Selected reviewer is not active");
-        }
-
         // Create the task
         var task = new AnnotationTask
         {
             ProjectId = request.ProjectId,
             AnnotatorId = request.AnnotatorId,
             AssignedById = assignedById,
-            ReviewerId = request.ReviewerId,
+            Deadline = request.Deadline,
+            Priority = request.Priority,
             Status = AnnotationTaskStatus.Assigned,
             TotalItems = 0,
             CompletedItems = 0,
@@ -336,6 +326,43 @@ public class TaskService : ITaskService
         var task = await _unitOfWork.AnnotationTasks.GetWithDetailsAsync(taskId, cancellationToken);
         if (task == null) return null;
 
+        var items = new List<TaskItemDto>();
+        foreach (var ti in task.TaskItems)
+        {
+            var comments = await _unitOfWork.Comments.GetCommentsByTaskItemIdAsync(ti.Id);
+            var commentDtos = new List<CommentDto>();
+
+            foreach (var comment in comments)
+            {
+                var author = await _unitOfWork.Users.GetByIdAsync(comment.AuthorId, cancellationToken);
+                commentDtos.Add(new CommentDto
+                {
+                    Id = comment.Id,
+                    TaskItemId = comment.TaskItemId,
+                    AuthorId = comment.AuthorId,
+                    AuthorName = author?.Name,
+                    AuthorRole = comment.AuthorRole,
+                    Content = comment.Content,
+                    CreatedAt = comment.CreatedAt
+                });
+            }
+
+            items.Add(new TaskItemDto
+            {
+                Id = ti.Id,
+                DataItemId = ti.DataItemId,
+                FileName = ti.DataItem?.FileName ?? "Unknown",
+                FilePath = ti.DataItem?.FilePath ?? "",
+                ThumbnailPath = ti.DataItem?.ThumbnailPath,
+                Status = ti.Status,
+                DataItemStatus = ti.DataItem?.Status ?? DataItemStatus.Pending,
+                AssignedAt = ti.AssignedAt,
+                StartedAt = ti.StartedAt,
+                CompletedAt = ti.CompletedAt,
+                Comments = commentDtos
+            });
+        }
+
         return new TaskDetailDto
         {
             Id = task.Id,
@@ -354,21 +381,11 @@ public class TaskService : ITaskService
             AssignedAt = task.AssignedAt,
             SubmittedAt = task.SubmittedAt,
             CompletedAt = task.CompletedAt,
+            Deadline = task.Deadline,
+            Priority = task.Priority,
             CreatedAt = task.CreatedAt,
             UpdatedAt = task.UpdatedAt,
-            Items = task.TaskItems.Select(ti => new TaskItemDto
-            {
-                Id = ti.Id,
-                DataItemId = ti.DataItemId,
-                FileName = ti.DataItem?.FileName ?? "Unknown",
-                FilePath = ti.DataItem?.FilePath ?? "",
-                ThumbnailPath = ti.DataItem?.ThumbnailPath,
-                Status = ti.Status,
-                DataItemStatus = ti.DataItem?.Status ?? DataItemStatus.Pending,
-                AssignedAt = ti.AssignedAt,
-                StartedAt = ti.StartedAt,
-                CompletedAt = ti.CompletedAt
-            }).ToList()
+            Items = items
         };
     }
 
@@ -381,7 +398,7 @@ public class TaskService : ITaskService
         CancellationToken cancellationToken = default)
     {
         var (items, totalCount) = await _unitOfWork.AnnotationTasks.GetPagedAsync(
-            pageNumber, pageSize, projectId, annotatorId, status, cancellationToken);
+            pageNumber, pageSize, projectId, annotatorId, status, null, cancellationToken);
 
         return new PagedResult<TaskDto>
         {
@@ -416,7 +433,7 @@ public class TaskService : ITaskService
 
         // Get items with Pending status
         var (items, totalCount) = await _unitOfWork.DataItems.GetPagedAsync(
-            dataset.Id, pageNumber, pageSize, DataItemStatus.Pending, cancellationToken);
+            dataset.Id, pageNumber, pageSize, DataItemStatus.Pending, null, cancellationToken);
 
         return new PagedResult<UnassignedItemDto>
         {
@@ -453,6 +470,8 @@ public class TaskService : ITaskService
                 Name = annotator.Name,
                 Email = annotator.Email,
                 ActiveTaskCount = activeTaskCount
+                ,
+                SpecializedIn = annotator.SpecializeIn
             });
         }
 
@@ -497,6 +516,8 @@ public class TaskService : ITaskService
                 Email = reviewer.Email,
                 ActiveReviewCount = activeReviewCount,
                 OtherProjectAssignedTaskCount = otherProjectAssignedCount
+                ,
+                SpecializedIn = reviewer.SpecializeIn
             });
         }
 
@@ -549,6 +570,8 @@ public class TaskService : ITaskService
             AssignedAt = task.AssignedAt,
             SubmittedAt = task.SubmittedAt,
             CompletedAt = task.CompletedAt,
+            Deadline = task.Deadline,
+            Priority = task.Priority,
             CreatedAt = task.CreatedAt
         };
     }

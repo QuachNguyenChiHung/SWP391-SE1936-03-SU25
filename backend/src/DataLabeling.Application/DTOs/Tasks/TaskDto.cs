@@ -21,5 +21,16 @@ public class TaskDto
     public DateTime AssignedAt { get; set; }
     public DateTime? SubmittedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
+
+    /// <summary>
+    /// Deadline for task completion.
+    /// </summary>
+    public DateTime? Deadline { get; set; }
+
+    /// <summary>
+    /// Priority level for this task.
+    /// </summary>
+    public TaskPriority Priority { get; set; }
+
     public DateTime CreatedAt { get; set; }
 }

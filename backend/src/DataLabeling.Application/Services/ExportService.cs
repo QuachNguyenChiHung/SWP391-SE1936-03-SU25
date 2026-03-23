@@ -156,6 +156,11 @@ public class ExportService : IExportService
             }
         }
 
+        // Log what we're exporting for debugging
+        Console.WriteLine($"[ExportService] Found {result.Count} data items with status filter: {statusFilter?.ToString() ?? "None"}");
+        var totalAnnotations = result.Sum(item => item.Annotations?.Count ?? 0);
+        Console.WriteLine($"[ExportService] Total annotations across all items: {totalAnnotations}");
+
         return result;
     }
 
@@ -207,6 +212,8 @@ public class ExportService : IExportService
         int annotationId = 1;
         int totalAnnotations = 0;
 
+        Console.WriteLine($"[ExportService] Starting COCO export for {dataItems.Count} data items");
+
         foreach (var dataItem in dataItems)
         {
             int width = dataItem.Width ?? 640;
@@ -223,6 +230,7 @@ public class ExportService : IExportService
             });
 
             // Add annotations for this image
+            int annotationsForThisImage = 0;
             foreach (var annotation in dataItem.Annotations)
             {
                 if (!labelIdToCategory.TryGetValue(annotation.LabelId, out int catId))
@@ -244,7 +252,10 @@ public class ExportService : IExportService
 
                 annotationId++;
                 totalAnnotations++;
+                annotationsForThisImage++;
             }
+
+            Console.WriteLine($"[ExportService] Image '{dataItem.FileName}' (ID: {dataItem.Id}, Status: {dataItem.Status}): {annotationsForThisImage} annotations");
 
             // Copy image if requested
             if (includeImages)
@@ -254,6 +265,8 @@ public class ExportService : IExportService
 
             imageId++;
         }
+
+        Console.WriteLine($"[ExportService] COCO export complete: {totalAnnotations} total annotations");
 
         // Write annotations.json
         var jsonOptions = new JsonSerializerOptions

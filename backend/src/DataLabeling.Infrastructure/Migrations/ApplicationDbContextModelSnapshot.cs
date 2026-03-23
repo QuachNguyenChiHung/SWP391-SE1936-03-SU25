@@ -151,11 +151,25 @@ namespace DataLabeling.Infrastructure.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
 
+                    b.Property<DateTime?>("Deadline")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Priority")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(2);
+
                     b.Property<int>("ProjectId")
                         .HasColumnType("int");
 
                     b.Property<int?>("ReviewerId")
                         .HasColumnType("int");
+
+                    b.Property<string>("ReviewerNote")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -188,6 +202,48 @@ namespace DataLabeling.Infrastructure.Migrations
                     b.HasIndex("Status");
 
                     b.ToTable("AnnotationTask", (string)null);
+                });
+
+            modelBuilder.Entity("DataLabeling.Core.Entities.Comment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AuthorId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AuthorRole")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<int>("TaskItemId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("TaskItemId");
+
+                    b.HasIndex("TaskItemId", "AuthorRole");
+
+                    b.ToTable("Comment", (string)null);
                 });
 
             modelBuilder.Entity("DataLabeling.Core.Entities.DataItem", b =>
@@ -771,6 +827,9 @@ namespace DataLabeling.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("SpecializeIn")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -879,6 +938,25 @@ namespace DataLabeling.Infrastructure.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("Reviewer");
+                });
+
+            modelBuilder.Entity("DataLabeling.Core.Entities.Comment", b =>
+                {
+                    b.HasOne("DataLabeling.Core.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DataLabeling.Core.Entities.TaskItem", "TaskItem")
+                        .WithMany("Comments")
+                        .HasForeignKey("TaskItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("TaskItem");
                 });
 
             modelBuilder.Entity("DataLabeling.Core.Entities.DataItem", b =>
@@ -1063,6 +1141,11 @@ namespace DataLabeling.Infrastructure.Migrations
             modelBuilder.Entity("DataLabeling.Core.Entities.Review", b =>
                 {
                     b.Navigation("ReviewErrorTypes");
+                });
+
+            modelBuilder.Entity("DataLabeling.Core.Entities.TaskItem", b =>
+                {
+                    b.Navigation("Comments");
                 });
 
             modelBuilder.Entity("DataLabeling.Core.Entities.User", b =>

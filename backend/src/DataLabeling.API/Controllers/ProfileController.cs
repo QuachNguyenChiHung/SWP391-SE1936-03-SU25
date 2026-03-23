@@ -60,7 +60,7 @@ public class ProfileController : ControllerBase
     }
 
     /// <summary>
-    /// Update the current user's name.
+    /// Update the current user's name and specialization.
     /// </summary>
     /// <param name="request">Profile update data.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -82,6 +82,12 @@ public class ProfileController : ControllerBase
             return NotFound(ApiResponse<UserDto>.FailureResponse("User not found."));
 
         user.Name = request.Name;
+
+        if (request.SpecializeIn != null)
+        {
+            user.SpecializeIn = request.SpecializeIn;
+        }
+
         user.UpdatedAt = DateTime.UtcNow;
         await _uow.SaveChangesAsync(cancellationToken);
 

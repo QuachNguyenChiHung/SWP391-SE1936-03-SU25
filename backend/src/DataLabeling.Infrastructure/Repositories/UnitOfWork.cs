@@ -28,6 +28,7 @@ public class UnitOfWork : IUnitOfWork
     private IErrorTypeRepository? _errorTypes;
     private INotificationRepository? _notifications;
     private IActivityLogRepository? _activityLogs;
+    private ICommentRepository? _comments;
 
     public UnitOfWork(ApplicationDbContext context)
     {
@@ -72,6 +73,9 @@ public class UnitOfWork : IUnitOfWork
 
     public IActivityLogRepository ActivityLogs =>
         _activityLogs ??= new ActivityLogRepository(_context);
+
+    public ICommentRepository Comments =>
+        _comments ??= new CommentRepository(_context);
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

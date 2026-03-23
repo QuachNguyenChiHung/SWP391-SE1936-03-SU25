@@ -12,5 +12,11 @@ public enum TaskItemStatus
     InProgress = 2,
 
     /// <summary>Completed - annotator finished labeling this item</summary>
-    Completed = 3
+    Completed = 3,
+
+    /// <summary>Rejected - item rejected by reviewer and needs rework</summary>
+    Rejected = 4,
+
+    /// <summary>Flagged - item flagged by annotator as having no suitable label or other issues</summary>
+    Flagged = 5
 }

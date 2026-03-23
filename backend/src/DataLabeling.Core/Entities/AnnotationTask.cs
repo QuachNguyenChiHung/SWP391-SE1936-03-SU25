@@ -58,6 +58,26 @@ public class AnnotationTask : BaseEntity
     /// </summary>
     public DateTime? CompletedAt { get; set; }
 
+    /// <summary>
+    /// Deadline for task completion.
+    /// </summary>
+    public DateTime? Deadline { get; set; }
+
+    /// <summary>
+    /// Description for annotator (guidelines specific to this task).
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
+    /// Note from reviewer regarding this task.
+    /// </summary>
+    public string? ReviewerNote { get; set; }
+
+    /// <summary>
+    /// Priority level for this task.
+    /// </summary>
+    public TaskPriority Priority { get; set; } = TaskPriority.Medium;
+
     // ==================== Computed Properties ====================
 
     /// <summary>

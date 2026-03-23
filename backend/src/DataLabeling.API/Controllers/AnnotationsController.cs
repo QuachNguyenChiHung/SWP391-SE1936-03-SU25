@@ -387,4 +387,129 @@ public class AnnotationsController : ControllerBase
             return StatusCode(403, new { success = false, message = ex.Message });
         }
     }
+
+    // ==================== Flag Items ====================
+
+    /// <summary>
+    /// Flag a task item as having no suitable label or other issues (Annotator only).
+    /// Changes status to Flagged and optionally records a reason as a comment.
+    /// </summary>
+    [HttpPost("task-items/{taskItemId:int}/flag")]
+    [Authorize(Roles = "Annotator")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> FlagTaskItem(
+        int taskItemId,
+        [FromBody] FlagTaskItemRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetUserId();
+        if (userId == 0)
+            return Unauthorized(new { success = false, message = "User ID not found in token" });
+
+        var taskItem = await _uow.TaskItems.GetByIdAsync(taskItemId, cancellationToken);
+        if (taskItem == null)
+            return NotFound(new { success = false, message = "Task item not found" });
+
+        // Load the task to check ownership
+        var task = await _uow.AnnotationTasks.GetByIdAsync(taskItem.TaskId, cancellationToken);
+        if (task == null)
+            return NotFound(new { success = false, message = "Task not found" });
+
+        // Only the assigned annotator can flag the item
+        if (task.AnnotatorId != userId)
+        {
+            return StatusCode(403, new { success = false, message = "You can only flag items in your own tasks" });
+        }
+
+        // Cannot flag if already completed
+        if (taskItem.Status == TaskItemStatus.Completed)
+        {
+            return BadRequest(new { success = false, message = "Cannot flag completed item" });
+        }
+
+        // Cannot flag if task is submitted or completed
+        if (task.Status == AnnotationTaskStatus.Submitted || task.Status == AnnotationTaskStatus.Completed)
+        {
+            return BadRequest(new { success = false, message = "Cannot flag item in submitted/completed task" });
+        }
+
+        // Update TaskItem status to Flagged
+        taskItem.Status = TaskItemStatus.Flagged;
+        taskItem.UpdatedAt = DateTime.UtcNow;
+        _uow.TaskItems.Update(taskItem);
+
+        // Update DataItem status to Reported
+        var dataItem = await _uow.DataItems.GetByIdAsync(taskItem.DataItemId, cancellationToken);
+        if (dataItem != null)
+        {
+            dataItem.Status = DataItemStatus.Reported;
+            dataItem.UpdatedAt = DateTime.UtcNow;
+            _uow.DataItems.Update(dataItem);
+        }
+
+        // Optionally create a comment with the reason
+        if (!string.IsNullOrWhiteSpace(request?.Reason))
+        {
+            var comment = new Core.Entities.Comment
+            {
+                TaskItemId = taskItemId,
+                AuthorId = userId,
+                AuthorRole = UserRole.Annotator,
+                Content = $"[FLAGGED] {request.Reason}",
+                CreatedAt = DateTime.UtcNow
+            };
+            await _uow.Comments.AddAsync(comment, cancellationToken);
+        }
+
+        await _uow.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { success = true, message = "Task item flagged successfully" });
+    }
+
+    /// <summary>
+    /// Unflag a task item (Admin/Manager only).
+    /// Changes status from Flagged back to Assigned and resets DataItem status.
+    /// </summary>
+    [HttpPost("task-items/{taskItemId:int}/unflag")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> UnflagTaskItem(
+        int taskItemId,
+        CancellationToken cancellationToken = default)
+    {
+        var taskItem = await _uow.TaskItems.GetByIdAsync(taskItemId, cancellationToken);
+        if (taskItem == null)
+            return NotFound(new { success = false, message = "Task item not found" });
+
+        // Update TaskItem status back to Assigned
+        if (taskItem.Status == TaskItemStatus.Flagged)
+        {
+            taskItem.Status = TaskItemStatus.Assigned;
+            taskItem.UpdatedAt = DateTime.UtcNow;
+            _uow.TaskItems.Update(taskItem);
+
+            // Reset DataItem status back to Assigned
+            var dataItem = await _uow.DataItems.GetByIdAsync(taskItem.DataItemId, cancellationToken);
+            if (dataItem != null && dataItem.Status == DataItemStatus.Reported)
+            {
+                dataItem.Status = DataItemStatus.Assigned;
+                dataItem.UpdatedAt = DateTime.UtcNow;
+                _uow.DataItems.Update(dataItem);
+            }
+
+            await _uow.SaveChangesAsync(cancellationToken);
+        }
+
+        return Ok(new { success = true, message = "Task item unflagged successfully" });
+    }
+}
+
+// Request DTOs
+public class FlagTaskItemRequest
+{
+    public string? Reason { get; set; }
 }
