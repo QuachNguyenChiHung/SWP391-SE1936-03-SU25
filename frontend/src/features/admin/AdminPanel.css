@@ -87,7 +87,9 @@
 ==================== */
 
 .modal-overlay {
-  background-color: rgba(0, 0, 0, 0.5);
+  background: var(--nl-modal-overlay-bg) !important;
+  backdrop-filter: blur(var(--nl-modal-overlay-blur));
+  -webkit-backdrop-filter: blur(var(--nl-modal-overlay-blur));
 }
 
 /* ====================
@@ -186,11 +188,11 @@
 }
 
 .btn:hover {
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .btn:active {
-  transform: scale(0.98);
+  transform: translateY(1px);
 }
 
 .card {
@@ -206,7 +208,9 @@
 ==================== */
 
 .modal-content {
-  animation: modalFadeIn 0.2s ease-out;
+  animation: nlDialogIn 260ms cubic-bezier(0.2, 0.85, 0.32, 1);
+  border-radius: var(--nl-modal-radius);
+  box-shadow: var(--nl-modal-shadow);
 }
 
 @keyframes modalFadeIn {

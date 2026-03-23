@@ -4,7 +4,7 @@ import { Modal, Button, Form, InputGroup, Row, Col } from 'react-bootstrap';
 import api from '../../../shared/utils/api.js';
 import { UserRole } from '../../../shared/types/types.js';
 
-export const EditUserModal = ({ show, user, onHide, onSuccess }) => {
+export const EditUserModal = ({ show, user, onHide, onSuccess, showAlert }) => {
     const [editingUser, setEditingUser] = useState(null);
 
     useEffect(() => {
@@ -50,7 +50,9 @@ export const EditUserModal = ({ show, user, onHide, onSuccess }) => {
             if (onSuccess) onSuccess();
         } catch (err) {
             console.error('Failed to update user', err);
-            alert('Failed to update user: ' + (err?.response?.data?.message || err.message));
+            if (showAlert) {
+                await showAlert('Failed to update user: ' + (err?.response?.data?.message || err.message), 'Error', 'error');
+            }
         }
     };
 

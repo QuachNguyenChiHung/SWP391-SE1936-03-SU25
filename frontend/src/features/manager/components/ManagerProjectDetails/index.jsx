@@ -28,6 +28,9 @@ export default function ManagerProjectDetails(props) {
         dataPage,
         setDataPage,
         handleDeleteDataItem,
+        onRefreshDataItems,
+        searchTerm: dataSearchTerm,
+        setSearchTerm: setDataSearchTerm,
 
         // Import modal props
         isImportModalOpen,
@@ -47,6 +50,12 @@ export default function ManagerProjectDetails(props) {
         isEditingGuidelines,
         guidelinesText,
         setGuidelinesText,
+        setIsEditingGuidelines,
+        guidelineInfo,
+        guidelineFile,
+        onGuidelineFileSelect,
+        onDownloadGuideline,
+        isGuidelineSaving,
         handleSaveGuidelines,
 
         // Edit project
@@ -61,7 +70,13 @@ export default function ManagerProjectDetails(props) {
         setEditStatus,
         editDeadline,
         setEditDeadline,
+        deadlineError,
         handleSaveProjectUpdate,
+
+        // Delete project
+        showDeleteModal,
+        setShowDeleteModal,
+        handleDeleteProject,
 
         // Labels
         listLabels,
@@ -83,6 +98,7 @@ export default function ManagerProjectDetails(props) {
         handleEditLabelSubmit,
         isDeleteLabelOpen,
         labelToDelete,
+        openEditLabelModal,
         openDeleteLabelModal,
         handleDeleteLabelConfirm,
         // Tasks
@@ -129,13 +145,13 @@ export default function ManagerProjectDetails(props) {
 
             <div className="bg-transparent animate-in fade-in" style={{ minHeight: '400px' }}>
                 {activeTab === 'Overview' && (
-                    <OverviewPanel project={project} openImportModal={openImportModal} openGuidelines={openGuidelines} openEditProject={openEditProject} />
+                    <OverviewPanel project={project} openImportModal={openImportModal} openGuidelines={openGuidelines} openEditProject={openEditProject} onDeleteProject={() => setShowDeleteModal(true)} />
                 )}
                 {activeTab === 'Data Items' && (
-                    <DataItemsPanel dataSet={dataSet} dataLoading={dataLoading} dataPage={dataPage} setDataPage={setDataPage} onDeleteItem={handleDeleteDataItem} />
+                    <DataItemsPanel dataSet={dataSet} dataLoading={dataLoading} dataPage={dataPage} setDataPage={setDataPage} onDeleteItem={handleDeleteDataItem} onRefresh={onRefreshDataItems} />
                 )}
                 {activeTab === 'Labels' && (
-                    <LabelsPanel listLabels={listLabels} openAddLabel={openAddLabel} openEditLabelModal={openDeleteLabelModal} openDeleteLabelModal={openDeleteLabelModal} />
+                    <LabelsPanel listLabels={listLabels} openAddLabel={openAddLabel} openEditLabelModal={openEditLabelModal} openDeleteLabelModal={openDeleteLabelModal} />
                 )}
                 {activeTab === 'Tasks' && (
                     <TasksPanel
@@ -165,7 +181,12 @@ export default function ManagerProjectDetails(props) {
                 isEditing={isEditingGuidelines}
                 guidelinesText={guidelinesText}
                 setGuidelinesText={setGuidelinesText}
-                setIsEditing={() => { }}
+                setIsEditing={setIsEditingGuidelines}
+                guidelineInfo={guidelineInfo}
+                guidelineFile={guidelineFile}
+                onGuidelineFileSelect={onGuidelineFileSelect}
+                onDownloadGuideline={onDownloadGuideline}
+                isSaving={isGuidelineSaving}
                 onSave={handleSaveGuidelines}
             />
 
@@ -180,7 +201,19 @@ export default function ManagerProjectDetails(props) {
                 setEditStatus={setEditStatus}
                 editDeadline={editDeadline}
                 setEditDeadline={setEditDeadline}
+                deadlineError={deadlineError}
                 onSave={handleSaveProjectUpdate}
+            />
+
+            <ConfirmModal
+                isOpen={showDeleteModal}
+                title="Delete Project"
+                message="This will permanently delete the project. Dataset, guideline, and labels will be removed automatically. Projects with tasks cannot be deleted. Continue?"
+                onConfirm={async () => {
+                    await handleDeleteProject();
+                    setShowDeleteModal(false);
+                }}
+                onCancel={() => setShowDeleteModal(false)}
             />
 
             {/* Add/Edit/Delete Label modals */}
@@ -236,13 +269,7 @@ export default function ManagerProjectDetails(props) {
                 </Modal.Footer>
             </Modal>
 
-            <ConfirmModal
-                isOpen={isDeleteLabelOpen}
-                title="Confirm Delete"
-                message={`Are you sure you want to delete label "${labelToDelete?.name}"? This action cannot be undone.`}
-                onConfirm={handleDeleteLabelConfirm}
-                onCancel={() => setIsDeleteLabelOpen(false)}
-            />
+            {/* Deletion now uses native window.confirm in the parent component */}
         </div>
     );
 }

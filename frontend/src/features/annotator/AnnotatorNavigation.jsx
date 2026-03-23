@@ -4,10 +4,35 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import api from '../../shared/utils/api';
+import { useUI } from '../../shared/context/UIContext.jsx';
 
-export const AnnotatorNavigation = () => {
+export const AnnotatorNavigation = ({ collapsed = false }) => {
     const location = useLocation();
     const [unreadCount, setUnreadCount] = useState(0);
+    const { language } = useUI();
+
+    const copy = {
+        en: {
+            workspace: 'WORKSPACE',
+            account: 'ACCOUNT',
+            dashboard: 'Dashboard',
+            myTasks: 'My Tasks',
+            notifications: 'Notifications',
+            profile: 'Profile',
+            settings: 'Settings',
+        },
+        vi: {
+            workspace: 'KHONG GIAN LAM VIEC',
+            account: 'TAI KHOAN',
+            dashboard: 'Bang dieu khien',
+            myTasks: 'Nhiem vu cua toi',
+            notifications: 'Thong bao',
+            profile: 'Ho so',
+            settings: 'Cai dat',
+        },
+    };
+
+    const t = (key) => copy[language]?.[key] || key;
 
     useEffect(() => {
         const fetchCounts = async () => {
@@ -30,30 +55,31 @@ export const AnnotatorNavigation = () => {
 
     const menuItems = [
         {
-            section: 'WORKSPACE',
+            section: t('workspace'),
             items: [
-                { icon: LayoutDashboard, label: 'Dashboard', path: '/annotator/dashboard' },
-                { icon: Target, label: 'My Tasks', path: '/annotator/workspace' }
+                { icon: LayoutDashboard, label: t('dashboard'), path: '/annotator/dashboard' },
+                { icon: Target, label: t('myTasks'), path: '/annotator/workspace' }
             ]
         },
         {
-            section: 'ACCOUNT',
+            section: t('account'),
             items: [
-                { icon: Bell, label: 'Notifications', path: '/annotator/notifications', badge: unreadCount },
-                { icon: User, label: 'Profile', path: '/profile' },
-                { icon: Settings, label: 'Settings', path: '/annotator/settings' }
+                { icon: Bell, label: t('notifications'), path: '/annotator/notifications', badge: unreadCount },
+                { icon: User, label: t('profile'), path: '/profile' },
+                { icon: Settings, label: t('settings'), path: '/annotator/settings' }
             ]
         }
     ];
 
     return (
-        <nav className="d-flex flex-column" style={{ gap: '1.5rem', padding: '4px 0' }}>
+        <nav className={`d-flex flex-column ${collapsed ? 'annotator-nav-collapsed' : ''}`} style={{ gap: '1.5rem', padding: '4px 0' }}>
             {menuItems.map((section, idx) => (
                 <div key={idx} className="d-flex flex-column gap-1">
-                    <p className="px-3 mb-1 text-uppercase fw-bold text-slate-500"
-                        style={{ fontSize: '11px', letterSpacing: '0.6px' }}>
-                        {section.section}
-                    </p>
+                    {!collapsed && (
+                        <p className="px-3 mb-1 text-uppercase fw-bold text-slate-500" style={{ fontSize: '11px', letterSpacing: '0.6px' }}>
+                            {section.section}
+                        </p>
+                    )}
                     {section.items.map((item, i) => {
                         const Icon = item.icon;
                         const active = location.pathname === item.path;
@@ -62,12 +88,13 @@ export const AnnotatorNavigation = () => {
                             <Link
                                 key={i}
                                 to={item.path}
-                                className={`w-100 d-flex align-items-center gap-3 px-3 py-2 rounded-3 small fw-medium text-decoration-none sidebar-link ${active ? 'bg-indigo-600 text-white sidebar-link-active' : 'text-slate-400'
+                                className={`w-100 d-flex align-items-center ${collapsed ? 'justify-content-center gap-0' : 'gap-3'} px-3 py-2 rounded-3 small fw-medium text-decoration-none sidebar-link ${active ? 'bg-indigo-600 text-white sidebar-link-active' : 'text-slate-400'
                                     }`}
+                                title={collapsed ? item.label : undefined}
                             >
                                 <Icon size={18} />
-                                <span className="flex-fill">{item.label}</span>
-                                {item.badge > 0 && (
+                                {!collapsed && <span className="flex-fill">{item.label}</span>}
+                                {item.badge > 0 && !collapsed && (
                                     <span
                                         className="d-flex align-items-center justify-content-center fw-bold"
                                         style={{

@@ -10,6 +10,7 @@ import QueuePanel from './components/QueuePanel.jsx';
 import GuidelinesPanel from './components/GuidelinesPanel.jsx';
 import AnnotationsList from './components/AnnotationsList.jsx';
 import HistoryPanel from './components/HistoryPanel.jsx';
+import { CommentsList } from '../../shared/components/CommentsList.jsx';
 
 export const ReviewerContainer = ({ onTitleChange, user }) => {
     // Queue states
@@ -103,6 +104,7 @@ export const ReviewerContainer = ({ onTitleChange, user }) => {
         id: currentQueueItem.id,
         imageUrl: currentQueueItem.filePath || (reviewData?.filePath ? process.env.VITE_URL_UPLOADS + '/' + reviewData.filePath : ''),
         projectId: currentQueueItem.projectId,
+        taskItemId: reviewData?.taskItemId || null,
         annotations: reviewData?.annotations?.map(ann => ({
             ...ann,
             coordinates: typeof ann.coordinates === 'string' ? JSON.parse(ann.coordinates) : ann.coordinates,
@@ -114,7 +116,7 @@ export const ReviewerContainer = ({ onTitleChange, user }) => {
         annotatorName: currentQueueItem.annotatorName,
         submittedAt: currentQueueItem.submittedAt,
         ...currentQueueItem
-    } : { id: null, projectId: null, annotations: [] };
+    } : { id: null, projectId: null, taskItemId: null, annotations: [] };
 
     const project = null;
 
@@ -123,6 +125,7 @@ export const ReviewerContainer = ({ onTitleChange, user }) => {
     const [actionState, setActionState] = useState('IDLE');
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
     const [submitError, setSubmitError] = useState(null);
+    const [commentsRefreshKey, setCommentsRefreshKey] = useState(0);
 
     // Guidelines State
     const [guidelines, setGuidelines] = useState('');
@@ -215,12 +218,19 @@ export const ReviewerContainer = ({ onTitleChange, user }) => {
         } finally { setIsSubmittingReview(false); }
     };
 
+    const handleCommentAdded = (comment, successMessage) => {
+        // Refresh comments list
+        setCommentsRefreshKey(prev => prev + 1);
+        console.log('Comment added:', successMessage);
+    };
+
     return (
         <div className="d-flex flex-column" style={{ height: 'calc(100vh - 8rem)' }}>
             <div className="d-flex justify-content-between align-items-center mb-4 px-1">
                 <div>
                     <h2 className="fs-5 fw-bold text-dark">Review Queue</h2>
                     <p className="fs-6 text-muted">{pagination.totalCount} items pending validation</p>
+                    <p>Be sure to move the image to see the annotations</p>
                 </div>
                 <button onClick={() => setShowQueuePanel(!showQueuePanel)} className="btn btn-light border d-lg-none" title="Toggle queue list">{showQueuePanel ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}</button>
             </div>
@@ -231,7 +241,19 @@ export const ReviewerContainer = ({ onTitleChange, user }) => {
                         <>
                             <ReviewerToolbar title={`Item #${task.id}`} showLabels={showLabels} onToggleLabels={() => setShowLabels(!showLabels)} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} onResetZoom={handleResetZoom} />
                             <ImageViewer isLoadingDetail={isLoadingDetail} task={task} showLabels={showLabels} zoomLevel={zoomLevel} panOffset={panOffset} isPanning={isPanning} isSpacePressed={isSpacePressed} containerRef={containerRef} imageRef={imageRef} onPanStart={handlePanStart} onPanMove={handlePanMove} onPanEnd={handlePanEnd} onWheel={handleWheel} />
-                            <ActionBar actionState={actionState} setActionState={setActionState} submitError={submitError} REJECT_REASONS={REJECT_REASONS} rejectReason={rejectReason} setRejectReason={setRejectReason} submitReview={submitReview} isSubmittingReview={isSubmittingReview} />
+                            <ActionBar 
+                                actionState={actionState} 
+                                setActionState={setActionState} 
+                                submitError={submitError} 
+                                REJECT_REASONS={REJECT_REASONS} 
+                                rejectReason={rejectReason} 
+                                setRejectReason={setRejectReason} 
+                                submitReview={submitReview} 
+                                isSubmittingReview={isSubmittingReview}
+                                taskItemId={task.taskItemId}
+                                userRole={currentRole}
+                                onCommentAdded={handleCommentAdded}
+                            />
                         </>
                     ) : (
                         <div className="w-100 flex-fill d-flex align-items-center justify-content-center bg-white">
@@ -243,6 +265,15 @@ export const ReviewerContainer = ({ onTitleChange, user }) => {
                 <div className="d-none d-lg-flex flex-wrap flex-column gap-4" style={{ width: '100%', maxHeight: '100%', overflowY: 'auto' }}>
 
                     <AnnotationsList annotations={task.annotations} classes={project?.classes || []} />
+                    
+                    {/* Comments Section */}
+                    {task.taskItemId && (
+                        <CommentsList 
+                            key={`comments-${task.taskItemId}-${commentsRefreshKey}`}
+                            taskItemId={task.taskItemId}
+                        />
+                    )}
+                    
                     <HistoryPanel isAdmin={isAdmin} />
                 </div>
             </div>

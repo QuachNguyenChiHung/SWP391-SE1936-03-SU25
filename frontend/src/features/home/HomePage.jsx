@@ -94,7 +94,7 @@ export const HomePage = ({ onNavigateToLogin }) => {
                             <div className="brand-logo">
                                 <span className="logo-letter">DLS</span>
                             </div>
-                            <span className="brand-name">LabelNexus</span>
+                            <span className="home-brand-name">LabelNexus</span>
                         </div>
 
                         {/* Desktop Menu */}
@@ -147,8 +147,8 @@ export const HomePage = ({ onNavigateToLogin }) => {
                         </button>
 
                         {/* Join Now Button - Always at the end */}
-                        <button 
-                            className="btn btn-primary login-btn-fixed" 
+                        <button
+                            className="btn btn-primary login-btn-fixed"
                             onClick={onNavigateToLogin}
                         >
                             Join Now
@@ -216,12 +216,6 @@ export const HomePage = ({ onNavigateToLogin }) => {
                             >
                                 View Open Positions
                                 <ArrowRight size={20} />
-                            </button>
-                            <button
-                                className="btn btn-outline btn-lg"
-                                onClick={() => scrollToSection('about')}
-                            >
-                                Learn More
                             </button>
                         </div>
 
@@ -542,51 +536,37 @@ export const HomePage = ({ onNavigateToLogin }) => {
 
                         <div className="col-lg-6">
                             <div className="contact-form-wrapper">
-                                <form className="contact-form">
-                                    <div className="mb-3">
-                                        <label className="form-label">Your Name</label>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="Nguyễn Văn A"
-                                            required
-                                        />
+                                <div className="contact-form">
+                                    <div className="contact-item">
+                                        <div className="contact-icon">
+                                            <Mail size={24} />
+                                        </div>
+                                        <div>
+                                            <h4>Email</h4>
+                                            <a href="mailto:careers@labelnexus.ai">careers@labelnexus.ai</a>
+                                        </div>
                                     </div>
 
-                                    <div className="mb-3">
-                                        <label className="form-label">Email Address</label>
-                                        <input
-                                            type="email"
-                                            className="form-control"
-                                            placeholder="name@example.com"
-                                            required
-                                        />
+                                    <div className="contact-item">
+                                        <div className="contact-icon">
+                                            <Phone size={24} />
+                                        </div>
+                                        <div>
+                                            <h4>Phone</h4>
+                                            <a href="tel:+84123456789">+84 123 456 789</a>
+                                        </div>
                                     </div>
 
-                                    <div className="mb-3">
-                                        <label className="form-label">Phone Number</label>
-                                        <input
-                                            type="tel"
-                                            className="form-control"
-                                            placeholder="+84 123 456 789"
-                                        />
+                                    <div className="contact-item">
+                                        <div className="contact-icon">
+                                            <MapPin size={24} />
+                                        </div>
+                                        <div>
+                                            <h4>Office</h4>
+                                            <p>Thủ Đức, Thành phố Hồ Chí Minh, Vietnam</p>
+                                        </div>
                                     </div>
-
-                                    <div className="mb-3">
-                                        <label className="form-label">Message</label>
-                                        <textarea
-                                            className="form-control"
-                                            rows="4"
-                                            placeholder="Tell us about your interest..."
-                                            required
-                                        ></textarea>
-                                    </div>
-
-                                    <button type="submit" className="btn btn-primary w-100">
-                                        Send Message
-                                        <ArrowRight size={18} />
-                                    </button>
-                                </form>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -601,7 +581,7 @@ export const HomePage = ({ onNavigateToLogin }) => {
                             <div className="brand-logo">
                                 <span className="logo-letter">L</span>
                             </div>
-                            <span className="brand-name">LabelNexus</span>
+                            <span className="home-brand-name">LabelNexus</span>
                         </div>
                         <p className="footer-text">
                             Enterprise-grade data labeling and annotation management system.

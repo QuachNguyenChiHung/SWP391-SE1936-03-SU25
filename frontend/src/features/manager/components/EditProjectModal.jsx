@@ -7,12 +7,18 @@ import { Pencil, Save } from 'lucide-react';
 import { ProjectStatus } from '../../../shared/types/types.js';
 
 // Props:
-// - isOpen, onClose, editName, setEditName, editDescription, setEditDescription, editStatus, setEditStatus, editDeadline, setEditDeadline, onSave
-const EditProjectModal = ({ isOpen, onClose, editName, setEditName, editDescription, setEditDescription, editStatus, setEditStatus, editDeadline, setEditDeadline, onSave }) => {
+// - isOpen, onClose, editName, setEditName, editDescription, setEditDescription, editStatus, setEditStatus, editDeadline, setEditDeadline, deadlineError, onSave
+const EditProjectModal = ({ isOpen, onClose, editName, setEditName, editDescription, setEditDescription, editStatus, setEditStatus, editDeadline, setEditDeadline, deadlineError, onSave }) => {
+  // Get today's date in YYYY-MM-DD format for min attribute
+  const today = new Date().toISOString().split('T')[0];
+  // Get max date as end of current year
+  const currentYear = new Date().getFullYear();
+  const maxDate = `${currentYear}-12-31`;
+  
   return (
     <Modal show={isOpen} onHide={onClose} centered>
       <Modal.Header closeButton>
-        <Modal.Title className="d-flex align-items-center gap-2"><Pencil size={20} /></Modal.Title>
+        <Modal.Title className="d-flex align-items-center gap-2"><Pencil size={20} /> Edit Project</Modal.Title>
       </Modal.Header>
       <Modal.Body className="d-flex flex-column gap-3">
         <Form.Group>
@@ -33,12 +39,35 @@ const EditProjectModal = ({ isOpen, onClose, editName, setEditName, editDescript
         </Form.Group>
         <Form.Group>
           <Form.Label className="fw-semibold">Deadline</Form.Label>
-          <Form.Control type="date" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)} />
+          <Form.Control 
+            type="date" 
+            value={editDeadline} 
+            onChange={(e) => setEditDeadline(e.target.value)} 
+            min={today}
+            max={maxDate}
+            isInvalid={!!deadlineError}
+          />
+          {deadlineError ? (
+            <Form.Control.Feedback type="invalid">
+              {deadlineError}
+            </Form.Control.Feedback>
+          ) : (
+            <Form.Text className="text-muted">
+              Deadline must be in {currentYear} and not in the past
+            </Form.Text>
+          )}
         </Form.Group>
       </Modal.Body>
       <Modal.Footer>
         <Button variant="light" onClick={onClose}>Cancel</Button>
-        <Button variant="primary" onClick={onSave} className="d-flex align-items-center gap-2"><Save size={16} /> Save Changes</Button>
+        <Button 
+          variant="primary" 
+          onClick={onSave} 
+          className="d-flex align-items-center gap-2"
+          disabled={!!deadlineError}
+        >
+          <Save size={16} /> Save Changes
+        </Button>
       </Modal.Footer>
     </Modal>
   );
@@ -55,6 +84,7 @@ EditProjectModal.propTypes = {
   setEditStatus: PropTypes.func,
   editDeadline: PropTypes.string,
   setEditDeadline: PropTypes.func,
+  deadlineError: PropTypes.string,
   onSave: PropTypes.func,
 };
 

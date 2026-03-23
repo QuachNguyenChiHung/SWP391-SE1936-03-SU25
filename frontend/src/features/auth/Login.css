@@ -90,7 +90,7 @@
   width: 100%;
   max-width: 56rem;
   border-radius: 1rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -166,7 +166,7 @@
   font-size: 2rem;
   font-weight: bold;
   margin: 0 auto 1.5rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
 }
 
 @media (min-width: 768px) {
@@ -210,7 +210,7 @@
 
 .branding-feature:hover {
   background-color: rgba(255, 255, 255, 0.15);
-  transform: translateX(5px);
+  transform: translateX(2px);
 }
 
 .branding-feature-icon {
@@ -551,7 +551,7 @@
   font-weight: 700;
   color: white;
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border: none;
+  border: 1px solid rgba(37, 99, 235, 0.35);
   border-radius: 0.75rem;
   display: flex;
   align-items: center;
@@ -559,17 +559,17 @@
   gap: 0.5rem;
   margin-top: 1rem;
   cursor: pointer;
-  box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4);
-  transition: all 0.3s ease;
+  box-shadow: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease, filter 0.2s ease, transform 0.2s ease;
 }
 
 .btn-submit:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 15px 35px -5px rgba(59, 130, 246, 0.5);
+  transform: none;
+  filter: brightness(1.03);
 }
 
 .btn-submit:active:not(:disabled) {
-  transform: translateY(0);
+  transform: translateY(1px);
 }
 
 .btn-submit:disabled {

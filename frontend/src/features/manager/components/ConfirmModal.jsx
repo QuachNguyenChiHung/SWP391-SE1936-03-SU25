@@ -10,8 +10,8 @@ import PropTypes from 'prop-types';
 const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
   if (!isOpen) return null;
   return (
-    <div className="modal-overlay">
-      <div className="modal-content-custom">
+    <div className="modal-overlay nl-modal-overlay" onClick={onCancel}>
+      <div className="modal-content-custom nl-modal-content" onClick={(e) => e.stopPropagation()}>
         <h5 className="fw-bold">{title || 'Confirm'}</h5>
         <div className="mb-3">{message}</div>
         <div className="d-flex gap-2 justify-content-end">

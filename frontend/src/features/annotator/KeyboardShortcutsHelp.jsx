@@ -1,59 +1,126 @@
 import { X, Keyboard } from 'lucide-react';
+import { useUI } from '../../shared/context/UIContext.jsx';
 
 export const KeyboardShortcutsHelp = ({ show, onClose }) => {
+    const { language } = useUI();
     if (!show) return null;
 
-    const shortcuts = [
-        {
-            category: 'Navigation',
-            items: [
-                { keys: ['←', '→'], description: 'Previous / Next item' },
-                { keys: ['Home'], description: 'First item' },
-                { keys: ['End'], description: 'Last item' },
+    const copy = {
+        en: {
+            title: 'Keyboard Shortcuts',
+            footer: 'Press',
+            footerTail: 'anytime to show this help',
+            shortcuts: [
+                {
+                    category: 'Navigation',
+                    items: [
+                        { keys: ['←', '→'], description: 'Previous / Next item' },
+                        { keys: ['Home'], description: 'First item' },
+                        { keys: ['End'], description: 'Last item' },
+                    ]
+                },
+                {
+                    category: 'Tools',
+                    items: [
+                        { keys: ['S'], description: 'Select tool' },
+                        { keys: ['B'], description: 'Box tool' },
+                        { keys: ['P'], description: 'Polygon tool' },
+                        { keys: ['Esc'], description: 'Cancel current action' },
+                    ]
+                },
+                {
+                    category: 'Actions',
+                    items: [
+                        { keys: ['Delete'], description: 'Delete selected annotation' },
+                        { keys: ['Ctrl', 'Z'], description: 'Undo' },
+                        { keys: ['Ctrl', 'Y'], description: 'Redo' },
+                        { keys: ['Ctrl', 'S'], description: 'Save annotations' },
+                        { keys: ['Ctrl', 'C'], description: 'Copy annotation' },
+                        { keys: ['Ctrl', 'V'], description: 'Paste annotation' },
+                    ]
+                },
+                {
+                    category: 'View',
+                    items: [
+                        { keys: ['Space', '+ Drag'], description: 'Pan canvas (move image)' },
+                        { keys: ['Shift', '+ Drag'], description: 'Pan canvas (alternative)' },
+                        { keys: ['Middle Mouse'], description: 'Pan canvas (drag)' },
+                        { keys: ['+'], description: 'Zoom in' },
+                        { keys: ['-'], description: 'Zoom out' },
+                        { keys: ['0'], description: 'Reset zoom' },
+                        { keys: ['F'], description: 'Fit to screen' },
+                        { keys: ['G'], description: 'Toggle grid' },
+                        { keys: ['H'], description: 'Toggle guidelines' },
+                    ]
+                },
+                {
+                    category: 'Labels',
+                    items: [
+                        { keys: ['1-9'], description: 'Select label by number' },
+                        { keys: ['Shift', '1-9'], description: 'Apply label to selected' },
+                    ]
+                },
             ]
         },
-        {
-            category: 'Tools',
-            items: [
-                { keys: ['S'], description: 'Select tool' },
-                { keys: ['B'], description: 'Box tool' },
-                { keys: ['P'], description: 'Polygon tool' },
-                { keys: ['Esc'], description: 'Cancel current action' },
+        vi: {
+            title: 'Phim tat',
+            footer: 'Nhan',
+            footerTail: 'bat cu luc nao de mo tro giup nay',
+            shortcuts: [
+                {
+                    category: 'Dieu huong',
+                    items: [
+                        { keys: ['←', '→'], description: 'Muc truoc / Muc tiep' },
+                        { keys: ['Home'], description: 'Muc dau tien' },
+                        { keys: ['End'], description: 'Muc cuoi cung' },
+                    ]
+                },
+                {
+                    category: 'Cong cu',
+                    items: [
+                        { keys: ['S'], description: 'Cong cu chon' },
+                        { keys: ['B'], description: 'Cong cu khung' },
+                        { keys: ['P'], description: 'Cong cu da giac' },
+                        { keys: ['Esc'], description: 'Huy thao tac hien tai' },
+                    ]
+                },
+                {
+                    category: 'Hanh dong',
+                    items: [
+                        { keys: ['Delete'], description: 'Xoa annotation dang chon' },
+                        { keys: ['Ctrl', 'Z'], description: 'Hoan tac' },
+                        { keys: ['Ctrl', 'Y'], description: 'Lam lai' },
+                        { keys: ['Ctrl', 'S'], description: 'Luu annotation' },
+                        { keys: ['Ctrl', 'C'], description: 'Sao chep annotation' },
+                        { keys: ['Ctrl', 'V'], description: 'Dan annotation' },
+                    ]
+                },
+                {
+                    category: 'Hien thi',
+                    items: [
+                        { keys: ['Space', '+ Drag'], description: 'Keo canvas (dich anh)' },
+                        { keys: ['Shift', '+ Drag'], description: 'Keo canvas (cach khac)' },
+                        { keys: ['Middle Mouse'], description: 'Keo canvas (chuot giua)' },
+                        { keys: ['+'], description: 'Phong to' },
+                        { keys: ['-'], description: 'Thu nho' },
+                        { keys: ['0'], description: 'Dat lai zoom' },
+                        { keys: ['F'], description: 'Vua man hinh' },
+                        { keys: ['G'], description: 'Bat/tat luoi' },
+                        { keys: ['H'], description: 'Bat/tat huong dan' },
+                    ]
+                },
+                {
+                    category: 'Nhan',
+                    items: [
+                        { keys: ['1-9'], description: 'Chon nhan theo so' },
+                        { keys: ['Shift', '1-9'], description: 'Ap dung nhan cho doi tuong dang chon' },
+                    ]
+                },
             ]
-        },
-        {
-            category: 'Actions',
-            items: [
-                { keys: ['Delete'], description: 'Delete selected annotation' },
-                { keys: ['Ctrl', 'Z'], description: 'Undo' },
-                { keys: ['Ctrl', 'Y'], description: 'Redo' },
-                { keys: ['Ctrl', 'S'], description: 'Save annotations' },
-                { keys: ['Ctrl', 'C'], description: 'Copy annotation' },
-                { keys: ['Ctrl', 'V'], description: 'Paste annotation' },
-            ]
-        },
-        {
-            category: 'View',
-            items: [
-                { keys: ['Space', '+ Drag'], description: 'Pan canvas (move image)' },
-                { keys: ['Shift', '+ Drag'], description: 'Pan canvas (alternative)' },
-                { keys: ['Middle Mouse'], description: 'Pan canvas (drag)' },
-                { keys: ['+'], description: 'Zoom in' },
-                { keys: ['-'], description: 'Zoom out' },
-                { keys: ['0'], description: 'Reset zoom' },
-                { keys: ['F'], description: 'Fit to screen' },
-                { keys: ['G'], description: 'Toggle grid' },
-                { keys: ['H'], description: 'Toggle guidelines' },
-            ]
-        },
-        {
-            category: 'Labels',
-            items: [
-                { keys: ['1-9'], description: 'Select label by number' },
-                { keys: ['Shift', '1-9'], description: 'Apply label to selected' },
-            ]
-        },
-    ];
+        }
+    };
+    const t = copy[language] || copy.en;
+    const shortcuts = t.shortcuts;
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -61,7 +128,7 @@ export const KeyboardShortcutsHelp = ({ show, onClose }) => {
                 <div className="modal-header">
                     <div className="d-flex align-items-center gap-2">
                         <Keyboard size={24} className="text-primary" />
-                        <h5 className="mb-0 fw-bold">Keyboard Shortcuts</h5>
+                        <h5 className="mb-0 fw-bold">{t.title}</h5>
                     </div>
                     <button className="btn btn-link text-muted p-0" onClick={onClose}>
                         <X size={20} />
@@ -95,7 +162,7 @@ export const KeyboardShortcutsHelp = ({ show, onClose }) => {
 
                 <div className="modal-footer">
                     <p className="text-muted small mb-0">
-                        Press <kbd className="kbd">?</kbd> anytime to show this help
+                        {t.footer} <kbd className="kbd">?</kbd> {t.footerTail}
                     </p>
                 </div>
 

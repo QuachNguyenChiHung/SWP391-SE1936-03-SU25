@@ -2,7 +2,6 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Edit2, Check, X, Loader2, Shield } from 'lucide-react';
 import ProfileAvatar from './ProfileAvatar';
-import AvatarUpload from './AvatarUpload';
 
 // Props (comments):
 // - profile: object
@@ -13,10 +12,10 @@ import AvatarUpload from './AvatarUpload';
 // - onEditToggle: func
 // - onUpdateName: func
 // - getRoleBadgeColor: func(role) => string
-const ProfileHeader = ({ profile, isEditing, newName, setNewName, isUpdating, onEditToggle, onUpdateName, getRoleBadgeColor, onAvatarUpload }) => {
+const ProfileHeader = ({ profile, isEditing, newName, setNewName, isUpdating, onEditToggle, onUpdateName, getRoleBadgeColor }) => {
     return (
         <>
-            {onAvatarUpload ? <AvatarUpload name={profile.name} onUpload={onAvatarUpload} /> : <ProfileAvatar name={profile.name} />}
+            <ProfileAvatar name={profile.name} />
 
             {isEditing ? (
                 <div className="d-flex gap-2 justify-content-center mb-1">

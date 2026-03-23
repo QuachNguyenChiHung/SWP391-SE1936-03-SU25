@@ -1,0 +1,293 @@
+:root {
+  --nl-modal-overlay-bg: rgba(11, 18, 32, 0.58);
+  --nl-modal-overlay-blur: 5px;
+  --nl-modal-radius: 16px;
+  --nl-modal-shadow: 0 18px 50px rgba(8, 17, 34, 0.35);
+}
+
+.nl-modal-overlay,
+.modal-overlay,
+.modal-backdrop.show {
+  background: var(--nl-modal-overlay-bg) !important;
+  backdrop-filter: blur(var(--nl-modal-overlay-blur));
+  -webkit-backdrop-filter: blur(var(--nl-modal-overlay-blur));
+  animation: nlOverlayIn 220ms ease-out;
+}
+
+.modal-backdrop.show {
+  opacity: 1 !important;
+}
+
+.nl-modal-overlay,
+.modal-overlay {
+  z-index: 2050;
+}
+
+.modal-backdrop.show {
+  z-index: 1040;
+}
+
+.nl-modal-dialog,
+.modal.show .modal-dialog,
+.modal.fade.show.d-block .modal-dialog {
+  animation: nlDialogIn 260ms cubic-bezier(0.2, 0.85, 0.32, 1);
+  position: relative;
+  z-index: 2051;
+}
+
+.nl-modal-content,
+.modal.show .modal-content,
+.modal.fade.show.d-block .modal-content,
+.modal-content-custom {
+  border: 0;
+  border-radius: var(--nl-modal-radius);
+  overflow: hidden;
+  box-shadow: var(--nl-modal-shadow);
+  background: #ffffff;
+  position: relative;
+  z-index: 2051;
+}
+
+.nl-modal-header,
+.modal.show .modal-header,
+.modal.fade.show.d-block .modal-header {
+  border-bottom: 0;
+  padding: 1rem 1.25rem 0.85rem;
+}
+
+.nl-modal-header .modal-title,
+.modal.show .modal-header .modal-title,
+.modal.fade.show.d-block .modal-header .modal-title {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.nl-modal-body,
+.modal.show .modal-body,
+.modal.fade.show.d-block .modal-body {
+  padding: 1.05rem 1.25rem 0.65rem;
+  font-size: 0.98rem;
+  line-height: 1.58;
+  color: #1f2a44;
+}
+
+.nl-modal-footer,
+.modal.show .modal-footer,
+.modal.fade.show.d-block .modal-footer {
+  border-top: 0;
+  padding: 0.8rem 1.25rem 1.15rem;
+  gap: 0.5rem;
+}
+
+.nl-modal-footer .btn,
+.modal.show .modal-footer .btn,
+.modal.fade.show.d-block .modal-footer .btn,
+.modal-content-custom .btn {
+  border-radius: 10px;
+  padding: 0.48rem 1rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  box-shadow: none;
+  transition: transform 140ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.nl-modal-footer .btn:hover,
+.modal.show .modal-footer .btn:hover,
+.modal.fade.show.d-block .modal-footer .btn:hover,
+.modal-content-custom .btn:hover {
+  transform: none;
+  filter: brightness(1.01);
+}
+
+.nl-modal-footer .btn:active,
+.modal.show .modal-footer .btn:active,
+.modal.fade.show.d-block .modal-footer .btn:active,
+.modal-content-custom .btn:active {
+  transform: translateY(1px);
+}
+
+.nl-modal-footer .btn:focus-visible,
+.modal.show .modal-footer .btn:focus-visible,
+.modal.fade.show.d-block .modal-footer .btn:focus-visible,
+.nl-modal-header .btn-close:focus-visible,
+.modal.show .modal-header .btn-close:focus-visible,
+.modal.fade.show.d-block .modal-header .btn-close:focus-visible,
+.modal-content-custom .btn:focus-visible {
+  box-shadow: 0 0 0 0.2rem rgba(53, 112, 255, 0.3);
+}
+
+.modal.show .btn-close,
+.modal.fade.show.d-block .btn-close,
+.modal-content-custom .btn-close,
+.modal-content-custom .btn-close-custom {
+  opacity: 0.8;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.modal.show .btn-close:hover,
+.modal.fade.show.d-block .btn-close:hover,
+.modal-content-custom .btn-close:hover,
+.modal-content-custom .btn-close-custom:hover {
+  opacity: 1;
+  transform: scale(1.04);
+}
+
+.nl-alert-header-success,
+.nl-confirm-header-success {
+  background: linear-gradient(135deg, #1a9a64 0%, #26b874 100%);
+  color: #fff;
+}
+
+.nl-alert-header-error,
+.nl-confirm-header-danger {
+  background: linear-gradient(135deg, #ce2d40 0%, #ee4f55 100%);
+  color: #fff;
+}
+
+.nl-alert-header-info,
+.nl-confirm-header-info {
+  background: linear-gradient(135deg, #1374d2 0%, #1f8fee 100%);
+  color: #fff;
+}
+
+.nl-alert-header-warning,
+.nl-confirm-header-warning {
+  background: linear-gradient(135deg, #e6b400 0%, #ffd047 100%);
+  color: #1a1f2d;
+}
+
+@keyframes nlOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes nlDialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 576px) {
+  .nl-modal-dialog {
+    margin: 0.8rem;
+  }
+
+  .modal.show .modal-dialog,
+  .modal.fade.show.d-block .modal-dialog {
+    margin: 0.8rem;
+  }
+
+  .nl-modal-content {
+    border-radius: 14px;
+  }
+
+  .modal.show .modal-content,
+  .modal.fade.show.d-block .modal-content,
+  .modal-content-custom {
+    border-radius: 14px;
+  }
+
+  .nl-modal-footer {
+    padding-top: 0.65rem;
+  }
+
+  .modal.show .modal-footer,
+  .modal.fade.show.d-block .modal-footer {
+    padding-top: 0.65rem;
+  }
+}
+
+/* Password modal enhancements */
+.nl-password-modal {
+  max-width: 460px;
+  width: min(100%, 460px);
+  padding: 1.2rem 1.2rem 1rem;
+}
+
+.nl-password-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(19, 116, 210, 0.14), rgba(31, 143, 238, 0.2));
+  color: #1668ba;
+}
+
+.nl-password-subtitle {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.nl-password-field .form-label {
+  margin-bottom: 0.45rem;
+  color: #334155;
+}
+
+.nl-password-input-wrap {
+  position: relative;
+}
+
+.nl-password-leading-icon {
+  position: absolute;
+  left: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.nl-password-input {
+  border-radius: 12px;
+  min-height: 44px;
+  border: 1px solid #dbe4f0;
+  background: #f8fbff;
+}
+
+.nl-password-input:focus {
+  background: #ffffff;
+  border-color: #7aa7ff;
+  box-shadow: 0 0 0 0.2rem rgba(53, 112, 255, 0.18);
+}
+
+.nl-password-toggle {
+  right: 10px;
+  border: 0;
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+}
+
+.nl-password-toggle:hover {
+  background: rgba(148, 163, 184, 0.16);
+  color: #1e293b;
+}
+
+.nl-password-hint {
+  margin-top: 0.42rem;
+  font-size: 0.76rem;
+  color: #64748b;
+}
+
+.nl-password-actions .btn-primary {
+  background: linear-gradient(135deg, #1f7de2 0%, #3c96f0 100%);
+  border: 0;
+  box-shadow: none;
+}
+
+.nl-password-actions .btn-primary:hover {
+  filter: brightness(1.04);
+}

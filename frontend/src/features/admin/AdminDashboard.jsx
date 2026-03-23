@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Users, CheckCircle2, UserX, Layers, Plus, AlertCircle, ArrowUpRight, MoreVertical } from 'lucide-react';
+import { Users, CheckCircle2, UserX, Layers, Plus, AlertCircle, ArrowUpRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 export const AdminDashboard = ({ user }) => {
@@ -18,7 +18,7 @@ export const AdminDashboard = ({ user }) => {
     ];
 
     return (
-        <div className="container-fluid p-4 bg-light min-vh-100 animate-in fade-in duration-500">
+        <div className="container-fluid p-4 bg-light min-vh-100 admin-dashboard-surface animate-in fade-in duration-500">
             <div className="d-flex justify-content-between align-items-end mb-5">
                 <div>
                     <span className="badge bg-primary-subtle text-primary mb-2 px-3 py-2 rounded-pill fw-semibold">
@@ -56,7 +56,6 @@ export const AdminDashboard = ({ user }) => {
                         <div className="card-body p-4">
                             <div className="d-flex justify-content-between align-items-center mb-4">
                                 <h5 className="fw-bold mb-0">Project Performance</h5>
-                                <button className="btn btn-light btn-sm rounded-circle"><MoreVertical size={16} /></button>
                             </div>
                             <div style={{ height: '300px' }}>
                                 <ResponsiveContainer width="100%" height="100%">

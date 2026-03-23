@@ -10,8 +10,10 @@ import { CreateUserModal } from './components/CreateUserModal';
 import { EditUserModal } from './components/EditUserModal';
 import { DeleteUserModal } from './components/DeleteUserModal';
 import { ActivityFeed } from './components/ActivityFeed';
+import { useAlert } from '../../shared/context/AlertContext.jsx';
 
 export const AdminPanel = ({ user }) => {
+    const { showAlert } = useAlert();
     const [users, setUsers] = useState([]);
     const [editingUser, setEditingUser] = useState(null);
     const [creatingUser, setCreatingUser] = useState(false);
@@ -81,7 +83,6 @@ export const AdminPanel = ({ user }) => {
                 active: it.status === "Active",
                 createdAt: it.createdAt,
                 lastLoginAt: it.lastLoginAt,
-                avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(it.email || it.name)}`
             }));
 
             setUsers(mapped);
@@ -117,7 +118,6 @@ export const AdminPanel = ({ user }) => {
                     status: it.status,
                     active: it.status === "Active",
                     createdAt: it.createdAt,
-                    avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(it.email || it.name)}`
                 });
                 return;
             }
@@ -141,7 +141,7 @@ export const AdminPanel = ({ user }) => {
             setDeletingUser(null);
         } catch (err) {
             console.error('Failed to delete user', err);
-            alert('Failed to delete user: ' + (err?.response?.data?.message || err.message));
+            await showAlert('Failed to delete user: ' + (err?.response?.data?.message || err.message), 'Error', 'error');
         }
     };
 
@@ -220,9 +220,9 @@ export const AdminPanel = ({ user }) => {
                     setCreatingUser(false);
                     fetchUsers();
                 }}
-                onError={(message) => {
+                onError={async (message) => {
                     setUsersError(message);
-                    alert(message);
+                    await showAlert(message, 'Error', 'error');
                 }}
             />
 
@@ -234,6 +234,7 @@ export const AdminPanel = ({ user }) => {
                     setEditingUser(null);
                     fetchUsers();
                 }}
+                showAlert={showAlert}
             />
 
             <DeleteUserModal
