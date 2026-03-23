@@ -1,0 +1,9 @@
+Project Guideline Sample
+
+- Read the project description carefully before annotating.
+- Use the provided label set consistently.
+- Mark uncertain cases with a short note in the comment field.
+- Follow the project-specific naming and formatting rules.
+- Save progress frequently to avoid losing work.
+
+This is a sample guideline file for upload testing.

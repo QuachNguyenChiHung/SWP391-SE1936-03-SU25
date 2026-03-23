@@ -1,0 +1,2384 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import {
+    MousePointer2,
+    Square,
+    Hexagon,
+    Move,
+    ZoomIn,
+    ZoomOut,
+    Check,
+    ChevronLeft,
+    ChevronRight,
+    Keyboard,
+    X,
+    AlertTriangle
+} from 'lucide-react';
+import api from '../../shared/utils/api.js';
+import { useConfirm } from '../../shared/context/ConfirmContext.jsx';
+import { ToastNotification } from './ToastNotification';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { AnnotationSidebar } from './AnnotationSidebar';
+import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
+import { ProgressIndicator } from './ProgressIndicator';
+import { BatchItemsListView } from './components/BatchItemsListView';
+import { TaskBatchesListView } from './components/TaskBatchesListView';
+import { CommentsList } from '../../shared/components/CommentsList.jsx';
+import { FlagItemModal } from './components/FlagItemModal.jsx';
+import { useUI } from '../../shared/context/UIContext.jsx';
+import './AnnotatorWorkspace.css';
+
+export const AnnotatorWorkspace = ({ user }) => {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const { showConfirm } = useConfirm();
+    const { language } = useUI();
+    const copy = {
+        en: {
+            failedLoadProjectLabels: 'Failed to load project labels',
+            failedLoadGuideline: 'Failed to load project guideline',
+            failedLoadItems: 'Failed to load items',
+            failedLoadAnnotations: 'Failed to load annotations',
+            cannotEditSubmitted: 'Cannot edit - task has been submitted',
+            cannotEditCompleted: 'Cannot edit - item has been completed',
+            selectLabelFirst: 'Please select a label class first',
+            annotationCreated: 'Annotation created successfully',
+            failedCreateAnnotation: 'Failed to create annotation',
+            cannotDeleteSubmitted: 'Cannot delete - task has been submitted',
+            cannotDeleteCompleted: 'Cannot delete - item has been completed',
+            annotationDeleted: 'Annotation deleted successfully',
+            failedDeleteAnnotation: 'Failed to delete annotation',
+            itemCompleted: 'Item completed successfully',
+            failedCompleteItem: 'Failed to complete item',
+            confirmSkipTitle: 'Confirm action',
+            confirmSkipMessage: 'Are you sure you want to skip this item? It will remain in your task for later.',
+            skip: 'Skip',
+            cancel: 'Cancel',
+            itemSkipped: 'Item skipped',
+            failedSkipItem: 'Failed to skip item',
+            confirmDeleteItemTitle: 'Confirm delete',
+            confirmDeleteItemMessage: 'Are you sure you want to remove this item from your task?',
+            delete: 'Delete',
+            itemRemoved: 'Item removed from task',
+            failedDeleteItem: 'Failed to delete item',
+            completeAllBeforeSubmit: 'Please complete all items before submitting',
+            confirmSubmitTitle: 'Submit for review',
+            confirmSubmitMessage: 'Are you sure you want to submit this task for review? You will not be able to edit it after submission.',
+            submit: 'Submit',
+            taskCompletedApproved: 'Task completed (all items approved)',
+            taskSubmittedSuccess: 'Task submitted for review successfully',
+            failedSubmitTask: 'Failed to submit task',
+            cannotDeleteTaskWithItems: 'Cannot delete task. Please remove all items first.',
+            confirmDeleteTaskTitle: 'Confirm delete',
+            confirmDeleteTaskMessage: 'Are you sure you want to delete this task? This action cannot be undone.',
+            taskDeleted: 'Task deleted successfully',
+            failedDeleteTask: 'Failed to delete task',
+            failedRefreshItems: 'Failed to refresh items',
+            cannotMoveAnnotation: 'Annotations cannot be moved. Please delete and recreate.',
+            readonlyBadge: 'Read-Only',
+            readonlyTaskSubmitted: 'Task Submitted - Annotations cannot be edited',
+            backToItems: 'Back to Items',
+            itemPrefix: 'ITEM',
+            itemFallback: 'Item',
+            labelsBadge: 'Labels',
+            active: 'Active',
+            keyboardShortcuts: 'Keyboard Shortcuts (?)',
+            previous: 'Previous',
+            next: 'Next',
+            hideLabels: 'Hide Labels',
+            showLabels: 'Show Labels',
+            tools: {
+                SELECT: 'Select',
+                BOX: 'Box',
+                POLYGON: 'Polygon',
+                PAN: 'Pan'
+            },
+            toolTitles: {
+                SELECT: 'Select/Move Annotations',
+                BOX: 'Draw Bounding Box',
+                POLYGON: 'Draw Polygon',
+                PAN: 'Pan Canvas (or Shift+Drag)'
+            },
+            submittedReadOnly: '(Submitted - Read Only)',
+            zoomIn: 'Zoom In (Ctrl + Scroll)',
+            zoomOut: 'Zoom Out (Ctrl + Scroll)',
+            resetZoom: 'Reset Zoom (1:1)',
+            readOnlyBanner: 'Task Submitted - Read Only Mode',
+            imageAlt: 'Work item',
+            annotationBoxTitle: 'Click to select • Drag to simulate move • Right-click to delete',
+            object: 'Object',
+            newAnnotation: 'New Annotation',
+            polygonAddPoints: 'Click to add points',
+            polygonMin: 'min',
+            polygonFinish: 'Double-click to finish or ESC to cancel',
+            readOnlyTitle: 'Task submitted - read only',
+            goPreviousItem: 'Go to previous item',
+            moveToNext: 'Move to next item',
+            acceptAndNext: 'Accept & Next',
+            contextDelete: 'Delete',
+            flagItem: 'Flag Item',
+            flagItemTooltip: 'Flag this item if no suitable label exists',
+            itemFlagged: 'Item flagged successfully',
+            failedFlagItem: 'Failed to flag item',
+            noLabelsWarning: 'No labels available for this project',
+            noLabelsMessage: 'You cannot annotate this item because no labels are defined. Please flag this item to notify the manager.'
+        },
+        vi: {
+            failedLoadProjectLabels: 'Khong tai duoc nhan du an',
+            failedLoadGuideline: 'Khong tai duoc guideline cua du an',
+            failedLoadItems: 'Khong tai duoc danh sach muc',
+            failedLoadAnnotations: 'Khong tai duoc annotation',
+            cannotEditSubmitted: 'Khong the sua - task da duoc nop',
+            cannotEditCompleted: 'Khong the sua - muc da hoan thanh',
+            selectLabelFirst: 'Vui long chon nhan truoc',
+            annotationCreated: 'Tao annotation thanh cong',
+            failedCreateAnnotation: 'Tao annotation that bai',
+            cannotDeleteSubmitted: 'Khong the xoa - task da duoc nop',
+            cannotDeleteCompleted: 'Khong the xoa - muc da hoan thanh',
+            annotationDeleted: 'Xoa annotation thanh cong',
+            failedDeleteAnnotation: 'Xoa annotation that bai',
+            itemCompleted: 'Hoan thanh muc thanh cong',
+            failedCompleteItem: 'Hoan thanh muc that bai',
+            confirmSkipTitle: 'Xac nhan thao tac',
+            confirmSkipMessage: 'Ban co chac muon bo qua muc nay khong? Muc se van nam trong task de xu ly sau.',
+            skip: 'Bo qua',
+            cancel: 'Huy',
+            itemSkipped: 'Da bo qua muc',
+            failedSkipItem: 'Bo qua muc that bai',
+            confirmDeleteItemTitle: 'Xac nhan xoa',
+            confirmDeleteItemMessage: 'Ban co chac muon go muc nay khoi task khong?',
+            delete: 'Xoa',
+            itemRemoved: 'Da go muc khoi task',
+            failedDeleteItem: 'Xoa muc that bai',
+            completeAllBeforeSubmit: 'Vui long hoan thanh tat ca muc truoc khi nop',
+            confirmSubmitTitle: 'Nop de review',
+            confirmSubmitMessage: 'Ban co chac muon nop task nay de review? Sau khi nop ban se khong the sua.',
+            submit: 'Nop',
+            taskCompletedApproved: 'Task da hoan thanh (tat ca muc da duoc duyet)',
+            taskSubmittedSuccess: 'Da nop task de review thanh cong',
+            failedSubmitTask: 'Nop task that bai',
+            cannotDeleteTaskWithItems: 'Khong the xoa task. Vui long xoa het cac muc truoc.',
+            confirmDeleteTaskTitle: 'Xac nhan xoa',
+            confirmDeleteTaskMessage: 'Ban co chac muon xoa task nay? Hanh dong nay khong the hoan tac.',
+            taskDeleted: 'Xoa task thanh cong',
+            failedDeleteTask: 'Xoa task that bai',
+            failedRefreshItems: 'Lam moi danh sach muc that bai',
+            cannotMoveAnnotation: 'Khong the di chuyen annotation. Vui long xoa va tao lai.',
+            readonlyBadge: 'Chi doc',
+            readonlyTaskSubmitted: 'Task da nop - khong the chinh sua annotation',
+            backToItems: 'Quay lai danh sach muc',
+            itemPrefix: 'MUC',
+            itemFallback: 'Muc',
+            labelsBadge: 'Nhan',
+            active: 'Dang chon',
+            keyboardShortcuts: 'Phim tat (?)',
+            previous: 'Truoc',
+            next: 'Tiep',
+            hideLabels: 'An nhan',
+            showLabels: 'Hien nhan',
+            tools: {
+                SELECT: 'Chon',
+                BOX: 'Khung',
+                POLYGON: 'Da giac',
+                PAN: 'Keo'
+            },
+            toolTitles: {
+                SELECT: 'Chon/Di chuyen annotation',
+                BOX: 'Ve khung bao',
+                POLYGON: 'Ve da giac',
+                PAN: 'Keo khung ve (hoac Shift+Keo)'
+            },
+            submittedReadOnly: '(Da nop - chi doc)',
+            zoomIn: 'Phong to (Ctrl + Cuon)',
+            zoomOut: 'Thu nho (Ctrl + Cuon)',
+            resetZoom: 'Dat lai zoom (1:1)',
+            readOnlyBanner: 'Task da nop - che do chi doc',
+            imageAlt: 'Muc dang gan nhan',
+            annotationBoxTitle: 'Click de chon • Keo de mo phong di chuyen • Chuot phai de xoa',
+            object: 'Doi tuong',
+            newAnnotation: 'Annotation moi',
+            polygonAddPoints: 'Click de them diem',
+            polygonMin: 'toi thieu',
+            polygonFinish: 'Nhan dup de ket thuc hoac ESC de huy',
+            readOnlyTitle: 'Task da nop - chi doc',
+            goPreviousItem: 'Ve muc truoc',
+            moveToNext: 'Den muc tiep theo',
+            acceptAndNext: 'Chap nhan va tiep',
+            contextDelete: 'Xoa',
+            flagItem: 'Danh dau muc',
+            flagItemTooltip: 'Danh dau muc nay neu khong co nhan phu hop',
+            itemFlagged: 'Da danh dau muc thanh cong',
+            failedFlagItem: 'Danh dau muc that bai',
+            noLabelsWarning: 'Khong co nhan cho du an nay',
+            noLabelsMessage: 'Ban khong the gan nhan cho muc nay vi chua co nhan nao duoc dinh nghia. Vui long danh dau muc nay de thong bao cho quan ly.'
+        }
+    };
+    const t = copy[language] || copy.en;
+    const [selectedBatch, setSelectedBatch] = useState(null);
+    const [taskBatches, setTaskBatches] = useState([]);
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [searchKeyword, setSearchKeyword] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [batchItems, setBatchItems] = useState([]);
+    const [selectedItem, setSelectedItem] = useState(null);
+    const [isLoadingBatches, setIsLoadingBatches] = useState(true);
+    const [isLoadingItems, setIsLoadingItems] = useState(false);
+
+    // Workspace State
+    const [selectedTool, setSelectedTool] = useState('SELECT');
+    const [activeLabelId, setActiveLabelId] = useState('');
+    const [annotations, setAnnotations] = useState([]);
+    const [selectedAnnotationId, setSelectedAnnotationId] = useState(null);
+    const [isAiLoading, setIsAiLoading] = useState(false);
+    const [showGuidelines, setShowGuidelines] = useState(true);
+    const [projectLabels, setProjectLabels] = useState([]);
+    const [projectGuideline, setProjectGuideline] = useState({
+        content: '',
+        fileName: '',
+        fileSize: 0,
+        contentType: '',
+        hasFile: false,
+        isLoading: false,
+        error: '',
+    });
+    const [projectMetaById, setProjectMetaById] = useState({});
+
+    // Rejected items map: taskId -> count
+    const [rejectedMap, setRejectedMap] = useState({});
+
+    // New Features State
+    const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+    const [copiedAnnotation, setCopiedAnnotation] = useState(null);
+
+    // Zoom and Pan State
+    const [zoomLevel, setZoomLevel] = useState(1);
+    const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const [isSpacePressed, setIsSpacePressed] = useState(false);
+    const panStartRef = useRef(null);
+
+    // Toast notification state
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+    // Confirm dialog state
+    const [confirmDialog, setConfirmDialog] = useState({ show: false, annotationId: null });
+
+    // Context menu state for annotations
+    const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, annotationId: null });
+
+    // Flag item modal state
+    const [showFlagModal, setShowFlagModal] = useState(false);
+
+    // Show toast notification
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => {
+            setToast({ show: false, message: '', type: 'success' });
+        }, 3000);
+    };
+
+    // Handle flagging an item
+    const handleFlagItem = async (reason) => {
+        if (!selectedItem) return;
+
+        try {
+            await api.post(`/task-items/${selectedItem.id}/flag`, { reason });
+            showToast(t.itemFlagged, 'success');
+            setShowFlagModal(false);
+
+            // Update local state
+            setBatchItems(prev => prev.map(i =>
+                i.id === selectedItem.id ? { ...i, status: 'Flagged' } : i
+            ));
+
+            // Move to next item
+            const currentIndex = batchItems.findIndex(item => item.id === selectedItem.id);
+            if (currentIndex < batchItems.length - 1) {
+                await handleSelectItem(batchItems[currentIndex + 1]);
+            } else {
+                // No more items, go back to item list
+                setSelectedItem(null);
+                syncWorkspaceUrl({ taskId: selectedBatch?.id ?? null, itemId: null });
+            }
+        } catch (e) {
+            console.error('Failed to flag item:', e);
+            showToast(t.failedFlagItem, 'error');
+        }
+    };
+
+    const syncWorkspaceUrl = ({ taskId, itemId }) => {
+        const nextParams = new URLSearchParams(searchParams);
+
+        if (taskId !== undefined) {
+            if (taskId === null) {
+                nextParams.delete('taskId');
+            } else {
+                nextParams.set('taskId', String(taskId));
+            }
+        }
+
+        if (itemId !== undefined) {
+            if (itemId === null) {
+                nextParams.delete('itemId');
+            } else {
+                nextParams.set('itemId', String(itemId));
+            }
+        }
+
+        setSearchParams(nextParams, { replace: true });
+    };
+
+    const transitionToItem = async (nextItem, action) => {
+        if (itemTransitionTimerRef.current) {
+            clearTimeout(itemTransitionTimerRef.current);
+            itemTransitionTimerRef.current = null;
+        }
+
+        setItemTransitionPhase('leaving');
+        await new Promise((resolve) => setTimeout(resolve, 110));
+
+        await action(nextItem);
+
+        setItemTransitionPhase('entering');
+        itemTransitionTimerRef.current = window.setTimeout(() => {
+            setItemTransitionPhase('idle');
+            itemTransitionTimerRef.current = null;
+        }, 160);
+    };
+
+    // Refs for drag state
+    const containerRef = useRef(null);
+    const imageRef = useRef(null);
+
+    // Drawing State
+    const [isDrawing, setIsDrawing] = useState(false);
+    const drawingStartRef = useRef(null);
+    const [currentDragInfo, setCurrentDragInfo] = useState(null);
+
+    // Polygon drawing state
+    const [polygonPoints, setPolygonPoints] = useState([]);
+    const [isDrawingPolygon, setIsDrawingPolygon] = useState(false);
+    const lastClickTimeRef = useRef(0);
+
+    // Moving State
+    const [isDraggingBox, setIsDraggingBox] = useState(false);
+    const dragRef = useRef(null);
+    const dragToastShownRef = useRef(false);
+    const [itemTransitionPhase, setItemTransitionPhase] = useState('idle');
+    const itemTransitionTimerRef = useRef(null);
+
+    // Auto-save debounce ref
+    const autoSaveTimerRef = useRef(null);
+
+    // Function to save all annotations at once
+    const saveAllAnnotations = async () => {
+        if (!selectedItem || annotations.length === 0) {
+            return;
+        }
+
+        try {
+            const payload = {
+                annotations: annotations.map(ann => ({
+                    id: ann.id,
+                    labelId: ann.labelId,
+                    coordinates: JSON.stringify(ann.coordinates),
+                    attributes: JSON.stringify(ann.attributes || {})
+                }))
+            };
+
+            console.log('Auto-saving all annotations:', payload);
+            await api.put(`/data-items/${selectedItem.dataItemId}/annotations/batch`, payload);
+            console.log('All annotations saved successfully');
+        } catch (e) {
+            console.error('Failed to auto-save annotations:', e);
+            console.error('Error response:', e?.response?.data);
+        }
+    };
+
+    // Debounced auto-save effect
+    useEffect(() => {
+        if (autoSaveTimerRef.current) {
+            clearTimeout(autoSaveTimerRef.current);
+        }
+
+        autoSaveTimerRef.current = setTimeout(() => {
+            saveAllAnnotations();
+        }, 2000); // Save after 2 seconds of inactivity
+
+        return () => {
+            if (autoSaveTimerRef.current) {
+                clearTimeout(autoSaveTimerRef.current);
+            }
+        };
+    }, [annotations, selectedItem]);
+
+    // Fetch task batches assigned to current user
+    useEffect(() => {
+        let mounted = true;
+        const fetchTaskBatches = async () => {
+            setIsLoadingBatches(true);
+            try {
+                const res = await api.get('/Tasks');
+                console.log(res.data);
+                if (!mounted) return;
+                const tasks = res?.data?.items || [];
+                setTaskBatches(tasks);
+
+                // Auto-select task from URL parameter
+                const taskIdFromUrl = searchParams.get('taskId');
+                if (taskIdFromUrl && tasks.length > 0) {
+                    const taskToSelect = tasks.find(t => t.id === parseInt(taskIdFromUrl));
+                    if (taskToSelect) {
+                        setSelectedBatch(taskToSelect);
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to fetch task batches:', e?.message || e);
+            } finally {
+                if (mounted) setIsLoadingBatches(false);
+            }
+        };
+        fetchTaskBatches();
+        return () => { mounted = false; };
+    }, [searchParams]);
+
+    // Fetch project labels when batch is selected
+    useEffect(() => {
+        const fetchProjectLabels = async () => {
+            if (!selectedBatch?.projectId) return;
+
+            try {
+                const res = await api.get(`/projects/${selectedBatch.projectId}/labels`);
+                setProjectLabels(res?.data?.data || []);
+            } catch (e) {
+                console.error('Failed to fetch project labels:', e);
+                showToast(t.failedLoadProjectLabels, 'error');
+                setProjectLabels([]);
+            }
+        };
+
+        fetchProjectLabels();
+    }, [selectedBatch?.projectId]);
+
+    useEffect(() => {
+        let mounted = true;
+
+        const isTextLike = (contentType, fileName) => {
+            if (contentType && contentType.startsWith('text/')) return true;
+            return /\.(txt|md|csv|json|xml|log)$/i.test(fileName || '');
+        };
+
+        const fetchProjectGuideline = async () => {
+            if (!selectedBatch?.projectId) {
+                setProjectGuideline({
+                    content: '',
+                    fileName: '',
+                    fileSize: 0,
+                    contentType: '',
+                    hasFile: false,
+                    isLoading: false,
+                    error: '',
+                });
+                return;
+            }
+
+            setProjectGuideline(prev => ({ ...prev, isLoading: true, error: '' }));
+
+            try {
+                const res = await api.get(`/Projects/${selectedBatch.projectId}/guideline`);
+                const guideline = res?.data?.data ?? res?.data ?? {};
+                const fileName = guideline.fileName || '';
+                const contentType = guideline.contentType || '';
+                const hasFile = Boolean(fileName);
+                let content = guideline.content || '';
+
+                if (!content && hasFile && isTextLike(contentType, fileName)) {
+                    const downloadRes = await api.get(`/Projects/${selectedBatch.projectId}/guideline/download`, { responseType: 'blob' });
+                    const blob = new Blob([downloadRes.data], { type: downloadRes.headers['content-type'] || contentType || 'text/plain' });
+                    content = await blob.text();
+                }
+
+                if (!mounted) return;
+
+                setProjectGuideline({
+                    content,
+                    fileName,
+                    fileSize: guideline.fileSize || 0,
+                    contentType,
+                    hasFile,
+                    isLoading: false,
+                    error: '',
+                });
+            } catch (error) {
+                if (!mounted) return;
+                console.warn('Failed to load project guideline', error);
+                setProjectGuideline({
+                    content: '',
+                    fileName: '',
+                    fileSize: 0,
+                    contentType: '',
+                    hasFile: false,
+                    isLoading: false,
+                    error: t.failedLoadGuideline,
+                });
+            }
+        };
+
+        fetchProjectGuideline();
+
+        return () => {
+            mounted = false;
+        };
+    }, [selectedBatch?.projectId]);
+
+    const handleDownloadGuideline = async () => {
+        if (!selectedBatch?.projectId || !projectGuideline.hasFile) return;
+
+        try {
+            const response = await api.get(`/Projects/${selectedBatch.projectId}/guideline/download`, { responseType: 'blob' });
+            const blob = new Blob([response.data], { type: response.headers['content-type'] || projectGuideline.contentType || 'application/octet-stream' });
+            const objectUrl = window.URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = objectUrl;
+            anchor.download = projectGuideline.fileName || 'guideline';
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            window.URL.revokeObjectURL(objectUrl);
+        } catch (error) {
+            console.warn('Failed to download guideline', error);
+            showToast('Failed to download guideline', 'error');
+        }
+    };
+
+    // Reset pagination when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [statusFilter, searchKeyword]);
+
+    // Fetch rejected-items for displayed batches to show "Rejected" section
+    useEffect(() => {
+        let mounted = true;
+        const fetchRejectedForBatches = async () => {
+            if (!taskBatches || taskBatches.length === 0) {
+                if (mounted) setRejectedMap({});
+                return;
+            }
+
+            const map = {};
+            await Promise.all(taskBatches.map(async (b) => {
+                try {
+                    const res = await api.get(`/Tasks/${b.id}/rejected-items`);
+                    const items = res?.data || [];
+                    if (items && items.length > 0) map[b.id] = items.length;
+                } catch (e) {
+                    // ignore individual errors
+                    // console.debug('No rejected items or failed for task', b.id, e?.message || e);
+                }
+            }));
+
+            if (mounted) setRejectedMap(map);
+        };
+
+        fetchRejectedForBatches();
+        return () => { mounted = false; };
+    }, [taskBatches]);
+
+    useEffect(() => {
+        let mounted = true;
+
+        const fetchProjectMeta = async () => {
+            const projectIds = [...new Set(taskBatches.map((batch) => batch.projectId).filter(Boolean))];
+
+            if (projectIds.length === 0) {
+                setProjectMetaById({});
+                return;
+            }
+
+            const entries = await Promise.all(projectIds.map(async (projectId) => {
+                try {
+                    const res = await api.get(`/Projects/${projectId}`);
+                    const project = res?.data?.data ?? res?.data ?? {};
+                    return [projectId, { deadline: project.deadline || null }];
+                } catch (error) {
+                    console.warn('Failed to load project meta', projectId, error?.message || error);
+                    return [projectId, {}];
+                }
+            }));
+
+            if (mounted) {
+                setProjectMetaById(Object.fromEntries(entries));
+            }
+        };
+
+        fetchProjectMeta();
+
+        return () => {
+            mounted = false;
+        };
+    }, [taskBatches]);
+
+    // Auto-fetch items when batch is selected (from URL or manual selection)
+    useEffect(() => {
+        const fetchBatchItems = async () => {
+            if (!selectedBatch?.id) {
+                setBatchItems([]);
+                setSelectedItem(null);
+                return;
+            }
+
+            setIsLoadingItems(true);
+            try {
+                // Fetch full task details including items
+                const res = await api.get(`/Tasks/${selectedBatch.id}`);
+                const taskData = res?.data;
+
+                // Extract items from response
+                const items = taskData?.items || [];
+                setBatchItems(items);
+
+                const itemIdFromUrl = searchParams.get('itemId');
+                if (itemIdFromUrl) {
+                    const itemToSelect = items.find(item => item.id === parseInt(itemIdFromUrl));
+                    setSelectedItem(itemToSelect || null);
+                } else {
+                    setSelectedItem(null);
+                }
+            } catch (e) {
+                console.error('Failed to fetch batch items:', e?.message || e);
+                showToast('Failed to load task items', 'error');
+                setBatchItems([]);
+                setSelectedItem(null);
+            } finally {
+                setIsLoadingItems(false);
+            }
+        };
+
+        fetchBatchItems();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedBatch?.id]);
+
+    // Fetch items for a specific batch
+    const handleSelectBatch = async (batch) => {
+        // Just set the selected batch, the useEffect will handle fetching items
+        setSelectedBatch(batch);
+        syncWorkspaceUrl({ taskId: batch?.id ?? null, itemId: null });
+    };
+
+    // Initialize workspace when item is selected
+    const handleSelectItem = async (item) => {
+        await transitionToItem(item, async (nextItem) => {
+            setSelectedItem(nextItem);
+            syncWorkspaceUrl({ taskId: selectedBatch?.id ?? null, itemId: nextItem?.id ?? null });
+            setIsDrawing(false);
+            setIsDraggingBox(false);
+            dragRef.current = null;
+
+            // Reset zoom and pan
+            setZoomLevel(1);
+            setPanOffset({ x: 0, y: 0 });
+
+            // Mark task item as started if not already
+            if (nextItem.id && nextItem.status === 'Assigned') {
+                try {
+                    await api.post(`/task-items/${nextItem.id}/start`);
+                    // Update local state
+                    setBatchItems(prev => prev.map(i =>
+                        i.id === nextItem.id ? { ...i, status: 'InProgress' } : i
+                    ));
+                } catch (e) {
+                    console.error('Failed to start task item:', e);
+                }
+            }
+
+            // Fetch annotations for this item
+            if (nextItem.dataItemId) {
+                try {
+                    const res = await api.get(`/data-items/${nextItem.dataItemId}/annotations`);
+                    const annotationsData = res?.data || [];
+
+                    // Transform API data to internal format
+                    const transformedAnnotations = annotationsData.map(ann => {
+                        // Parse coordinates JSON string
+                        const coords = JSON.parse(ann.coordinates);
+
+                        let processedCoordinates;
+                        if (coords.type === 'bbox') {
+                            // Handle both old format (x, y, width, height) and new format (points array)
+                            if (Array.isArray(coords.points) && coords.points.length === 2) {
+                                // New format: already in [{x1, y1}, {x2, y2}] format
+                                processedCoordinates = {
+                                    type: 'bbox',
+                                    points: coords.points
+                                };
+                            } else if (Array.isArray(coords) && coords.length === 2) {
+                                // Alternative new format where coords itself is the array
+                                processedCoordinates = {
+                                    type: 'bbox',
+                                    points: coords
+                                };
+                            } else {
+                                // Old format: convert from {x, y, width, height} to [{x1, y1}, {x2, y2}]
+                                processedCoordinates = {
+                                    type: 'bbox',
+                                    points: [
+                                        { x: coords.x, y: coords.y },
+                                        { x: coords.x + coords.width, y: coords.y + coords.height }
+                                    ]
+                                };
+                            }
+                        } else {
+                            // Polygon format stays the same
+                            processedCoordinates = {
+                                type: 'polygon',
+                                points: coords.points
+                            };
+                        }
+
+                        return {
+                            id: ann.id,
+                            labelId: ann.labelId,
+                            labelName: ann.labelName,
+                            labelColor: ann.labelColor,
+                            coordinates: processedCoordinates,
+                            createdBy: ann.createdByName,
+                            createdAt: ann.createdAt
+                        };
+                    });
+
+                    setAnnotations(transformedAnnotations);
+
+                    // Set active label to first available if exists
+                    if (transformedAnnotations.length > 0) {
+                        setActiveLabelId(transformedAnnotations[0].labelId);
+                    } else if (projectLabels.length > 0) {
+                        setActiveLabelId(projectLabels[0].id);
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch annotations:', e);
+                    showToast(t.failedLoadAnnotations, 'error');
+                    setAnnotations([]);
+                }
+            } else {
+                setAnnotations([]);
+            }
+        });
+    };
+
+    // Create new annotation via API
+    const handleCreateAnnotation = async (coordinates, labelId) => {
+        console.log('Creating annotation with coordinates:', coordinates, 'labelId:', labelId);
+
+        // Check if task is already submitted
+        if (selectedBatch?.status === 'Submitted') {
+            showToast(t.cannotEditSubmitted, 'warning');
+            return;
+        }
+
+        // Check if item is already completed
+        if (selectedItem?.status === 'Completed') {
+            showToast(t.cannotEditCompleted, 'warning');
+            return;
+        }
+
+        if (!selectedItem?.dataItemId || !labelId) {
+            showToast(t.selectLabelFirst, 'warning');
+            return;
+        }
+
+        try {
+            // Format coordinates as JSON string based on type
+            let coordinatesObj = coordinates;
+            if (Array.isArray(coordinates) && coordinates.length === 2) {
+                // New format from drawing: array of two points [{x1, y1}, {x2, y2}]
+                // Wrap it with type information
+                coordinatesObj = {
+                    type: 'bbox',
+                    points: coordinates
+                };
+            }
+
+            const coordinatesJson = JSON.stringify(coordinatesObj);
+
+            const payload = {
+                labelId: labelId,
+                coordinates: coordinatesJson,
+                attributes: JSON.stringify({}) // Empty attributes for now
+            };
+
+            console.log('Sending POST request with payload:', payload);
+            const res = await api.post(`/data-items/${selectedItem.dataItemId}/annotations`, payload);
+            const newAnnotation = res?.data;
+
+            console.log('API response - new annotation:', newAnnotation);
+
+            if (newAnnotation) {
+                // Parse coordinates and transform to new format
+                const coords = JSON.parse(newAnnotation.coordinates);
+
+                let processedCoordinates;
+                if (coords.type === 'bbox') {
+                    // Handle both old format (x, y, width, height) and new format (points array)
+                    if (Array.isArray(coords.points) && coords.points.length === 2) {
+                        // New format: already in [{x1, y1}, {x2, y2}] format
+                        processedCoordinates = {
+                            type: 'bbox',
+                            points: coords.points
+                        };
+                    } else if (Array.isArray(coords) && coords.length === 2) {
+                        // Alternative new format where coords itself is the array
+                        processedCoordinates = {
+                            type: 'bbox',
+                            points: coords
+                        };
+                    } else {
+                        // Old format: convert from {x, y, width, height} to [{x1, y1}, {x2, y2}]
+                        processedCoordinates = {
+                            type: 'bbox',
+                            points: [
+                                { x: coords.x, y: coords.y },
+                                { x: coords.x + coords.width, y: coords.y + coords.height }
+                            ]
+                        };
+                    }
+                } else {
+                    // Polygon format stays the same
+                    processedCoordinates = {
+                        type: 'polygon',
+                        points: coords.points
+                    };
+                }
+
+                const transformedAnnotation = {
+                    id: newAnnotation.id,
+                    labelId: newAnnotation.labelId,
+                    labelName: newAnnotation.labelName,
+                    labelColor: newAnnotation.labelColor,
+                    coordinates: processedCoordinates,
+                    createdBy: newAnnotation.createdByName,
+                    createdAt: newAnnotation.createdAt
+                };
+
+                console.log('Transformed annotation to add to state:', transformedAnnotation);
+                setAnnotations(prev => [...prev, transformedAnnotation]);
+                showToast(t.annotationCreated, 'success');
+            }
+        } catch (e) {
+            console.error('Failed to create annotation:', e);
+            console.error('Error details:', e?.response?.data);
+            showToast(`${t.failedCreateAnnotation}: ${e?.response?.data?.message || e?.message}`, 'error');
+        }
+    };
+
+    // Handle right-click on annotation to show context menu
+    const handleAnnotationContextMenu = (e, annotationId) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({
+            show: true,
+            x: e.clientX,
+            y: e.clientY,
+            annotationId: annotationId
+        });
+    };
+
+    // Delete annotation via API
+    const handleDeleteAnnotation = async (annotationId) => {
+        console.log('Attempting to delete annotation with ID:', annotationId);
+
+        // Check if task is already submitted
+        if (selectedBatch?.status === 'Submitted') {
+            showToast(t.cannotDeleteSubmitted, 'warning');
+            return;
+        }
+
+        // Check if item is already completed
+        if (selectedItem?.status === 'Completed') {
+            showToast(t.cannotDeleteCompleted, 'warning');
+            return;
+        }
+
+        if (!annotationId) {
+            console.error('No annotation ID provided');
+            return;
+        }
+
+        // Show confirm dialog instead of window.confirm
+        setConfirmDialog({ show: true, annotationId });
+    };
+
+    // Confirm delete annotation
+    const confirmDeleteAnnotation = async () => {
+        const annotationId = confirmDialog.annotationId;
+        setConfirmDialog({ show: false, annotationId: null });
+
+        if (!annotationId) return;
+
+        try {
+            console.log('Calling DELETE /annotations/' + annotationId);
+            await api.delete(`/annotations/${annotationId}`);
+
+            console.log('Successfully deleted annotation:', annotationId);
+
+            // Remove from local state
+            setAnnotations(prev => prev.filter(ann => ann.id !== annotationId));
+            showToast(t.annotationDeleted, 'success');
+        } catch (e) {
+            console.error('Failed to delete annotation:', e);
+            console.error('Error response:', e?.response?.data);
+            showToast(`${t.failedDeleteAnnotation}: ${e?.response?.data?.message || e?.message}`, 'error');
+        }
+    };
+
+    // Update annotation (coordinates will be auto-saved via debounced effect)
+    const handleUpdateAnnotation = async (annotationId, updatedData) => {
+        console.log('Updating annotation state:', annotationId, updatedData);
+
+        // Check if task is already submitted
+        if (selectedBatch?.status === 'Submitted') {
+            showToast(t.cannotEditSubmitted, 'warning');
+            return;
+        }
+
+        // Check if item is already completed
+        if (selectedItem?.status === 'Completed') {
+            showToast(t.cannotEditCompleted, 'warning');
+            return;
+        }
+
+        if (!annotationId) {
+            console.error('No annotation ID provided');
+            return;
+        }
+
+        // Update state locally - auto-save will handle API call
+        setAnnotations(prev => prev.map(ann =>
+            ann.id === annotationId
+                ? { ...ann, coordinates: updatedData.coordinates }
+                : ann
+        ));
+
+        console.log('Annotation updated in state, will be auto-saved');
+    };
+
+    // Navigate to next item (circular)
+    const handleNextItem = () => {
+        if (batchItems.length === 0) return;
+
+        const currentIndex = batchItems.findIndex(item => item.id === selectedItem?.id);
+        const nextIndex = (currentIndex + 1) % batchItems.length; // Circular: wrap to 0 if at end
+
+        handleSelectItem(batchItems[nextIndex]);
+    };
+
+    // Navigate to previous item (circular)
+    const handlePreviousItem = () => {
+        if (batchItems.length === 0) return;
+
+        const currentIndex = batchItems.findIndex(item => item.id === selectedItem?.id);
+        const prevIndex = currentIndex === 0 ? batchItems.length - 1 : currentIndex - 1; // Circular
+
+        handleSelectItem(batchItems[prevIndex]);
+    };
+
+    // Accept current item and move to next
+    const handleAcceptAndNext = async () => {
+        if (!selectedItem) return;
+
+        try {
+            // Mark task item as completed
+            await api.post(`/task-items/${selectedItem.id}/complete`);
+
+            // Update local state
+            const updatedItems = batchItems.map(item =>
+                item.id === selectedItem.id
+                    ? { ...item, status: 'Completed' }
+                    : item
+            );
+            setBatchItems(updatedItems);
+
+            // Update batch progress
+            const completedCount = updatedItems.filter(i => i.status === 'Completed').length;
+            setSelectedBatch(prev => ({
+                ...prev,
+                completedItems: completedCount,
+                progressPercent: (completedCount / prev.totalItems) * 100
+            }));
+
+            showToast(t.itemCompleted, 'success');
+
+            // Move to next item
+            handleNextItem();
+        } catch (e) {
+            console.error('Failed to complete item:', e);
+            showToast(`${t.failedCompleteItem}: ${e?.response?.data?.message || e?.message}`, 'error');
+        }
+    };
+
+    // Reject current item (mark for re-annotation) and move to next
+    const handleRejectItem = async () => {
+        if (!selectedItem) return;
+
+        const confirmed = await showConfirm(t.confirmSkipMessage, t.confirmSkipTitle, 'warning', t.skip, t.cancel);
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            // Just move to next item without changing status
+            // The item remains in the task for later annotation
+            showToast(t.itemSkipped, 'info');
+            handleNextItem();
+        } catch (e) {
+            console.error('Failed to skip item:', e);
+            showToast(`${t.failedSkipItem}: ${e?.response?.data?.message || e?.message}`, 'error');
+        }
+    };
+
+    // Delete a single item
+    const handleDeleteItem = async (itemId) => {
+        const confirmed = await showConfirm(t.confirmDeleteItemMessage, t.confirmDeleteItemTitle, 'danger', t.delete, t.cancel);
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            await api.delete(`/Tasks/${selectedBatch.id}/items`, {
+                data: [itemId]
+            });
+
+            // Remove item from local state
+            const updatedItems = batchItems.filter(item => item.id !== itemId);
+            setBatchItems(updatedItems);
+
+            // Update batch counts
+            const completedCount = updatedItems.filter(i => i.status === 'Completed').length;
+            setSelectedBatch(prev => ({
+                ...prev,
+                totalItems: prev.totalItems - 1,
+                completedItems: completedCount,
+                progressPercent: prev.totalItems > 1
+                    ? (completedCount / (prev.totalItems - 1)) * 100
+                    : 0
+            }));
+
+            // If currently viewing this item, go back
+            if (selectedItem?.id === itemId) {
+                setSelectedItem(null);
+            }
+
+            showToast(t.itemRemoved, 'success');
+        } catch (e) {
+            console.error('Failed to delete item:', e);
+            showToast(`${t.failedDeleteItem}: ${e?.response?.data?.message || e?.message}`, 'error');
+        }
+    };
+
+    // Submit task for review
+    const handleSubmitTask = async (taskId) => {
+        const task = taskBatches.find(t => t.id === taskId);
+
+        if (!task) return;
+
+        // Check if all items are completed
+        const allCompleted = batchItems.every(item => item.status === 'Completed');
+        if (!allCompleted) {
+            showToast(t.completeAllBeforeSubmit, 'warning');
+            return;
+        }
+
+        const confirmed = await showConfirm(t.confirmSubmitMessage, t.confirmSubmitTitle, 'warning', t.submit, t.cancel);
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            await api.post(`/tasks/${taskId}/submit`);
+
+            // Determine approval summary for task items
+            const totalItems = batchItems.length;
+            const approvedCount = batchItems.filter(it => it.dataItemStatus === 'Approved').length;
+
+            // If all items are approved, mark task as Completed; otherwise mark as Submitted
+            const newStatus = (totalItems > 0 && approvedCount === totalItems) ? 'Completed' : 'Submitted';
+            const nowIso = new Date().toISOString();
+
+            // Update task status in local state
+            setTaskBatches(prev => prev.map(t =>
+                t.id === taskId
+                    ? { ...t, status: newStatus, submittedAt: nowIso, completedAt: newStatus === 'Completed' ? nowIso : t.completedAt }
+                    : t
+            ));
+
+            // If currently viewing this task, update it
+            if (selectedBatch?.id === taskId) {
+                setSelectedBatch(prev => ({
+                    ...prev,
+                    status: newStatus,
+                    submittedAt: nowIso,
+                    completedAt: newStatus === 'Completed' ? nowIso : prev.completedAt
+                }));
+            }
+
+            showToast(newStatus === 'Completed' ? t.taskCompletedApproved : t.taskSubmittedSuccess, 'success');
+        } catch (e) {
+            console.error('Failed to submit task:', e);
+            showToast('Failed to submit task: ' + (e?.response?.data?.message || e?.message), 'error');
+        }
+    };
+
+    // Delete entire task (only if all items are deleted)
+    const handleDeleteTask = async (taskId) => {
+        const task = taskBatches.find(t => t.id === taskId);
+
+        if (task && task.totalItems > 0) {
+            showToast(t.cannotDeleteTaskWithItems, 'warning');
+            return;
+        }
+
+        const confirmed = await showConfirm(t.confirmDeleteTaskMessage, t.confirmDeleteTaskTitle, 'danger', t.delete, t.cancel);
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            await api.delete(`/Tasks/${taskId}`);
+
+            // Remove task from local state
+            setTaskBatches(prev => prev.filter(t => t.id !== taskId));
+
+            // If currently viewing this task, go back
+            if (selectedBatch?.id === taskId) {
+                setSelectedBatch(null);
+                setBatchItems([]);
+                setSelectedItem(null);
+                syncWorkspaceUrl({ taskId: null, itemId: null });
+            }
+
+            showToast(t.taskDeleted, 'success');
+        } catch (e) {
+            console.error('Failed to delete task:', e);
+            showToast(`${t.failedDeleteTask}: ${e?.response?.data?.message || e?.message}`, 'error');
+        }
+    };
+
+    const handleBackToBatchList = () => {
+        setSelectedBatch(null);
+        setSelectedItem(null);
+        setBatchItems([]);
+        syncWorkspaceUrl({ taskId: null, itemId: null });
+    };
+
+    const handleBackToItemList = async () => {
+        // Reset zoom and pan
+        setZoomLevel(1);
+        setPanOffset({ x: 0, y: 0 });
+
+        // If we have a selected batch, refresh its items to pick up any status changes
+        if (selectedBatch?.id) {
+            setIsLoadingItems(true);
+            try {
+                const res = await api.get(`/Tasks/${selectedBatch.id}`);
+                const taskData = res?.data;
+                const items = taskData?.items || [];
+                setBatchItems(items);
+            } catch (e) {
+                console.error('Failed to refresh batch items:', e?.message || e);
+                showToast(t.failedRefreshItems, 'error');
+            } finally {
+                setIsLoadingItems(false);
+            }
+        }
+
+        // Finally clear selected item to show list
+        setSelectedItem(null);
+        syncWorkspaceUrl({ taskId: selectedBatch?.id ?? null, itemId: null });
+    };
+
+    // Zoom functions
+    const handleZoomIn = () => {
+        setZoomLevel(prev => Math.min(prev + 0.25, 3)); // Max 3x zoom
+    };
+
+    const handleZoomOut = () => {
+        setZoomLevel(prev => Math.max(prev - 0.25, 0.5)); // Min 0.5x zoom
+    };
+
+    const handleResetZoom = () => {
+        setZoomLevel(1);
+        setPanOffset({ x: 0, y: 0 });
+    };
+
+    // Pan functions
+    const handlePanStart = (e) => {
+        if (selectedTool === 'PAN' || e.button === 1 || (e.button === 0 && e.shiftKey) || (e.button === 0 && isSpacePressed)) {
+            e.preventDefault();
+            setIsPanning(true);
+            panStartRef.current = {
+                x: e.clientX - panOffset.x,
+                y: e.clientY - panOffset.y
+            };
+        }
+    };
+
+    const handlePanMove = (e) => {
+        if (isPanning && panStartRef.current) {
+            setPanOffset({
+                x: e.clientX - panStartRef.current.x,
+                y: e.clientY - panStartRef.current.y
+            });
+        }
+    };
+
+    const handlePanEnd = () => {
+        setIsPanning(false);
+        panStartRef.current = null;
+    };
+
+    // Mouse wheel zoom
+    const handleWheel = (e) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            setZoomLevel(prev => Math.max(0.5, Math.min(3, prev + delta)));
+        }
+    };
+
+    const handleAiAssist = () => {
+        if (!selectedItem) return;
+        setIsAiLoading(true);
+        // TODO: Call AI API endpoint when available
+        setTimeout(() => {
+            const newAnnotation = {
+                id: `ai-${Date.now()}`,
+                labelId: activeLabelId || 'default',
+                coordinates: {
+                    type: 'bbox',
+                    points: [
+                        { x: 400, y: 300 },
+                        { x: 550, y: 450 }
+                    ]
+                },
+                confidence: 0.94,
+                createdBy: 'AI'
+            };
+            setAnnotations(prev => [...prev, newAnnotation]);
+            setIsAiLoading(false);
+        }, 1200);
+    };
+
+    // --- Coordinates Helper ---
+    const getRelativeCoordinates = (clientX, clientY) => {
+        if (!imageRef.current) return { x: 0, y: 0 };
+        const rect = imageRef.current.getBoundingClientRect();
+        return {
+            x: (clientX - rect.left) / zoomLevel,
+            y: (clientY - rect.top) / zoomLevel
+        };
+    };
+
+    // Helper to get image bounds in image coordinate system
+    const getImageConstraints = () => {
+        if (!imageRef.current) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+
+        return {
+            minX: 0,
+            minY: 0,
+            maxX: imageRef.current.naturalWidth,
+            maxY: imageRef.current.naturalHeight
+        };
+    };
+
+    // --- Global Mouse Handlers (Window level) ---
+    useEffect(() => {
+        const handleWindowMouseMove = (e) => {
+            const bounds = getImageConstraints();
+
+            // 1. Handle annotation dragging with visual feedback
+            if (dragRef.current && dragRef.current.type && imageRef.current) {
+                // Show warning toast only once per drag session
+                if (!dragToastShownRef.current) {
+                    showToast(t.cannotMoveAnnotation, 'warning');
+                    dragToastShownRef.current = true;
+                }
+
+                const rect = imageRef.current.getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left) / zoomLevel;
+                const mouseY = (e.clientY - rect.top) / zoomLevel;
+
+                const dragInfo = dragRef.current; // Capture current drag info
+
+                setAnnotations(prev => prev.map(ann => {
+                    if (ann.id !== dragInfo.id) return ann;
+
+                    // Handle BBOX movement
+                    if (dragInfo.type === 'bbox' && ann.coordinates.type === 'bbox' && ann.coordinates.points) {
+                        const { offsetX, offsetY } = dragInfo;
+                        const [p1, p2] = ann.coordinates.points;
+                        const width = Math.abs(p2.x - p1.x);
+                        const height = Math.abs(p2.y - p1.y);
+
+                        let newX = mouseX - offsetX;
+                        let newY = mouseY - offsetY;
+
+                        // Clamp to Image Boundaries
+                        newX = Math.max(bounds.minX, Math.min(newX, bounds.maxX - width));
+                        newY = Math.max(bounds.minY, Math.min(newY, bounds.maxY - height));
+
+                        // Update both points maintaining the same width and height
+                        const dx = newX - Math.min(p1.x, p2.x);
+                        const dy = newY - Math.min(p1.y, p2.y);
+
+                        return {
+                            ...ann,
+                            coordinates: {
+                                ...ann.coordinates,
+                                points: [
+                                    { x: p1.x + dx, y: p1.y + dy },
+                                    { x: p2.x + dx, y: p2.y + dy }
+                                ]
+                            }
+                        };
+                    }
+
+                    // Handle POLYGON movement
+                    if (dragInfo.type === 'polygon' && ann.coordinates.type === 'polygon') {
+                        const { originalPoints, initialMouseX, initialMouseY } = dragInfo;
+                        const deltaX = mouseX - initialMouseX;
+                        const deltaY = mouseY - initialMouseY;
+
+                        // Move all points by the same delta
+                        const newPoints = originalPoints.map(p => ({
+                            x: Math.round(p.x + deltaX),
+                            y: Math.round(p.y + deltaY)
+                        }));
+
+                        return {
+                            ...ann,
+                            coordinates: { ...ann.coordinates, points: newPoints }
+                        };
+                    }
+
+                    return ann;
+                }));
+                return;
+            }
+
+            // 2. Handle Drawing
+            if (isDrawing && drawingStartRef.current && containerRef.current) {
+                const coords = getRelativeCoordinates(e.clientX, e.clientY);
+
+                // Clamp current mouse position to image bounds
+                const currentX = Math.max(bounds.minX, Math.min(coords.x, bounds.maxX));
+                const currentY = Math.max(bounds.minY, Math.min(coords.y, bounds.maxY));
+
+                const start = drawingStartRef.current; // Already clamped on start
+                const width = Math.abs(currentX - start.x);
+                const height = Math.abs(currentY - start.y);
+                const x = Math.min(currentX, start.x);
+                const y = Math.min(currentY, start.y);
+
+                setCurrentDragInfo({ x, y, w: width, h: height });
+            }
+        };
+
+        const handleWindowMouseUp = () => {
+            // End Moving - Snap annotation back to original position
+            if (dragRef.current && isDraggingBox && dragRef.current.originalCoordinates) {
+                console.log('Mouse up, snapping annotation back to original position:', dragRef.current);
+                const draggedAnnotationId = dragRef.current.id;
+                const originalCoordinatesStr = dragRef.current.originalCoordinates;
+
+                // Reset annotation to original coordinates
+                setAnnotations(prev => prev.map(ann => {
+                    if (ann.id === draggedAnnotationId) {
+                        try {
+                            const originalCoords = JSON.parse(originalCoordinatesStr);
+                            console.log('Snapping back annotation', ann.id, 'to:', originalCoords);
+                            return { ...ann, coordinates: originalCoords };
+                        } catch (e) {
+                            console.error('Error parsing original coordinates:', e);
+                            return ann;
+                        }
+                    }
+                    return ann;
+                }));
+
+                dragRef.current = null;
+                dragToastShownRef.current = false;
+                setIsDraggingBox(false);
+            }
+
+            // End Drawing
+            if (isDrawing && drawingStartRef.current && currentDragInfo) {
+                const { w, h, x, y } = currentDragInfo;
+
+                // Min size check (5x5 pixels)
+                if (w > 5 && h > 5) {
+                    // Create bbox coordinates in new format: [{x1, y1}, {x2, y2}]
+                    const coordinates = [
+                        { x: Math.round(x), y: Math.round(y) },
+                        { x: Math.round(x + w), y: Math.round(y + h) }
+                    ];
+
+                    // Save to API
+                    handleCreateAnnotation(coordinates, activeLabelId);
+                }
+                setIsDrawing(false);
+                drawingStartRef.current = null;
+                setCurrentDragInfo(null);
+            } else if (isDrawing) {
+                // Cancel drawing if didn't drag
+                setIsDrawing(false);
+                drawingStartRef.current = null;
+                setCurrentDragInfo(null);
+            }
+        };
+
+        if (isDraggingBox || isDrawing) {
+            window.addEventListener('mousemove', handleWindowMouseMove);
+            window.addEventListener('mouseup', handleWindowMouseUp);
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleWindowMouseMove);
+            window.removeEventListener('mouseup', handleWindowMouseUp);
+        };
+    }, [isDraggingBox, isDrawing, currentDragInfo, activeLabelId, selectedItem]);
+
+
+    // --- Event Starters ---
+
+    const handleAnnotationMouseDown = (e, ann) => {
+        // Ignore right-click
+        if (e.button === 2) {
+            return;
+        }
+
+        // Don't start dragging if clicking on delete button
+        if (e.target.classList.contains('annotation-delete-btn')) {
+            return;
+        }
+
+        // Prevent event propagation to avoid triggering drawing
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Reset toast flag for new drag session
+        dragToastShownRef.current = false;
+
+        // Allow dragging for visual feedback but will snap back on release
+        console.log('Dragging annotation - will snap back to original position:', ann.id);
+
+        const coords = getRelativeCoordinates(e.clientX, e.clientY);
+
+        // Handle different annotation types
+        if (ann.coordinates.type === 'bbox' && ann.coordinates.points) {
+            // New format: coordinates.points = [{x: x1, y: y1}, {x: x2, y: y2}]
+            const [p1, p2] = ann.coordinates.points;
+            const x1 = Math.min(p1.x, p2.x);
+            const y1 = Math.min(p1.y, p2.y);
+            dragRef.current = {
+                id: ann.id,
+                type: 'bbox',
+                offsetX: coords.x - x1,
+                offsetY: coords.y - y1,
+                originalCoordinates: JSON.stringify(ann.coordinates)
+            };
+            setIsDraggingBox(true);
+        } else if (ann.coordinates.type === 'polygon' && ann.coordinates.points && ann.coordinates.points.length > 0) {
+            dragRef.current = {
+                id: ann.id,
+                type: 'polygon',
+                originalPoints: ann.coordinates.points,
+                initialMouseX: coords.x,
+                initialMouseY: coords.y,
+                originalCoordinates: JSON.stringify(ann.coordinates)
+            };
+            setIsDraggingBox(true);
+        }
+    };
+
+    const handleContainerMouseDown = (e) => {
+        // Handle Pan mode (PAN tool, middle mouse, Shift+Click, or Space+Click)
+        if (selectedTool === 'PAN' || e.button === 1 || (e.button === 0 && e.shiftKey) || (e.button === 0 && isSpacePressed)) {
+            handlePanStart(e);
+            return;
+        }
+
+        // Prevent drawing if task is submitted or item is completed
+        if ((selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Completed') && (selectedTool === 'BOX' || selectedTool === 'POLYGON')) {
+            return;
+        }
+
+        // Handle Polygon mode
+        if (selectedTool === 'POLYGON') {
+            e.preventDefault();
+
+            // Prevent adding point if double-click just happened (within 300ms)
+            const now = Date.now();
+            if (now - lastClickTimeRef.current < 300) {
+                return;
+            }
+            lastClickTimeRef.current = now;
+
+            const coords = getRelativeCoordinates(e.clientX, e.clientY);
+            const bounds = getImageConstraints();
+
+            // Clamp to image bounds
+            const constrainedX = Math.max(bounds.minX, Math.min(coords.x, bounds.maxX));
+            const constrainedY = Math.max(bounds.minY, Math.min(coords.y, bounds.maxY));
+
+            // Add point to polygon
+            setPolygonPoints(prev => [...prev, { x: constrainedX, y: constrainedY }]);
+            setIsDrawingPolygon(true);
+            return;
+        }
+
+        // Handle Box mode
+        if (selectedTool !== 'BOX') return;
+
+        e.preventDefault();
+        const rawCoords = getRelativeCoordinates(e.clientX, e.clientY);
+        const bounds = getImageConstraints();
+
+        // Clamp start position to be inside image
+        const constrainedX = Math.max(bounds.minX, Math.min(rawCoords.x, bounds.maxX));
+        const constrainedY = Math.max(bounds.minY, Math.min(rawCoords.y, bounds.maxY));
+
+        drawingStartRef.current = { x: constrainedX, y: constrainedY };
+        setIsDrawing(true);
+        setCurrentDragInfo({ x: constrainedX, y: constrainedY, w: 0, h: 0 });
+    };
+
+    // Handle double click to finish polygon
+    const handleContainerDoubleClick = (e) => {
+        if (selectedTool === 'POLYGON' && polygonPoints.length >= 3 && selectedBatch?.status !== 'Submitted' && selectedItem?.status !== 'Completed') {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Create polygon coordinates
+            const coordinates = {
+                type: 'polygon',
+                points: polygonPoints.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) }))
+            };
+
+            // Save to API
+            handleCreateAnnotation(coordinates, activeLabelId);
+
+            // Reset polygon state
+            setPolygonPoints([]);
+            setIsDrawingPolygon(false);
+            lastClickTimeRef.current = Date.now(); // Reset timer to prevent accidental point addition
+        }
+    };
+
+    // Handle Escape key to cancel polygon and Space key for panning
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            // Handle spacebar for panning
+            if (e.code === 'Space' && !isSpacePressed && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                setIsSpacePressed(true);
+            }
+
+            // Handle Escape to cancel polygon
+            if (e.key === 'Escape' && isDrawingPolygon) {
+                setPolygonPoints([]);
+                setIsDrawingPolygon(false);
+            }
+        };
+
+        const handleKeyUp = (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                setIsSpacePressed(false);
+                // End panning if space is released while panning
+                if (isPanning) {
+                    setIsPanning(false);
+                    panStartRef.current = null;
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [isDrawingPolygon, isSpacePressed, isPanning]);
+
+    // Close context menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (contextMenu.show) {
+                setContextMenu({ show: false, x: 0, y: 0, annotationId: null });
+            }
+        };
+
+        window.addEventListener('click', handleClickOutside);
+        return () => window.removeEventListener('click', handleClickOutside);
+    }, [contextMenu.show]);
+
+
+    // --- VIEW: Batch Items List (when batch is selected but no item) ---
+    if (selectedBatch && !selectedItem) {
+        return (
+            <BatchItemsListView
+                selectedBatch={selectedBatch}
+                isLoadingItems={isLoadingItems}
+                batchItems={batchItems}
+                onBackToBatchList={handleBackToBatchList}
+                onSubmitTask={handleSubmitTask}
+                onSelectItem={handleSelectItem}
+                taskDeadline={selectedBatch?.deadline}
+                taskPriority={selectedBatch?.priority}
+            />
+        );
+    }
+
+    const getBatchStatusCategory = (batch) => {
+        if (rejectedMap[batch.id]) return 'rejected';
+
+        const status = (batch.status || '').toLowerCase();
+
+        if (status === 'assigned' || status === 'new' || status === 'pending') {
+            return 'assigned';
+        }
+        if (status === 'inprogress' || status === 'in progress' || status === 'in_progress') {
+            return 'inprogress';
+        }
+        if (status === 'submitted') {
+            return 'submitted';
+        }
+        if (status === 'completed' || status === 'done' || status === 'finished') {
+            return 'completed';
+        }
+
+        return 'other';
+    };
+
+    const filteredTaskBatches = taskBatches.filter((batch) => {
+        const category = getBatchStatusCategory(batch);
+        const normalizedKeyword = searchKeyword.trim().toLowerCase();
+        const searchableName = (batch.projectName || '').toLowerCase();
+
+        const matchStatus = statusFilter === 'all' || category === statusFilter;
+        const matchSearch = !normalizedKeyword || searchableName.includes(normalizedKeyword);
+
+        return matchStatus && matchSearch;
+    });
+
+    const sortedTaskBatches = [...filteredTaskBatches].sort((a, b) => {
+        const projectA = String(a.projectName || '').toLowerCase();
+        const projectB = String(b.projectName || '').toLowerCase();
+        if (projectA !== projectB) return projectA.localeCompare(projectB);
+
+        const assignedA = Date.parse(a.assignedAt || a.createdAt || a.updatedAt || 0) || 0;
+        const assignedB = Date.parse(b.assignedAt || b.createdAt || b.updatedAt || 0) || 0;
+        if (assignedA !== assignedB) return assignedA - assignedB;
+
+        return Number(a.id || 0) - Number(b.id || 0);
+    });
+
+    const ITEMS_PER_PAGE = 6;
+    const totalPages = Math.max(1, Math.ceil(sortedTaskBatches.length / ITEMS_PER_PAGE));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+    const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+    const paginatedTaskBatches = sortedTaskBatches.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
+
+    // --- VIEW: Task Batches List ---
+    if (!selectedBatch) {
+        return (
+            <TaskBatchesListView
+                isLoadingBatches={isLoadingBatches}
+                taskBatches={taskBatches}
+                filteredTaskBatches={filteredTaskBatches}
+                sortedTaskBatches={sortedTaskBatches}
+                paginatedTaskBatches={paginatedTaskBatches}
+                safeCurrentPage={safeCurrentPage}
+                totalPages={totalPages}
+                pageNumbers={pageNumbers}
+                searchKeyword={searchKeyword}
+                statusFilter={statusFilter}
+                onSearchKeywordChange={setSearchKeyword}
+                onStatusFilterChange={setStatusFilter}
+                onPageChange={setCurrentPage}
+                onPreviousPage={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                onNextPage={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                onSelectBatch={handleSelectBatch}
+                onDeleteTask={handleDeleteTask}
+                projectMetaById={projectMetaById}
+            />
+        );
+    }
+
+    // --- VIEW: Workspace (Single Item) ---
+    const projectClasses = projectLabels;
+    const labelCountsById = annotations.reduce((acc, ann) => {
+        const key = String(ann.labelId ?? 'unknown');
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+    }, {});
+    const totalAnnotationsCount = annotations.length;
+    const activeLabelCount = activeLabelId ? (labelCountsById[String(activeLabelId)] || 0) : 0;
+
+    return (
+        <div  className="annotator-ui d-flex flex-column animate-fade-in-zoom bg-white rounded-4 shadow-sm border border-slate-200 overflow-hidden" >
+
+            {/* Workspace Toolbar Header */}
+            <div className="border-bottom border-slate-200 bg-white flex-shrink-0" style={{ zIndex: 10 }}>
+                {/* Status Indicator - shown when task is submitted */}
+                {selectedBatch?.status === 'Submitted' && (
+                    <div className="alert alert-warning mb-0 py-2 px-3 d-flex align-items-center gap-2 border-bottom border-warning border-opacity-25" role="alert" style={{ fontSize: '0.75rem' }}>
+                        <span className="badge bg-warning">{t.readonlyBadge}</span>
+                        <span>{t.readonlyTaskSubmitted}</span>
+                    </div>
+                )}
+
+                {/* Main Toolbar */}
+                <div className="annotator-main-toolbar d-flex align-items-center justify-content-between px-3" style={{ height: '3.5rem', overflowX: 'auto', overflowY: 'hidden' }}>
+                    <div className="annotator-toolbar-left d-flex align-items-center gap-3" style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                        <button onClick={handleBackToItemList} className="btn btn-link text-muted text-decoration-none d-flex align-items-center gap-1 p-0 hover-text-slate-800" title={t.backToItems} style={{ fontSize: '0.875rem', transition: 'color 0.15s', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                            <ChevronLeft size={16} />
+                            {t.backToItems}
+                        </button>
+                        <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+                        <div className="d-flex align-items-center gap-2" style={{ minWidth: 0, overflow: 'hidden' }}>
+                            <span className="text-uppercase text-muted fw-bold" style={{ fontSize: '0.625rem', letterSpacing: '0.05em', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                {t.itemPrefix} #{selectedItem?.id}
+                            </span>
+                            <h3
+                                className="mb-0 fw-semibold text-slate-900 text-truncate"
+                                style={{ fontSize: '0.875rem', maxWidth: 'clamp(140px, 20vw, 300px)', minWidth: 0 }}
+                                title={selectedItem?.fileName || `${t.itemFallback} ${selectedItem?.id}`}
+                            >
+                                {selectedItem?.fileName || `${t.itemFallback} ${selectedItem?.id}`}
+                            </h3>
+                            {selectedItem?.dataItemStatus && (
+                                <span className={`badge ${selectedItem.dataItemStatus === 'Approved' ? 'bg-success' : selectedItem.dataItemStatus === 'Rejected' ? 'bg-danger' : 'bg-secondary'}`} style={{ fontSize: '0.625rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                    {selectedItem.dataItemStatus}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="annotator-toolbar-right d-flex align-items-center gap-2" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        <span className="badge bg-indigo-50 text-indigo-700 border border-indigo-200" style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                            {t.labelsBadge}: {totalAnnotationsCount}{activeLabelId ? ` | ${t.active}: ${activeLabelCount}` : ''}
+                        </span>
+
+                        <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+
+                        {/* Progress Indicator */}
+                        {selectedBatch && (
+                            <ProgressIndicator
+                                completed={selectedBatch.completedItems || 0}
+                                total={selectedBatch.totalItems || 0}
+                                startTime={selectedBatch.startedAt}
+                                compact={true}
+                            />
+                        )}
+
+                        <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+
+                        {/* Keyboard Shortcuts Button */}
+                        <button
+                            onClick={() => setShowShortcutsHelp(true)}
+                            className="btn btn-secondary btn-sm d-flex align-items-center gap-1"
+                            title={t.keyboardShortcuts}
+                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
+                        >
+                            <Keyboard size={14} />
+                        </button>
+
+                        <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+
+                        {/* Navigation buttons */}
+                        <button
+                            onClick={handlePreviousItem}
+                            className="btn btn-secondary btn-sm d-flex align-items-center gap-1"
+                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
+                            disabled={batchItems.length <= 1}
+                        >
+                            <ChevronLeft size={14} />
+                            {t.previous}
+                        </button>
+
+                        <span className="text-muted" style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                            {batchItems.findIndex(item => item.id === selectedItem?.id) + 1} / {batchItems.length}
+                        </span>
+
+                        <button
+                            onClick={handleNextItem}
+                            className="btn btn-secondary btn-sm d-flex align-items-center gap-1"
+                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
+                            disabled={batchItems.length <= 1}
+                        >
+                            {t.next}
+                            <ChevronRight size={14} />
+                        </button>
+
+                        <div className="bg-slate-200" style={{ height: '1.25rem', width: '1px' }}></div>
+
+                        <button
+                            onClick={() => setShowGuidelines(!showGuidelines)}
+                            className="btn btn-secondary btn-sm d-flex align-items-center gap-1"
+                            style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
+                        >
+                            {showGuidelines ? t.hideLabels : t.showLabels}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main workspace area - canvas and sidebar side by side */}
+            <div style={{minHeight:'40rem'}} className="d-flex flex-grow-1 overflow-hidden position-relative user-select-none">
+                {/* Canvas Container with Toolbar on Top */}
+                <div className="d-flex flex-column flex-grow-1">
+                    {/* Horizontal Toolbar */}
+                    <div className="toolbar-horizontal">
+                        <div className="d-flex align-items-center gap-2">
+                            {[
+                                { id: 'SELECT', icon: MousePointer2, label: 'Select' },
+                                { id: 'BOX', icon: Square, label: 'Box' },
+                                { id: 'POLYGON', icon: Hexagon, label: 'Polygon' },
+                                { id: 'PAN', icon: Move, label: 'Pan' }
+                            ].map((tool) => (
+                                <button
+                                    key={tool.id}
+                                    onClick={() => setSelectedTool(tool.id)}
+                                    disabled={selectedBatch?.status === 'Submitted'}
+                                    className={`btn-tool ${selectedTool === tool.id ? 'active' : ''}`}
+                                    title={{
+                                        SELECT: t.toolTitles.SELECT,
+                                        BOX: t.toolTitles.BOX,
+                                        POLYGON: t.toolTitles.POLYGON,
+                                        PAN: t.toolTitles.PAN
+                                    }[tool.id] + (selectedBatch?.status === 'Submitted' ? ` ${t.submittedReadOnly}` : '')}
+                                    style={{ opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
+                                >
+                                    <tool.icon size={18} />
+                                </button>
+                            ))}
+                            <div className="toolbar-divider-vertical"></div>
+                            <button
+                                className="btn-tool"
+                                onClick={handleZoomIn}
+                                title={t.zoomIn}
+                            >
+                                <ZoomIn size={18} />
+                            </button>
+                            <span className="text-muted" style={{ fontSize: '0.75rem', minWidth: '3rem', textAlign: 'center' }}>
+                                {Math.round(zoomLevel * 100)}%
+                            </span>
+                            <button
+                                className="btn-tool"
+                                onClick={handleZoomOut}
+                                title={t.zoomOut}
+                            >
+                                <ZoomOut size={18} />
+                            </button>
+                            <button
+                                className="btn-tool"
+                                onClick={handleResetZoom}
+                                title={t.resetZoom}
+                                style={{ fontSize: '0.75rem', padding: '0.375rem 0.5rem' }}
+                            >
+                                1:1
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Submitted Read-Only Banner */}
+                    {selectedBatch?.status === 'Submitted' && (
+                        <div className="alert alert-warning mb-0 d-flex align-items-center gap-2 rounded-0" style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', backgroundColor: '#fef08a', borderColor: '#fcd34d', color: '#92400e' }}>
+                            <span className="fw-semibold">⏸️ {t.readOnlyBanner}</span>
+                        </div>
+                    )}
+
+                    {/* Canvas Area */}
+                    <div
+                        ref={containerRef}
+                        className="canvas-area"
+                        style={{
+                            cursor: isPanning ? 'grabbing' :
+                                isSpacePressed ? 'grab' :
+                                    selectedTool === 'PAN' ? 'grab' :
+                                        selectedTool === 'BOX' ? 'crosshair' :
+                                            selectedTool === 'POLYGON' ? 'crosshair' :
+                                                'default',
+                            flex: 1,
+                            overflow: 'hidden',
+                            position: 'relative',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#f8f9fa',
+                            width: '100%',
+                            height: '100%'
+                        }}
+                        onMouseDown={handleContainerMouseDown}
+                        onClick={(e) => {
+                            // Clear selection if clicking on empty space (not on an annotation)
+                            if (e.target === containerRef.current || e.target.tagName === 'IMG') {
+                                setSelectedAnnotationId(null);
+                            }
+                        }}
+                        onMouseMove={handlePanMove}
+                        onMouseUp={handlePanEnd}
+                        onMouseLeave={handlePanEnd}
+                        onDoubleClick={handleContainerDoubleClick}
+                        onWheel={handleWheel}
+                    >
+                        <div
+                            className="canvas-transform-layer"
+                            style={{
+                                transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                                transformOrigin: 'center center',
+                                transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: `translate(calc(-50% + ${panOffset.x}px), calc(-50% + ${panOffset.y}px)) scale(${zoomLevel})`
+                            }}
+                        >
+                            <div className={`canvas-image-frame canvas-item-scene ${itemTransitionPhase !== 'idle' ? `scene-${itemTransitionPhase}` : ''}`} style={{ position: 'relative', display: 'inline-block' }}>
+                                <img
+                                    ref={imageRef}
+                                    src={selectedItem?.filePath ? import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem.filePath : selectedItem?.thumbnailPath ? import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem.thumbnailPath : 'https://via.placeholder.com/800x600?text=No+Image'}
+                                    alt={selectedItem?.fileName || t.imageAlt}
+                                    draggable={false}
+                                    onError={(e) => { e.target.src = 'https://via.placeholder.com/800x600?text=Image+Error'; }}
+                                    style={{
+                                        display: 'block',
+                                        maxWidth: '100%',
+                                        maxHeight: '100%',
+                                        width: 'auto',
+                                        height: 'auto',
+                                        objectFit: 'contain'
+                                    }}
+                                />
+
+                                {/* Annotations Layer */}
+                                {showGuidelines && annotations.map((ann) => {
+                                    console.log('Rendering annotation:', ann.id, ann);
+                                    const isBeingDragged = dragRef.current?.id === ann.id;
+                                    const isSelected = selectedAnnotationId === ann.id;
+                                    const boxColor = ann.labelColor || '#6366f1';
+
+                                    // Render bbox type
+                                    if (ann.coordinates.type === 'bbox' && ann.coordinates.points && ann.coordinates.points.length === 2) {
+                                        // New format: coordinates.points = [{x: x1, y: y1}, {x: x2, y: y2}]
+                                        const [p1, p2] = ann.coordinates.points;
+                                        const x1 = Math.min(p1.x, p2.x);
+                                        const y1 = Math.min(p1.y, p2.y);
+                                        const x2 = Math.max(p1.x, p2.x);
+                                        const y2 = Math.max(p1.y, p2.y);
+                                        const width = x2 - x1;
+                                        const height = y2 - y1;
+
+                                        return (
+                                            <div
+                                                key={ann.id}
+                                                className={`annotation-box group-box ${isBeingDragged ? 'dragging' : ''}`}
+                                                onMouseDown={(e) => handleAnnotationMouseDown(e, ann)}
+                                                onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
+                                                onClick={() => setSelectedAnnotationId(ann.id)}
+                                                style={{
+                                                    borderColor: boxColor,
+                                                    borderWidth: isSelected ? '2px' : '2px',
+                                                    left: x1,
+                                                    top: y1,
+                                                    width: width,
+                                                    height: height,
+                                                    backgroundColor: `${boxColor}15`,
+                                                    cursor: 'grab',
+                                                    animation: isSelected ? 'glowingBorder 2s ease-in-out infinite' : 'none',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                title={t.annotationBoxTitle}
+                                            >
+                                                <div
+                                                    className="annotation-label"
+                                                    style={{ backgroundColor: boxColor }}
+                                                >
+                                                    {ann.labelName || t.object}
+                                                    {ann.confidence && (
+                                                        <span style={{ opacity: 0.8, fontWeight: 'normal', marginLeft: '0.25rem' }}>{(ann.confidence * 100).toFixed(0)}%</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    // Render polygon type
+                                    if (ann.coordinates.type === 'polygon' && ann.coordinates.points) {
+                                        const points = ann.coordinates.points;
+                                        const pointsString = points.map(p => `${p.x},${p.y}`).join(' ');
+
+                                        // Find the highest point (minimum Y coordinate)
+                                        const highestPoint = points.reduce((min, p) => p.y < min.y ? p : min, points[0]);
+                                        const labelX = highestPoint.x;
+                                        const labelY = highestPoint.y;
+                                        const labelWidth = ann.labelName ? (ann.labelName.length * 6 + 8) : 50;
+                                        const labelHeight = 16;
+
+                                        return (
+                                            <svg
+                                                key={ann.id}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    left: 0,
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    pointerEvents: 'none',
+                                                    zIndex: 30
+                                                }}
+                                                onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
+                                            >
+                                                <polygon
+                                                    points={pointsString}
+                                                    fill={`${boxColor}15`}
+                                                    stroke={boxColor}
+                                                    strokeWidth={isSelected ? '4' : '2'}
+                                                    className={isBeingDragged ? 'dragging' : ''}
+                                                    style={{
+                                                        pointerEvents: 'auto',
+                                                        cursor: 'move',
+                                                        animation: isSelected ? 'glowingBorderPolygon 2s ease-in-out infinite' : 'none',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation();
+                                                        handleAnnotationMouseDown(e, ann);
+                                                    }}
+                                                    onClick={() => setSelectedAnnotationId(ann.id)}
+                                                    onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
+                                                />
+
+                                                {/* Label background - bottom-left snapped to highest point */}
+                                                <g transform={`translate(${labelX}, ${labelY})`} style={{ pointerEvents: 'auto' }}>
+                                                    <rect
+                                                        x={0}
+                                                        y={-labelHeight}
+                                                        width={labelWidth}
+                                                        height={labelHeight}
+                                                        fill={boxColor}
+                                                        rx="3"
+                                                        style={{ cursor: 'move' }}
+                                                        onMouseDown={(e) => {
+                                                            e.stopPropagation();
+                                                            handleAnnotationMouseDown(e, ann);
+                                                        }}
+                                                        onClick={() => setSelectedAnnotationId(ann.id)}
+                                                        onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
+                                                    />
+
+                                                    {/* Label text */}
+                                                    <text
+                                                        x={4}
+                                                        y={-5}
+                                                        fill="white"
+                                                        fontSize="10"
+                                                        fontWeight="bold"
+                                                        style={{ pointerEvents: 'auto', cursor: 'move' }}
+                                                        onMouseDown={(e) => {
+                                                            e.stopPropagation();
+                                                            handleAnnotationMouseDown(e, ann);
+                                                        }}
+                                                        onClick={() => setSelectedAnnotationId(ann.id)}
+                                                        onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
+                                                    >
+                                                        {ann.labelName || t.object}
+                                                        {ann.confidence && (
+                                                            <tspan opacity="0.8" fontWeight="normal">
+                                                                {' '}{(ann.confidence * 100).toFixed(0)}%
+                                                            </tspan>
+                                                        )}
+                                                    </text>
+                                                </g>
+
+
+                                                {/* Draw points */}
+                                                {points.map((point, idx) => (
+                                                    <circle
+                                                        key={idx}
+                                                        cx={point.x}
+                                                        cy={point.y}
+                                                        r="4"
+                                                        fill={boxColor}
+                                                        stroke="white"
+                                                        strokeWidth="2"
+                                                        style={{ pointerEvents: 'auto', cursor: 'move' }}
+                                                        onMouseDown={(e) => {
+                                                            e.stopPropagation();
+                                                            handleAnnotationMouseDown(e, ann);
+                                                        }}
+                                                        onClick={() => setSelectedAnnotationId(ann.id)}
+                                                        onContextMenu={(e) => handleAnnotationContextMenu(e, ann.id)}
+                                                    />
+                                                ))}
+                                            </svg>
+                                        );
+                                    }
+
+                                    return null;
+                                })}
+
+                                {/* Drawing Layer (Temporary Box) */}
+                                {isDrawing && currentDragInfo && (
+                                    <div
+                                        className="drawing-box"
+                                        style={{
+                                            left: currentDragInfo.x,
+                                            top: currentDragInfo.y,
+                                            width: currentDragInfo.w,
+                                            height: currentDragInfo.h,
+                                        }}
+                                    >
+                                        <div className="drawing-label">
+                                            {t.newAnnotation}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Polygon Drawing Layer */}
+                                {isDrawingPolygon && polygonPoints.length > 0 && (
+                                    <svg
+                                        style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            width: '100%',
+                                            height: '100%',
+                                            pointerEvents: 'none',
+                                            zIndex: 50
+                                        }}
+                                    >
+                                        {/* Draw lines between points */}
+                                        <polyline
+                                            points={polygonPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                                            fill="rgba(59, 130, 246, 0.1)"
+                                            stroke="#3b82f6"
+                                            strokeWidth="2"
+                                            strokeDasharray="5,5"
+                                        />
+                                        {/* Draw points */}
+                                        {polygonPoints.map((point, idx) => (
+                                            <circle
+                                                key={idx}
+                                                cx={point.x}
+                                                cy={point.y}
+                                                r="4"
+                                                fill="#3b82f6"
+                                                stroke="white"
+                                                strokeWidth="2"
+                                            />
+                                        ))}
+                                        {/* Instruction text */}
+                                        {polygonPoints.length > 0 && (
+                                            <text
+                                                x={polygonPoints[0].x}
+                                                y={polygonPoints[0].y - 10}
+                                                fill="#3b82f6"
+                                                fontSize="12"
+                                                fontWeight="bold"
+                                            >
+                                                {polygonPoints.length < 3
+                                                    ? `${t.polygonAddPoints} (${polygonPoints.length}/3 ${t.polygonMin})`
+                                                    : t.polygonFinish}
+                                            </text>
+                                        )}
+                                    </svg>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Action Bar (Below Canvas) */}
+                    <div className="annotator-action-bar p-4 bg-white border-top border-slate-200">
+                        {/* Warning when item is flagged */}
+                        {selectedItem?.status === 'Flagged' && (
+                            <div className="alert alert-warning mb-3 d-flex align-items-center gap-2">
+                                <AlertTriangle size={20} />
+                                <div className="flex-grow-1">
+                                    <div className="fw-semibold">Item Flagged</div>
+                                    <small>This item has been flagged and cannot be completed until resolved by the manager.</small>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Warning when no labels exist */}
+                        {projectLabels.length === 0 && (
+                            <div className="alert alert-warning mb-3 d-flex align-items-center gap-2">
+                                <AlertTriangle size={20} />
+                                <div className="flex-grow-1">
+                                    <div className="fw-semibold">{t.noLabelsWarning}</div>
+                                    <small>{t.noLabelsMessage}</small>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="d-flex align-items-center gap-3" style={{ height: '3rem' }}>
+                            <button
+                                onClick={handlePreviousItem}
+                                disabled={selectedBatch?.status === 'Submitted'}
+                                className="annotator-btn-secondary btn btn-secondary h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                                style={{ fontSize: '0.875rem', opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
+                                title={selectedBatch?.status === 'Submitted' ? t.readOnlyTitle : t.goPreviousItem}
+                            >
+                                <ChevronLeft size={18} />
+                                {t.previous}
+                            </button>
+
+                            {/* Flag Item Button */}
+                            {selectedItem?.status === 'Flagged' ? (
+                                <div className="alert alert-info mb-0 py-2 px-3 d-flex align-items-center gap-2" style={{ fontSize: '0.875rem' }}>
+                                    <AlertTriangle size={18} />
+                                    <span>{t.alreadyFlagged || 'This item has already been flagged and is awaiting manager review'}</span>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setShowFlagModal(true)}
+                                    disabled={selectedBatch?.status === 'Submitted'}
+                                    className="btn btn-warning h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                                    style={{ fontSize: '0.875rem' }}
+                                    title={t.flagItemTooltip}
+                                >
+                                    <AlertTriangle size={18} />
+                                    {t.flagItem}
+                                </button>
+                            )}
+
+                            <button
+                                onClick={selectedItem?.status === 'Completed' ? handleNextItem : handleAcceptAndNext}
+                                disabled={selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Flagged'}
+                                className={`annotator-btn-primary btn flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm ${selectedItem?.status === 'Completed' ? 'btn-secondary' : 'btn-success'}`}
+                                style={{ 
+                                    fontSize: '0.875rem', 
+                                    opacity: (selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Flagged') ? 0.5 : 1, 
+                                    cursor: (selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Flagged') ? 'not-allowed' : 'pointer' 
+                                }}
+                                title={
+                                    selectedItem?.status === 'Flagged' ? 'This item is flagged and cannot be completed' :
+                                    selectedBatch?.status === 'Submitted' ? t.readOnlyTitle : 
+                                    selectedItem?.status === 'Completed' ? t.moveToNext : ''
+                                }
+                            >
+                                <Check size={18} />
+                                {selectedItem?.status === 'Completed' ? t.next : t.acceptAndNext}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Sidebar - Labels and Guidelines only */}
+                <div className="annotator-right-panel d-flex flex-column bg-white border-start border-slate-200 overflow-auto" style={{ width: '320px', minHeight: 0, flex: '0 0 320px' }}>
+                    <div className="p-3">
+                        <AnnotationSidebar
+                            showGuidelines={showGuidelines}
+                            setShowGuidelines={setShowGuidelines}
+                            projectClasses={projectLabels}
+                            activeLabelId={activeLabelId}
+                            setActiveLabelId={setActiveLabelId}
+                            annotations={annotations}
+                            labelCountsById={labelCountsById}
+                            totalAnnotationsCount={totalAnnotationsCount}
+                            selectedAnnotationId={selectedAnnotationId}
+                            setSelectedAnnotationId={setSelectedAnnotationId}
+                            handleDeleteAnnotation={handleDeleteAnnotation}
+                            projectGuideline={projectGuideline}
+                            onDownloadGuideline={handleDownloadGuideline}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Comments Section - Full width at bottom */}
+            {selectedItem?.id && (
+                <div className="border-top border-slate-200 bg-white p-3">
+                    <CommentsList
+                        taskItemId={selectedItem.id}
+                        onCommentsLoaded={(count) => {
+                            // Optional: Update UI with comment count
+                            console.log(`Loaded ${count} comments for task item ${selectedItem.id}`);
+                        }}
+                    />
+                </div>
+            )}
+
+            {/* Keyboard Shortcuts Help Modal */}
+            <KeyboardShortcutsHelp
+                show={showShortcutsHelp}
+                onClose={() => setShowShortcutsHelp(false)}
+            />
+
+            {/* Confirm Delete Modal */}
+            <ConfirmDeleteModal
+                show={confirmDialog.show}
+                onConfirm={confirmDeleteAnnotation}
+                onCancel={() => setConfirmDialog({ show: false, annotationId: null })}
+            />
+
+            {/* Context Menu for Annotations */}
+            {contextMenu.show && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        left: contextMenu.x,
+                        top: contextMenu.y,
+                        backgroundColor: 'white',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '0.375rem',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                        zIndex: 9999,
+                        minWidth: '120px'
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        onClick={() => {
+                            handleDeleteAnnotation(contextMenu.annotationId);
+                            setContextMenu({ show: false, x: 0, y: 0, annotationId: null });
+                        }}
+                        style={{
+                            width: '100%',
+                            padding: '0.5rem 1rem',
+                            textAlign: 'left',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            cursor: 'pointer',
+                            fontSize: '0.875rem',
+                            color: '#dc2626'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = '#fee2e2';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'transparent';
+                        }}
+                    >
+                        🗑️ {t.contextDelete}
+                    </button>
+                </div>
+            )}
+
+            {/* Toast Notification */}
+            <ToastNotification
+                toast={toast}
+                onClose={() => setToast({ ...toast, show: false })}
+            />
+
+            {/* Flag Item Modal */}
+            <FlagItemModal
+                show={showFlagModal}
+                onConfirm={handleFlagItem}
+                onCancel={() => setShowFlagModal(false)}
+                itemName={selectedItem?.fileName || `Item ${selectedItem?.id}`}
+            />
+        </div>
+    );
+};
