@@ -52,14 +52,14 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
         setUpdateFile(null);
         setComments([]);
         setShowAllComments(false);
-        
+
         // Fetch comments if item is flagged
         if (item.status === 8 || item.status === '8' || item.status === 'Reported') {
             try {
                 const response = await api.get(`/data-items/${item.id}/comments`);
                 const commentsData = response.data?.data || [];
                 // Sort by createdAt descending (latest first)
-                const sortedComments = commentsData.sort((a, b) => 
+                const sortedComments = commentsData.sort((a, b) =>
                     new Date(b.createdAt) - new Date(a.createdAt)
                 );
                 setComments(sortedComments);
@@ -67,7 +67,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                 console.error('Failed to fetch comments:', error);
             }
         }
-        
+
         setShowUpdateModal(true);
     };
 
@@ -90,7 +90,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
             if (updateFile) {
                 const formData = new FormData();
                 formData.append('file', updateFile);
-                
+
                 await api.put(`/data-items/${updateItem.id}/image`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
@@ -108,7 +108,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
             setUpdateItem(null);
             setUpdateFile(null);
             setUpdateStatus('');
-            
+
             if (onRefresh) onRefresh();
         } catch (error) {
             console.error('Failed to update item:', error);
@@ -126,7 +126,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
             <div className="card-header bg-white border-bottom py-3">
                 <div className="d-flex justify-content-between align-items-center">
                     <small className="text-muted">Showing {dataSet?.totalCount ?? 0} items</small>
-                    
+
                     <div className="d-flex gap-2">
                         <div className="input-group" style={{ width: '400px' }}>
                             <input
@@ -143,8 +143,8 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                 }}
                             />
                             {searchTerm && (
-                                <button 
-                                    className="btn btn-outline-secondary" 
+                                <button
+                                    className="btn btn-outline-secondary"
                                     onClick={() => {
                                         setSearchTerm('');
                                         if (onRefresh) onRefresh();
@@ -154,8 +154,8 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                     ×
                                 </button>
                             )}
-                            <button 
-                                className="btn btn-primary" 
+                            <button
+                                className="btn btn-primary"
                                 onClick={() => {
                                     if (onRefresh) onRefresh();
                                 }}
@@ -208,10 +208,10 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                     </td>
                                     <td className="text-end pe-4 ">
                                         <Button variant="primary" size="sm" className="mx-2 text-decoration-none" onClick={() => window.open(full, '_blank')}>View</Button>
-                                        <Button 
-                                            variant="warning" 
-                                            size="sm" 
-                                            className="mx-2 text-decoration-none" 
+                                        <Button
+                                            variant="warning"
+                                            size="sm"
+                                            className="mx-2 text-decoration-none"
                                             onClick={() => openUpdateModal(item)}
                                             disabled={item.status === 5 || item.status === '5' || item.status === 'Approved'}
                                             title={item.status === 5 || item.status === '5' || item.status === 'Approved' ? 'Cannot edit approved items' : 'Update item'}
@@ -264,7 +264,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                     <div className="mb-3">
                                         <strong>File:</strong> {updateItem.fileName}
                                     </div>
-                                    
+
                                     <div className="mb-3">
                                         <strong>Current Status:</strong>
                                         <span className={`badge ${getStatusClass(updateItem.status)} ms-2`}>
@@ -281,7 +281,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                                     <p className="mb-0 small">This item was reported by an annotator as having issues.</p>
                                                 </div>
                                             </div>
-                                            
+
                                             {comments.length > 0 ? (
                                                 <div className="mt-3 border-top pt-3">
                                                     <strong className="d-block mb-2">📝 Annotator Report:</strong>
@@ -308,7 +308,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                                         </div>
                                                     ))}
                                                     {comments.length > 4 && !showAllComments && (
-                                                        <button 
+                                                        <button
                                                             className="btn btn-sm btn-link text-decoration-none p-0"
                                                             onClick={() => setShowAllComments(true)}
                                                         >
@@ -316,7 +316,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                                         </button>
                                                     )}
                                                     {showAllComments && comments.length > 4 && (
-                                                        <button 
+                                                        <button
                                                             className="btn btn-sm btn-link text-decoration-none p-0"
                                                             onClick={() => setShowAllComments(false)}
                                                         >
@@ -329,7 +329,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                                     <em>No notes provided by the annotator.</em>
                                                 </div>
                                             )}
-                                            
+
                                             <div className="mt-3 pt-3 border-top">
                                                 <p className="mb-0 small text-muted">
                                                     💡 <strong>Action:</strong> Upload a new image to replace it, or click "Mark as Resolved" if the flag was a mistake.
