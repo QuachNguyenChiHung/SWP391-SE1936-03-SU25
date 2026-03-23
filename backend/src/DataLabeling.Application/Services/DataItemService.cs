@@ -195,6 +195,7 @@ public class DataItemService : IDataItemService
         int pageNumber,
         int pageSize,
         DataItemStatus? status = null,
+        string? searchTerm = null,
         CancellationToken cancellationToken = default)
     {
         var dataset = await _unitOfWork.Datasets.GetByProjectIdAsync(projectId, cancellationToken);
@@ -210,7 +211,7 @@ public class DataItemService : IDataItemService
         }
 
         var (items, totalCount) = await _unitOfWork.DataItems.GetPagedAsync(
-            dataset.Id, pageNumber, pageSize, status, cancellationToken);
+            dataset.Id, pageNumber, pageSize, status, searchTerm, cancellationToken);
 
         var dtos = _mapper.Map<IEnumerable<DataItemDto>>(items).ToList();
 
@@ -365,5 +366,86 @@ public class DataItemService : IDataItemService
         // Update dataset statistics
         await _unitOfWork.Datasets.UpdateStatisticsAsync(datasetId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<DataItemDto> ReplaceImageAsync(int dataItemId, IFormFile file, CancellationToken cancellationToken = default)
+    {
+        var dataItem = await _unitOfWork.DataItems.GetByIdAsync(dataItemId, cancellationToken);
+        if (dataItem == null)
+            throw new NotFoundException("DataItem", dataItemId);
+
+        // Validate file extension
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!AllowedExtensions.Contains(extension))
+        {
+            throw new ValidationException($"Invalid file type. Allowed: {string.Join(", ", AllowedExtensions)}");
+        }
+
+        // Validate file size
+        if (file.Length > MaxFileSizeMB * 1024 * 1024)
+        {
+            throw new ValidationException($"File size exceeds {MaxFileSizeMB}MB limit");
+        }
+
+        // Get dataset to determine folder
+        var dataset = await _unitOfWork.Datasets.GetByIdAsync(dataItem.DatasetId, cancellationToken);
+        if (dataset == null)
+            throw new NotFoundException("Dataset", dataItem.DatasetId);
+
+        var folder = $"projects/{dataset.ProjectId}/images";
+
+        // Delete old files
+        try
+        {
+            await _fileStorage.DeleteFileAsync(dataItem.FilePath);
+            if (!string.IsNullOrEmpty(dataItem.ThumbnailPath))
+            {
+                await _fileStorage.DeleteFileAsync(dataItem.ThumbnailPath);
+            }
+        }
+        catch
+        {
+            // Continue even if old file deletion fails
+        }
+
+        // Save new file with thumbnail
+        var (filePath, thumbnailPath, originalName, fileSize, imageWidth, imageHeight) =
+            await _fileStorage.SaveImageWithThumbnailAsync(file, folder, 200, cancellationToken);
+
+        // Update data item
+        dataItem.FileName = originalName;
+        dataItem.FilePath = filePath;
+        dataItem.ThumbnailPath = thumbnailPath;
+        dataItem.FileSizeKB = (int)(fileSize / 1024);
+        dataItem.Width = imageWidth > 0 ? imageWidth : null;
+        dataItem.Height = imageHeight > 0 ? imageHeight : null;
+        dataItem.UpdatedAt = DateTime.UtcNow;
+
+        // If the data item was reported, reset any flagged task items
+        if (dataItem.Status == DataItemStatus.Reported)
+        {
+            var taskItems = await _unitOfWork.TaskItems.GetByDataItemIdAsync(dataItemId, cancellationToken);
+            foreach (var taskItem in taskItems)
+            {
+                if (taskItem.Status == TaskItemStatus.Flagged)
+                {
+                    taskItem.Status = TaskItemStatus.Assigned;
+                    taskItem.UpdatedAt = DateTime.UtcNow;
+                    _unitOfWork.TaskItems.Update(taskItem);
+                }
+            }
+            
+            // Automatically set status to Resolved after replacing image
+            dataItem.Status = DataItemStatus.Resolved;
+        }
+
+        _unitOfWork.DataItems.Update(dataItem);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Update dataset statistics
+        await _unitOfWork.Datasets.UpdateStatisticsAsync(dataset.Id, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return _mapper.Map<DataItemDto>(dataItem);
     }
 }

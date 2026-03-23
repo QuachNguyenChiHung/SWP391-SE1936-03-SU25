@@ -67,6 +67,7 @@ public class TasksController : ControllerBase
         [FromQuery] int pageSize = 10,
         [FromQuery] int? projectId = null,
         [FromQuery] AnnotationTaskStatus? status = null,
+        [FromQuery] string? search = null,
         CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
@@ -83,7 +84,7 @@ public class TasksController : ControllerBase
         // Manager can optionally filter by project (only their projects)
         // Admin sees all
         var (items, totalCount) = await _uow.AnnotationTasks.GetPagedAsync(
-            pageNumber, pageSize, projectId, annotatorFilter, status, cancellationToken);
+            pageNumber, pageSize, projectId, annotatorFilter, status, search, cancellationToken);
 
         var result = items.Select(t => new TaskDto
         {
@@ -215,6 +216,14 @@ public class TasksController : ControllerBase
         {
             return BadRequest(ApiResponse.FailureResponse(
                 $"Cannot submit. {incompleteItems} item(s) not yet completed."));
+        }
+
+        // Check if any items are flagged
+        var flaggedItems = task.TaskItems.Count(ti => ti.Status == TaskItemStatus.Flagged);
+        if (flaggedItems > 0)
+        {
+            return BadRequest(ApiResponse.FailureResponse(
+                $"Cannot submit. {flaggedItems} item(s) are flagged and need to be resolved by the manager."));
         }
 
         // Update task status

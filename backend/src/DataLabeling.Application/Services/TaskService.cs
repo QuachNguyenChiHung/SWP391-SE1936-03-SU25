@@ -398,7 +398,7 @@ public class TaskService : ITaskService
         CancellationToken cancellationToken = default)
     {
         var (items, totalCount) = await _unitOfWork.AnnotationTasks.GetPagedAsync(
-            pageNumber, pageSize, projectId, annotatorId, status, cancellationToken);
+            pageNumber, pageSize, projectId, annotatorId, status, null, cancellationToken);
 
         return new PagedResult<TaskDto>
         {
@@ -433,7 +433,7 @@ public class TaskService : ITaskService
 
         // Get items with Pending status
         var (items, totalCount) = await _unitOfWork.DataItems.GetPagedAsync(
-            dataset.Id, pageNumber, pageSize, DataItemStatus.Pending, cancellationToken);
+            dataset.Id, pageNumber, pageSize, DataItemStatus.Pending, null, cancellationToken);
 
         return new PagedResult<UnassignedItemDto>
         {

@@ -42,6 +42,7 @@ public interface IAnnotationTaskRepository : IRepository<AnnotationTask>
         int? projectId = null,
         int? annotatorId = null,
         AnnotationTaskStatus? status = null,
+        string? searchTerm = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
