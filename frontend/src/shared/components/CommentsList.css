@@ -1,0 +1,165 @@
+.comments-list {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 500px;
+}
+
+.comments-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #f8f9fa;
+}
+
+.comments-header h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    flex: 1;
+}
+
+.comments-count {
+    background: #6c757d;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.comments-loading,
+.comments-error,
+.comments-empty {
+    padding: 24px;
+    text-align: center;
+    color: #6c757d;
+}
+
+.comments-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.comments-error p {
+    margin: 0;
+    color: #dc3545;
+}
+
+.comments-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.comments-empty p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.comments-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px;
+    min-height: 100px;
+}
+
+.comments-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.comments-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.comments-body::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.comments-body::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.comment-item {
+    padding: 12px;
+    border-radius: 6px;
+    background: #ffffff;
+    border: 1px solid #e9ecef;
+    margin-bottom: 8px;
+    min-height: 80px;
+}
+
+.comment-item:last-child {
+    margin-bottom: 0;
+}
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.comment-author {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.author-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: #212529;
+}
+
+.role-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-reviewer {
+    background: #0d6efd;
+    color: white;
+}
+
+.badge-admin {
+    background: #dc3545;
+    color: white;
+}
+
+.badge-default {
+    background: #6c757d;
+    color: white;
+}
+
+.comment-time {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.comment-content {
+    font-size: 14px;
+    color: #212529;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 8px;
+    min-height: 40px;
+}

@@ -1,5 +1,36 @@
-import { Check, ChevronLeft, Layers } from 'lucide-react';
+import { Calendar, Check, ChevronLeft, Layers } from 'lucide-react';
 import { useUI } from '../../../shared/context/UIContext.jsx';
+
+const formatDateOnly = (value) => {
+    if (!value) return '-';
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [year, month, day] = value.split('-');
+        return `${day}/${month}/${year}`;
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleDateString();
+};
+
+const getPriorityBadgeClass = (priority) => {
+    const normalized = String(priority || 'Medium').toLowerCase();
+    if (normalized === 'high') return 'bg-danger-subtle text-danger border border-danger-subtle';
+    if (normalized === 'low') return 'bg-success-subtle text-success border border-success-subtle';
+    return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+};
+
+const getDeadlineBadgeClass = (deadline) => {
+    if (!deadline) return 'bg-light text-muted border';
+    const date = new Date(deadline);
+    if (Number.isNaN(date.getTime())) return 'bg-light text-muted border';
+    const now = new Date();
+    const diffDays = Math.ceil((date.setHours(0, 0, 0, 0) - now.setHours(0, 0, 0, 0)) / 86400000);
+    if (diffDays < 0) return 'bg-danger text-white border border-danger';
+    if (diffDays <= 3) return 'bg-warning text-dark border border-warning';
+    if (diffDays <= 7) return 'bg-info-subtle text-info border border-info-subtle';
+    return 'bg-success-subtle text-success border border-success-subtle';
+};
 
 export const BatchItemsListView = ({
     selectedBatch,
@@ -7,7 +38,9 @@ export const BatchItemsListView = ({
     batchItems,
     onBackToBatchList,
     onSubmitTask,
-    onSelectItem
+    onSelectItem,
+    taskDeadline,
+    taskPriority
 }) => {
     const { language } = useUI();
     const copy = {
@@ -15,6 +48,8 @@ export const BatchItemsListView = ({
             backToBatches: 'Back to Batches',
             itemsCompleted: 'items completed',
             assignedBy: 'Assigned by',
+            deadline: 'Deadline',
+            priority: 'Priority',
             completeAllFirst: 'Complete all items first',
             submitForReview: 'Submit task for review',
             submitReview: 'Submit for Review',
@@ -31,6 +66,8 @@ export const BatchItemsListView = ({
             backToBatches: 'Quay lai danh sach task',
             itemsCompleted: 'muc da hoan thanh',
             assignedBy: 'Giao boi',
+            deadline: 'Han',
+            priority: 'Uu tien',
             completeAllFirst: 'Hoan thanh tat ca muc truoc',
             submitForReview: 'Nop task de review',
             submitReview: 'Nop de Review',
@@ -63,21 +100,42 @@ export const BatchItemsListView = ({
                                 <span className="ms-2">- {t.assignedBy} {selectedBatch.assignedByName}</span>
                             )}
                         </p>
+                        <div className="d-flex flex-wrap align-items-center gap-2 mt-2" style={{ fontSize: '0.75rem' }}>
+                            <span className={`badge ${getDeadlineBadgeClass(taskDeadline)}`}>
+                                <Calendar size={12} />
+                                {t.deadline}: {formatDateOnly(taskDeadline)}
+                            </span>
+                            <span className={`badge ${getPriorityBadgeClass(taskPriority)}`}>
+                                {t.priority}: {taskPriority || 'Medium'}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
                 <div className="d-flex align-items-center gap-2">
                     {selectedBatch.status !== 'Submitted' && selectedBatch.status !== 'Completed' && (
-                        <button
-                            onClick={() => onSubmitTask(selectedBatch.id)}
-                            className="btn btn-primary d-flex align-items-center gap-2"
-                            style={{ fontSize: '0.875rem' }}
-                            disabled={selectedBatch.completedItems !== selectedBatch.totalItems}
-                            title={selectedBatch.completedItems !== selectedBatch.totalItems ? t.completeAllFirst : t.submitForReview}
-                        >
-                            <Check size={16} />
-                            {t.submitReview}
-                        </button>
+                        <>
+                            {(() => {
+                                const flaggedCount = batchItems.filter(item => item.status === 'Flagged').length;
+                                const isDisabled = selectedBatch.completedItems !== selectedBatch.totalItems || flaggedCount > 0;
+                                const tooltipText = flaggedCount > 0 
+                                    ? `Cannot submit. ${flaggedCount} item(s) are flagged and need manager resolution.`
+                                    : (selectedBatch.completedItems !== selectedBatch.totalItems ? t.completeAllFirst : t.submitForReview);
+                                
+                                return (
+                                    <button
+                                        onClick={() => onSubmitTask(selectedBatch.id)}
+                                        className="btn btn-primary d-flex align-items-center gap-2"
+                                        style={{ fontSize: '0.875rem' }}
+                                        disabled={isDisabled}
+                                        title={tooltipText}
+                                    >
+                                        <Check size={16} />
+                                        {t.submitReview}
+                                    </button>
+                                );
+                            })()}
+                        </>
                     )}
                 </div>
             </div>
@@ -136,6 +194,10 @@ export const BatchItemsListView = ({
                                                     <span className={`status-badge ${item.status === 'Completed' ? 'completed' : item.status === 'InProgress' ? 'in-progress' : 'pending'}`}>
                                                         {item.status || t.pending}
                                                     </span>
+                                                </div>
+                                                <div className="d-flex flex-wrap gap-2 mb-1" style={{ fontSize: '0.7rem' }}>
+                                                    <span className={`badge ${getDeadlineBadgeClass(taskDeadline)}`}>{t.deadline}: {formatDateOnly(taskDeadline)}</span>
+                                                    <span className={`badge ${getPriorityBadgeClass(taskPriority)}`}>{t.priority}: {taskPriority || 'Medium'}</span>
                                                 </div>
                                                 {item.completedAt && (
                                                     <div className="d-flex align-items-center gap-1 text-success" style={{ fontSize: '10px' }}>

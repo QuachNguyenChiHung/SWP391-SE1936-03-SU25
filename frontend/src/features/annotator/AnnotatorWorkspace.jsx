@@ -11,7 +11,8 @@ import {
     ChevronLeft,
     ChevronRight,
     Keyboard,
-    X
+    X,
+    AlertTriangle
 } from 'lucide-react';
 import api from '../../shared/utils/api.js';
 import { useConfirm } from '../../shared/context/ConfirmContext.jsx';
@@ -22,16 +23,19 @@ import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { ProgressIndicator } from './ProgressIndicator';
 import { BatchItemsListView } from './components/BatchItemsListView';
 import { TaskBatchesListView } from './components/TaskBatchesListView';
+import { CommentsList } from '../../shared/components/CommentsList.jsx';
+import { FlagItemModal } from './components/FlagItemModal.jsx';
 import { useUI } from '../../shared/context/UIContext.jsx';
 import './AnnotatorWorkspace.css';
 
 export const AnnotatorWorkspace = ({ user }) => {
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { showConfirm } = useConfirm();
     const { language } = useUI();
     const copy = {
         en: {
             failedLoadProjectLabels: 'Failed to load project labels',
+            failedLoadGuideline: 'Failed to load project guideline',
             failedLoadItems: 'Failed to load items',
             failedLoadAnnotations: 'Failed to load annotations',
             cannotEditSubmitted: 'Cannot edit - task has been submitted',
@@ -110,10 +114,17 @@ export const AnnotatorWorkspace = ({ user }) => {
             goPreviousItem: 'Go to previous item',
             moveToNext: 'Move to next item',
             acceptAndNext: 'Accept & Next',
-            contextDelete: 'Delete'
+            contextDelete: 'Delete',
+            flagItem: 'Flag Item',
+            flagItemTooltip: 'Flag this item if no suitable label exists',
+            itemFlagged: 'Item flagged successfully',
+            failedFlagItem: 'Failed to flag item',
+            noLabelsWarning: 'No labels available for this project',
+            noLabelsMessage: 'You cannot annotate this item because no labels are defined. Please flag this item to notify the manager.'
         },
         vi: {
             failedLoadProjectLabels: 'Khong tai duoc nhan du an',
+            failedLoadGuideline: 'Khong tai duoc guideline cua du an',
             failedLoadItems: 'Khong tai duoc danh sach muc',
             failedLoadAnnotations: 'Khong tai duoc annotation',
             cannotEditSubmitted: 'Khong the sua - task da duoc nop',
@@ -192,7 +203,13 @@ export const AnnotatorWorkspace = ({ user }) => {
             goPreviousItem: 'Ve muc truoc',
             moveToNext: 'Den muc tiep theo',
             acceptAndNext: 'Chap nhan va tiep',
-            contextDelete: 'Xoa'
+            contextDelete: 'Xoa',
+            flagItem: 'Danh dau muc',
+            flagItemTooltip: 'Danh dau muc nay neu khong co nhan phu hop',
+            itemFlagged: 'Da danh dau muc thanh cong',
+            failedFlagItem: 'Danh dau muc that bai',
+            noLabelsWarning: 'Khong co nhan cho du an nay',
+            noLabelsMessage: 'Ban khong the gan nhan cho muc nay vi chua co nhan nao duoc dinh nghia. Vui long danh dau muc nay de thong bao cho quan ly.'
         }
     };
     const t = copy[language] || copy.en;
@@ -214,6 +231,16 @@ export const AnnotatorWorkspace = ({ user }) => {
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [showGuidelines, setShowGuidelines] = useState(true);
     const [projectLabels, setProjectLabels] = useState([]);
+    const [projectGuideline, setProjectGuideline] = useState({
+        content: '',
+        fileName: '',
+        fileSize: 0,
+        contentType: '',
+        hasFile: false,
+        isLoading: false,
+        error: '',
+    });
+    const [projectMetaById, setProjectMetaById] = useState({});
 
     // Rejected items map: taskId -> count
     const [rejectedMap, setRejectedMap] = useState({});
@@ -238,12 +265,84 @@ export const AnnotatorWorkspace = ({ user }) => {
     // Context menu state for annotations
     const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, annotationId: null });
 
+    // Flag item modal state
+    const [showFlagModal, setShowFlagModal] = useState(false);
+
     // Show toast notification
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
         setTimeout(() => {
             setToast({ show: false, message: '', type: 'success' });
         }, 3000);
+    };
+
+    // Handle flagging an item
+    const handleFlagItem = async (reason) => {
+        if (!selectedItem) return;
+
+        try {
+            await api.post(`/task-items/${selectedItem.id}/flag`, { reason });
+            showToast(t.itemFlagged, 'success');
+            setShowFlagModal(false);
+
+            // Update local state
+            setBatchItems(prev => prev.map(i =>
+                i.id === selectedItem.id ? { ...i, status: 'Flagged' } : i
+            ));
+
+            // Move to next item
+            const currentIndex = batchItems.findIndex(item => item.id === selectedItem.id);
+            if (currentIndex < batchItems.length - 1) {
+                await handleSelectItem(batchItems[currentIndex + 1]);
+            } else {
+                // No more items, go back to item list
+                setSelectedItem(null);
+                syncWorkspaceUrl({ taskId: selectedBatch?.id ?? null, itemId: null });
+            }
+        } catch (e) {
+            console.error('Failed to flag item:', e);
+            showToast(t.failedFlagItem, 'error');
+        }
+    };
+
+    const syncWorkspaceUrl = ({ taskId, itemId }) => {
+        const nextParams = new URLSearchParams(searchParams);
+
+        if (taskId !== undefined) {
+            if (taskId === null) {
+                nextParams.delete('taskId');
+            } else {
+                nextParams.set('taskId', String(taskId));
+            }
+        }
+
+        if (itemId !== undefined) {
+            if (itemId === null) {
+                nextParams.delete('itemId');
+            } else {
+                nextParams.set('itemId', String(itemId));
+            }
+        }
+
+        setSearchParams(nextParams, { replace: true });
+    };
+
+    const transitionToItem = async (nextItem, action) => {
+        if (itemTransitionTimerRef.current) {
+            clearTimeout(itemTransitionTimerRef.current);
+            itemTransitionTimerRef.current = null;
+        }
+
+        setItemTransitionPhase('leaving');
+        await new Promise((resolve) => setTimeout(resolve, 110));
+
+        await action(nextItem);
+
+        setItemTransitionPhase('entering');
+        itemTransitionTimerRef.current = window.setTimeout(() => {
+            setItemTransitionPhase('idle');
+            itemTransitionTimerRef.current = null;
+        }, 160);
     };
 
     // Refs for drag state
@@ -264,6 +363,8 @@ export const AnnotatorWorkspace = ({ user }) => {
     const [isDraggingBox, setIsDraggingBox] = useState(false);
     const dragRef = useRef(null);
     const dragToastShownRef = useRef(false);
+    const [itemTransitionPhase, setItemTransitionPhase] = useState('idle');
+    const itemTransitionTimerRef = useRef(null);
 
     // Auto-save debounce ref
     const autoSaveTimerRef = useRef(null);
@@ -358,6 +459,97 @@ export const AnnotatorWorkspace = ({ user }) => {
         fetchProjectLabels();
     }, [selectedBatch?.projectId]);
 
+    useEffect(() => {
+        let mounted = true;
+
+        const isTextLike = (contentType, fileName) => {
+            if (contentType && contentType.startsWith('text/')) return true;
+            return /\.(txt|md|csv|json|xml|log)$/i.test(fileName || '');
+        };
+
+        const fetchProjectGuideline = async () => {
+            if (!selectedBatch?.projectId) {
+                setProjectGuideline({
+                    content: '',
+                    fileName: '',
+                    fileSize: 0,
+                    contentType: '',
+                    hasFile: false,
+                    isLoading: false,
+                    error: '',
+                });
+                return;
+            }
+
+            setProjectGuideline(prev => ({ ...prev, isLoading: true, error: '' }));
+
+            try {
+                const res = await api.get(`/Projects/${selectedBatch.projectId}/guideline`);
+                const guideline = res?.data?.data ?? res?.data ?? {};
+                const fileName = guideline.fileName || '';
+                const contentType = guideline.contentType || '';
+                const hasFile = Boolean(fileName);
+                let content = guideline.content || '';
+
+                if (!content && hasFile && isTextLike(contentType, fileName)) {
+                    const downloadRes = await api.get(`/Projects/${selectedBatch.projectId}/guideline/download`, { responseType: 'blob' });
+                    const blob = new Blob([downloadRes.data], { type: downloadRes.headers['content-type'] || contentType || 'text/plain' });
+                    content = await blob.text();
+                }
+
+                if (!mounted) return;
+
+                setProjectGuideline({
+                    content,
+                    fileName,
+                    fileSize: guideline.fileSize || 0,
+                    contentType,
+                    hasFile,
+                    isLoading: false,
+                    error: '',
+                });
+            } catch (error) {
+                if (!mounted) return;
+                console.warn('Failed to load project guideline', error);
+                setProjectGuideline({
+                    content: '',
+                    fileName: '',
+                    fileSize: 0,
+                    contentType: '',
+                    hasFile: false,
+                    isLoading: false,
+                    error: t.failedLoadGuideline,
+                });
+            }
+        };
+
+        fetchProjectGuideline();
+
+        return () => {
+            mounted = false;
+        };
+    }, [selectedBatch?.projectId]);
+
+    const handleDownloadGuideline = async () => {
+        if (!selectedBatch?.projectId || !projectGuideline.hasFile) return;
+
+        try {
+            const response = await api.get(`/Projects/${selectedBatch.projectId}/guideline/download`, { responseType: 'blob' });
+            const blob = new Blob([response.data], { type: response.headers['content-type'] || projectGuideline.contentType || 'application/octet-stream' });
+            const objectUrl = window.URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = objectUrl;
+            anchor.download = projectGuideline.fileName || 'guideline';
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            window.URL.revokeObjectURL(objectUrl);
+        } catch (error) {
+            console.warn('Failed to download guideline', error);
+            showToast('Failed to download guideline', 'error');
+        }
+    };
+
     // Reset pagination when filters change
     useEffect(() => {
         setCurrentPage(1);
@@ -391,11 +583,46 @@ export const AnnotatorWorkspace = ({ user }) => {
         return () => { mounted = false; };
     }, [taskBatches]);
 
+    useEffect(() => {
+        let mounted = true;
+
+        const fetchProjectMeta = async () => {
+            const projectIds = [...new Set(taskBatches.map((batch) => batch.projectId).filter(Boolean))];
+
+            if (projectIds.length === 0) {
+                setProjectMetaById({});
+                return;
+            }
+
+            const entries = await Promise.all(projectIds.map(async (projectId) => {
+                try {
+                    const res = await api.get(`/Projects/${projectId}`);
+                    const project = res?.data?.data ?? res?.data ?? {};
+                    return [projectId, { deadline: project.deadline || null }];
+                } catch (error) {
+                    console.warn('Failed to load project meta', projectId, error?.message || error);
+                    return [projectId, {}];
+                }
+            }));
+
+            if (mounted) {
+                setProjectMetaById(Object.fromEntries(entries));
+            }
+        };
+
+        fetchProjectMeta();
+
+        return () => {
+            mounted = false;
+        };
+    }, [taskBatches]);
+
     // Auto-fetch items when batch is selected (from URL or manual selection)
     useEffect(() => {
         const fetchBatchItems = async () => {
             if (!selectedBatch?.id) {
                 setBatchItems([]);
+                setSelectedItem(null);
                 return;
             }
 
@@ -408,10 +635,19 @@ export const AnnotatorWorkspace = ({ user }) => {
                 // Extract items from response
                 const items = taskData?.items || [];
                 setBatchItems(items);
+
+                const itemIdFromUrl = searchParams.get('itemId');
+                if (itemIdFromUrl) {
+                    const itemToSelect = items.find(item => item.id === parseInt(itemIdFromUrl));
+                    setSelectedItem(itemToSelect || null);
+                } else {
+                    setSelectedItem(null);
+                }
             } catch (e) {
                 console.error('Failed to fetch batch items:', e?.message || e);
                 showToast('Failed to load task items', 'error');
                 setBatchItems([]);
+                setSelectedItem(null);
             } finally {
                 setIsLoadingItems(false);
             }
@@ -425,103 +661,107 @@ export const AnnotatorWorkspace = ({ user }) => {
     const handleSelectBatch = async (batch) => {
         // Just set the selected batch, the useEffect will handle fetching items
         setSelectedBatch(batch);
+        syncWorkspaceUrl({ taskId: batch?.id ?? null, itemId: null });
     };
 
     // Initialize workspace when item is selected
     const handleSelectItem = async (item) => {
-        setSelectedItem(item);
-        setIsDrawing(false);
-        setIsDraggingBox(false);
-        dragRef.current = null;
+        await transitionToItem(item, async (nextItem) => {
+            setSelectedItem(nextItem);
+            syncWorkspaceUrl({ taskId: selectedBatch?.id ?? null, itemId: nextItem?.id ?? null });
+            setIsDrawing(false);
+            setIsDraggingBox(false);
+            dragRef.current = null;
 
-        // Reset zoom and pan
-        setZoomLevel(1);
-        setPanOffset({ x: 0, y: 0 });
+            // Reset zoom and pan
+            setZoomLevel(1);
+            setPanOffset({ x: 0, y: 0 });
 
-        // Mark task item as started if not already
-        if (item.id && item.status === 'Assigned') {
-            try {
-                await api.post(`/task-items/${item.id}/start`);
-                // Update local state
-                setBatchItems(prev => prev.map(i =>
-                    i.id === item.id ? { ...i, status: 'InProgress' } : i
-                ));
-            } catch (e) {
-                console.error('Failed to start task item:', e);
+            // Mark task item as started if not already
+            if (nextItem.id && nextItem.status === 'Assigned') {
+                try {
+                    await api.post(`/task-items/${nextItem.id}/start`);
+                    // Update local state
+                    setBatchItems(prev => prev.map(i =>
+                        i.id === nextItem.id ? { ...i, status: 'InProgress' } : i
+                    ));
+                } catch (e) {
+                    console.error('Failed to start task item:', e);
+                }
             }
-        }
 
-        // Fetch annotations for this item
-        if (item.dataItemId) {
-            try {
-                const res = await api.get(`/data-items/${item.dataItemId}/annotations`);
-                const annotationsData = res?.data || [];
+            // Fetch annotations for this item
+            if (nextItem.dataItemId) {
+                try {
+                    const res = await api.get(`/data-items/${nextItem.dataItemId}/annotations`);
+                    const annotationsData = res?.data || [];
 
-                // Transform API data to internal format
-                const transformedAnnotations = annotationsData.map(ann => {
-                    // Parse coordinates JSON string
-                    const coords = JSON.parse(ann.coordinates);
+                    // Transform API data to internal format
+                    const transformedAnnotations = annotationsData.map(ann => {
+                        // Parse coordinates JSON string
+                        const coords = JSON.parse(ann.coordinates);
 
-                    let processedCoordinates;
-                    if (coords.type === 'bbox') {
-                        // Handle both old format (x, y, width, height) and new format (points array)
-                        if (Array.isArray(coords.points) && coords.points.length === 2) {
-                            // New format: already in [{x1, y1}, {x2, y2}] format
+                        let processedCoordinates;
+                        if (coords.type === 'bbox') {
+                            // Handle both old format (x, y, width, height) and new format (points array)
+                            if (Array.isArray(coords.points) && coords.points.length === 2) {
+                                // New format: already in [{x1, y1}, {x2, y2}] format
+                                processedCoordinates = {
+                                    type: 'bbox',
+                                    points: coords.points
+                                };
+                            } else if (Array.isArray(coords) && coords.length === 2) {
+                                // Alternative new format where coords itself is the array
+                                processedCoordinates = {
+                                    type: 'bbox',
+                                    points: coords
+                                };
+                            } else {
+                                // Old format: convert from {x, y, width, height} to [{x1, y1}, {x2, y2}]
+                                processedCoordinates = {
+                                    type: 'bbox',
+                                    points: [
+                                        { x: coords.x, y: coords.y },
+                                        { x: coords.x + coords.width, y: coords.y + coords.height }
+                                    ]
+                                };
+                            }
+                        } else {
+                            // Polygon format stays the same
                             processedCoordinates = {
-                                type: 'bbox',
+                                type: 'polygon',
                                 points: coords.points
                             };
-                        } else if (Array.isArray(coords) && coords.length === 2) {
-                            // Alternative new format where coords itself is the array
-                            processedCoordinates = {
-                                type: 'bbox',
-                                points: coords
-                            };
-                        } else {
-                            // Old format: convert from {x, y, width, height} to [{x1, y1}, {x2, y2}]
-                            processedCoordinates = {
-                                type: 'bbox',
-                                points: [
-                                    { x: coords.x, y: coords.y },
-                                    { x: coords.x + coords.width, y: coords.y + coords.height }
-                                ]
-                            };
                         }
-                    } else {
-                        // Polygon format stays the same
-                        processedCoordinates = {
-                            type: 'polygon',
-                            points: coords.points
+
+                        return {
+                            id: ann.id,
+                            labelId: ann.labelId,
+                            labelName: ann.labelName,
+                            labelColor: ann.labelColor,
+                            coordinates: processedCoordinates,
+                            createdBy: ann.createdByName,
+                            createdAt: ann.createdAt
                         };
+                    });
+
+                    setAnnotations(transformedAnnotations);
+
+                    // Set active label to first available if exists
+                    if (transformedAnnotations.length > 0) {
+                        setActiveLabelId(transformedAnnotations[0].labelId);
+                    } else if (projectLabels.length > 0) {
+                        setActiveLabelId(projectLabels[0].id);
                     }
-
-                    return {
-                        id: ann.id,
-                        labelId: ann.labelId,
-                        labelName: ann.labelName,
-                        labelColor: ann.labelColor,
-                        coordinates: processedCoordinates,
-                        createdBy: ann.createdByName,
-                        createdAt: ann.createdAt
-                    };
-                });
-
-                setAnnotations(transformedAnnotations);
-
-                // Set active label to first available if exists
-                if (transformedAnnotations.length > 0) {
-                    setActiveLabelId(transformedAnnotations[0].labelId);
-                } else if (projectLabels.length > 0) {
-                    setActiveLabelId(projectLabels[0].id);
+                } catch (e) {
+                    console.error('Failed to fetch annotations:', e);
+                    showToast(t.failedLoadAnnotations, 'error');
+                    setAnnotations([]);
                 }
-            } catch (e) {
-                console.error('Failed to fetch annotations:', e);
-                showToast(t.failedLoadAnnotations, 'error');
+            } else {
                 setAnnotations([]);
             }
-        } else {
-            setAnnotations([]);
-        }
+        });
     };
 
     // Create new annotation via API
@@ -911,6 +1151,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                 setSelectedBatch(null);
                 setBatchItems([]);
                 setSelectedItem(null);
+                syncWorkspaceUrl({ taskId: null, itemId: null });
             }
 
             showToast(t.taskDeleted, 'success');
@@ -924,6 +1165,7 @@ export const AnnotatorWorkspace = ({ user }) => {
         setSelectedBatch(null);
         setSelectedItem(null);
         setBatchItems([]);
+        syncWorkspaceUrl({ taskId: null, itemId: null });
     };
 
     const handleBackToItemList = async () => {
@@ -949,6 +1191,7 @@ export const AnnotatorWorkspace = ({ user }) => {
 
         // Finally clear selected item to show list
         setSelectedItem(null);
+        syncWorkspaceUrl({ taskId: selectedBatch?.id ?? null, itemId: null });
     };
 
     // Zoom functions
@@ -1388,6 +1631,8 @@ export const AnnotatorWorkspace = ({ user }) => {
                 onBackToBatchList={handleBackToBatchList}
                 onSubmitTask={handleSubmitTask}
                 onSelectItem={handleSelectItem}
+                taskDeadline={selectedBatch?.deadline}
+                taskPriority={selectedBatch?.priority}
             />
         );
     }
@@ -1424,11 +1669,23 @@ export const AnnotatorWorkspace = ({ user }) => {
         return matchStatus && matchSearch;
     });
 
+    const sortedTaskBatches = [...filteredTaskBatches].sort((a, b) => {
+        const projectA = String(a.projectName || '').toLowerCase();
+        const projectB = String(b.projectName || '').toLowerCase();
+        if (projectA !== projectB) return projectA.localeCompare(projectB);
+
+        const assignedA = Date.parse(a.assignedAt || a.createdAt || a.updatedAt || 0) || 0;
+        const assignedB = Date.parse(b.assignedAt || b.createdAt || b.updatedAt || 0) || 0;
+        if (assignedA !== assignedB) return assignedA - assignedB;
+
+        return Number(a.id || 0) - Number(b.id || 0);
+    });
+
     const ITEMS_PER_PAGE = 6;
-    const totalPages = Math.max(1, Math.ceil(filteredTaskBatches.length / ITEMS_PER_PAGE));
+    const totalPages = Math.max(1, Math.ceil(sortedTaskBatches.length / ITEMS_PER_PAGE));
     const safeCurrentPage = Math.min(currentPage, totalPages);
     const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
-    const paginatedTaskBatches = filteredTaskBatches.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    const paginatedTaskBatches = sortedTaskBatches.slice(startIndex, startIndex + ITEMS_PER_PAGE);
     const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
 
     // --- VIEW: Task Batches List ---
@@ -1438,6 +1695,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                 isLoadingBatches={isLoadingBatches}
                 taskBatches={taskBatches}
                 filteredTaskBatches={filteredTaskBatches}
+                sortedTaskBatches={sortedTaskBatches}
                 paginatedTaskBatches={paginatedTaskBatches}
                 safeCurrentPage={safeCurrentPage}
                 totalPages={totalPages}
@@ -1451,6 +1709,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                 onNextPage={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 onSelectBatch={handleSelectBatch}
                 onDeleteTask={handleDeleteTask}
+                projectMetaById={projectMetaById}
             />
         );
     }
@@ -1466,7 +1725,7 @@ export const AnnotatorWorkspace = ({ user }) => {
     const activeLabelCount = activeLabelId ? (labelCountsById[String(activeLabelId)] || 0) : 0;
 
     return (
-        <div className="annotator-ui d-flex flex-column animate-fade-in-zoom bg-white rounded-4 shadow-sm border border-slate-200 overflow-hidden h-100" style={{}}>
+        <div  className="annotator-ui d-flex flex-column animate-fade-in-zoom bg-white rounded-4 shadow-sm border border-slate-200 overflow-hidden" >
 
             {/* Workspace Toolbar Header */}
             <div className="border-bottom border-slate-200 bg-white flex-shrink-0" style={{ zIndex: 10 }}>
@@ -1527,7 +1786,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                         {/* Keyboard Shortcuts Button */}
                         <button
                             onClick={() => setShowShortcutsHelp(true)}
-                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                            className="btn btn-secondary btn-sm d-flex align-items-center gap-1"
                             title={t.keyboardShortcuts}
                             style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
                         >
@@ -1539,7 +1798,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                         {/* Navigation buttons */}
                         <button
                             onClick={handlePreviousItem}
-                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                            className="btn btn-secondary btn-sm d-flex align-items-center gap-1"
                             style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
                             disabled={batchItems.length <= 1}
                         >
@@ -1553,7 +1812,7 @@ export const AnnotatorWorkspace = ({ user }) => {
 
                         <button
                             onClick={handleNextItem}
-                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                            className="btn btn-secondary btn-sm d-flex align-items-center gap-1"
                             style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
                             disabled={batchItems.length <= 1}
                         >
@@ -1565,7 +1824,7 @@ export const AnnotatorWorkspace = ({ user }) => {
 
                         <button
                             onClick={() => setShowGuidelines(!showGuidelines)}
-                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                            className="btn btn-secondary btn-sm d-flex align-items-center gap-1"
                             style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
                         >
                             {showGuidelines ? t.hideLabels : t.showLabels}
@@ -1574,7 +1833,8 @@ export const AnnotatorWorkspace = ({ user }) => {
                 </div>
             </div>
 
-            <div className="d-flex flex-grow-1 overflow-hidden position-relative user-select-none">
+            {/* Main workspace area - canvas and sidebar side by side */}
+            <div style={{minHeight:'40rem'}} className="d-flex flex-grow-1 overflow-hidden position-relative user-select-none">
                 {/* Canvas Container with Toolbar on Top */}
                 <div className="d-flex flex-column flex-grow-1">
                     {/* Horizontal Toolbar */}
@@ -1650,7 +1910,14 @@ export const AnnotatorWorkspace = ({ user }) => {
                                             selectedTool === 'POLYGON' ? 'crosshair' :
                                                 'default',
                             flex: 1,
-                            overflow: 'hidden'
+                            overflow: 'hidden',
+                            position: 'relative',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#f8f9fa',
+                            width: '100%',
+                            height: '100%'
                         }}
                         onMouseDown={handleContainerMouseDown}
                         onClick={(e) => {
@@ -1671,11 +1938,13 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
                                 transformOrigin: 'center center',
                                 transition: isPanning ? 'none' : 'transform 0.1s ease-out',
-                                position: 'relative',
-                                display: 'inline-block'
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: `translate(calc(-50% + ${panOffset.x}px), calc(-50% + ${panOffset.y}px)) scale(${zoomLevel})`
                             }}
                         >
-                            <div className="canvas-image-frame" style={{ position: 'relative', display: 'inline-block', maxWidth: '800px', maxHeight: '600px' }}>
+                            <div className={`canvas-image-frame canvas-item-scene ${itemTransitionPhase !== 'idle' ? `scene-${itemTransitionPhase}` : ''}`} style={{ position: 'relative', display: 'inline-block' }}>
                                 <img
                                     ref={imageRef}
                                     src={selectedItem?.filePath ? import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem.filePath : selectedItem?.thumbnailPath ? import.meta.env.VITE_URL_UPLOADS + "/" + selectedItem.thumbnailPath : 'https://via.placeholder.com/800x600?text=No+Image'}
@@ -1684,8 +1953,10 @@ export const AnnotatorWorkspace = ({ user }) => {
                                     onError={(e) => { e.target.src = 'https://via.placeholder.com/800x600?text=Image+Error'; }}
                                     style={{
                                         display: 'block',
-                                        width: '100%',
-                                        height: '100%',
+                                        maxWidth: '100%',
+                                        maxHeight: '100%',
+                                        width: 'auto',
+                                        height: 'auto',
                                         objectFit: 'contain'
                                     }}
                                 />
@@ -1929,11 +2200,33 @@ export const AnnotatorWorkspace = ({ user }) => {
 
                     {/* Action Bar (Below Canvas) */}
                     <div className="annotator-action-bar p-4 bg-white border-top border-slate-200">
+                        {/* Warning when item is flagged */}
+                        {selectedItem?.status === 'Flagged' && (
+                            <div className="alert alert-warning mb-3 d-flex align-items-center gap-2">
+                                <AlertTriangle size={20} />
+                                <div className="flex-grow-1">
+                                    <div className="fw-semibold">Item Flagged</div>
+                                    <small>This item has been flagged and cannot be completed until resolved by the manager.</small>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Warning when no labels exist */}
+                        {projectLabels.length === 0 && (
+                            <div className="alert alert-warning mb-3 d-flex align-items-center gap-2">
+                                <AlertTriangle size={20} />
+                                <div className="flex-grow-1">
+                                    <div className="fw-semibold">{t.noLabelsWarning}</div>
+                                    <small>{t.noLabelsMessage}</small>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="d-flex align-items-center gap-3" style={{ height: '3rem' }}>
                             <button
                                 onClick={handlePreviousItem}
                                 disabled={selectedBatch?.status === 'Submitted'}
-                                className="annotator-btn-secondary btn btn-outline-secondary h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                                className="annotator-btn-secondary btn btn-secondary h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
                                 style={{ fontSize: '0.875rem', opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
                                 title={selectedBatch?.status === 'Submitted' ? t.readOnlyTitle : t.goPreviousItem}
                             >
@@ -1941,12 +2234,39 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 {t.previous}
                             </button>
 
+                            {/* Flag Item Button */}
+                            {selectedItem?.status === 'Flagged' ? (
+                                <div className="alert alert-info mb-0 py-2 px-3 d-flex align-items-center gap-2" style={{ fontSize: '0.875rem' }}>
+                                    <AlertTriangle size={18} />
+                                    <span>{t.alreadyFlagged || 'This item has already been flagged and is awaiting manager review'}</span>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setShowFlagModal(true)}
+                                    disabled={selectedBatch?.status === 'Submitted'}
+                                    className="btn btn-warning h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                                    style={{ fontSize: '0.875rem' }}
+                                    title={t.flagItemTooltip}
+                                >
+                                    <AlertTriangle size={18} />
+                                    {t.flagItem}
+                                </button>
+                            )}
+
                             <button
                                 onClick={selectedItem?.status === 'Completed' ? handleNextItem : handleAcceptAndNext}
-                                disabled={selectedBatch?.status === 'Submitted'}
+                                disabled={selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Flagged'}
                                 className={`annotator-btn-primary btn flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm ${selectedItem?.status === 'Completed' ? 'btn-secondary' : 'btn-success'}`}
-                                style={{ fontSize: '0.875rem', opacity: selectedBatch?.status === 'Submitted' ? 0.5 : 1, cursor: selectedBatch?.status === 'Submitted' ? 'not-allowed' : 'pointer' }}
-                                title={selectedBatch?.status === 'Submitted' ? t.readOnlyTitle : selectedItem?.status === 'Completed' ? t.moveToNext : ''}
+                                style={{ 
+                                    fontSize: '0.875rem', 
+                                    opacity: (selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Flagged') ? 0.5 : 1, 
+                                    cursor: (selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Flagged') ? 'not-allowed' : 'pointer' 
+                                }}
+                                title={
+                                    selectedItem?.status === 'Flagged' ? 'This item is flagged and cannot be completed' :
+                                    selectedBatch?.status === 'Submitted' ? t.readOnlyTitle : 
+                                    selectedItem?.status === 'Completed' ? t.moveToNext : ''
+                                }
                             >
                                 <Check size={18} />
                                 {selectedItem?.status === 'Completed' ? t.next : t.acceptAndNext}
@@ -1955,24 +2275,40 @@ export const AnnotatorWorkspace = ({ user }) => {
                     </div>
                 </div>
 
-                {/* Right Sidebar */}
-                <div className="annotator-right-panel d-flex flex-column gap-3 p-3 bg-white border-start border-slate-200" style={{ width: '320px', overflowY: 'auto', minHeight: 0, flex: '0 0 320px' }}>
-                    {/* Annotation Sidebar */}
-                    <AnnotationSidebar
-                        showGuidelines={showGuidelines}
-                        setShowGuidelines={setShowGuidelines}
-                        projectClasses={projectLabels}
-                        activeLabelId={activeLabelId}
-                        setActiveLabelId={setActiveLabelId}
-                        annotations={annotations}
-                        labelCountsById={labelCountsById}
-                        totalAnnotationsCount={totalAnnotationsCount}
-                        selectedAnnotationId={selectedAnnotationId}
-                        setSelectedAnnotationId={setSelectedAnnotationId}
-                        handleDeleteAnnotation={handleDeleteAnnotation}
-                    />
+                {/* Right Sidebar - Labels and Guidelines only */}
+                <div className="annotator-right-panel d-flex flex-column bg-white border-start border-slate-200 overflow-auto" style={{ width: '320px', minHeight: 0, flex: '0 0 320px' }}>
+                    <div className="p-3">
+                        <AnnotationSidebar
+                            showGuidelines={showGuidelines}
+                            setShowGuidelines={setShowGuidelines}
+                            projectClasses={projectLabels}
+                            activeLabelId={activeLabelId}
+                            setActiveLabelId={setActiveLabelId}
+                            annotations={annotations}
+                            labelCountsById={labelCountsById}
+                            totalAnnotationsCount={totalAnnotationsCount}
+                            selectedAnnotationId={selectedAnnotationId}
+                            setSelectedAnnotationId={setSelectedAnnotationId}
+                            handleDeleteAnnotation={handleDeleteAnnotation}
+                            projectGuideline={projectGuideline}
+                            onDownloadGuideline={handleDownloadGuideline}
+                        />
+                    </div>
                 </div>
             </div>
+
+            {/* Comments Section - Full width at bottom */}
+            {selectedItem?.id && (
+                <div className="border-top border-slate-200 bg-white p-3">
+                    <CommentsList
+                        taskItemId={selectedItem.id}
+                        onCommentsLoaded={(count) => {
+                            // Optional: Update UI with comment count
+                            console.log(`Loaded ${count} comments for task item ${selectedItem.id}`);
+                        }}
+                    />
+                </div>
+            )}
 
             {/* Keyboard Shortcuts Help Modal */}
             <KeyboardShortcutsHelp
@@ -2034,6 +2370,14 @@ export const AnnotatorWorkspace = ({ user }) => {
             <ToastNotification
                 toast={toast}
                 onClose={() => setToast({ ...toast, show: false })}
+            />
+
+            {/* Flag Item Modal */}
+            <FlagItemModal
+                show={showFlagModal}
+                onConfirm={handleFlagItem}
+                onCancel={() => setShowFlagModal(false)}
+                itemName={selectedItem?.fileName || `Item ${selectedItem?.id}`}
             />
         </div>
     );

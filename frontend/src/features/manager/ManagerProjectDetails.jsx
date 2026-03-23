@@ -14,6 +14,20 @@ export const ManagerProjectDetails = ({ user }) => {
     const [activeTab, setActiveTab] = useState('Overview');
     const [expandedTaskGroups, setExpandedTaskGroups] = useState({});
 
+    // Handler for tab changes with status validation
+    const handleTabChange = async (newTab) => {
+        // Check if trying to access Tasks tab while in Draft status
+        if (newTab === 'Tasks' && project?.status === 'Draft') {
+            await showAlert(
+                'Task assignment is only available when the project is Active. Please change the project status to Active first.',
+                'Action Not Allowed',
+                'warning'
+            );
+            return; // Don't change tab
+        }
+        setActiveTab(newTab);
+    };
+
     // Import Modal States
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState([]);
@@ -37,9 +51,19 @@ export const ManagerProjectDetails = ({ user }) => {
     const [isGuidelinesModalOpen, setIsGuidelinesModalOpen] = useState(false);
     const [guidelinesText, setGuidelinesText] = useState('');
     const [isEditingGuidelines, setIsEditingGuidelines] = useState(false);
+    const [guidelineFile, setGuidelineFile] = useState(null);
+    const [guidelineInfo, setGuidelineInfo] = useState({
+        fileName: '',
+        fileSize: 0,
+        contentType: '',
+        fileUrl: '',
+        updatedAt: null,
+    });
+    const [isGuidelineSaving, setIsGuidelineSaving] = useState(false);
     const [dataSet, setDataSet] = useState([]);
     const [dataPage, setDataPage] = useState(1);
     const [dataLoading, setDataLoading] = useState(true);
+    const [dataSearchTerm, setDataSearchTerm] = useState('');
     // Annotators
     const [annotators, setAnnotators] = useState([]);
     const [annotatorsLoading, setAnnotatorsLoading] = useState(false);
@@ -53,6 +77,29 @@ export const ManagerProjectDetails = ({ user }) => {
     const [editDescription, setEditDescription] = useState('');
     const [editStatus, setEditStatus] = useState(null);
     const [editDeadline, setEditDeadline] = useState('');
+    const [deadlineError, setDeadlineError] = useState('');
+
+    // Handler for deadline change with validation
+    const handleDeadlineChange = (newDeadline) => {
+        setEditDeadline(newDeadline);
+        
+        if (newDeadline) {
+            const selectedDate = new Date(newDeadline);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const currentYear = new Date().getFullYear();
+            
+            if (selectedDate < today) {
+                setDeadlineError('Deadline cannot be in the past');
+            } else if (selectedDate.getFullYear() !== currentYear) {
+                setDeadlineError(`Deadline must be in ${currentYear}`);
+            } else {
+                setDeadlineError('');
+            }
+        } else {
+            setDeadlineError('');
+        }
+    };
 
     // --- LOGIC: Load Project ---
     useEffect(() => {
@@ -75,21 +122,28 @@ export const ManagerProjectDetails = ({ user }) => {
         })();
     }, [pid]);
 
-    // Fetch data-items with paging
-    useEffect(() => {
+    // Fetch data-items with paging and search
+    const fetchDataItems = async (searchTerm = '') => {
         setDataLoading(true);
-        (async () => {
-            try {
-                const res = await api.get(`/projects/${pid}/data-items`, { params: { pageNumber: dataPage, pageSize: 10 } });
-                const payload = res.data || {};
-                setDataSet(payload);
-            } catch (err) {
-                console.warn('Failed to fetch data items', err);
-                setDataSet({ items: [], totalCount: 0, pageNumber: dataPage, pageSize: 10, totalPages: 0 });
-            } finally {
-                setDataLoading(false);
+        try {
+            const params = { pageNumber: dataPage, pageSize: 10 };
+            if (searchTerm) {
+                params.search = searchTerm;
             }
-        })();
+            const res = await api.get(`/projects/${pid}/data-items`, { params });
+            const payload = res.data || {};
+            setDataSet(payload);
+        } catch (err) {
+            console.warn('Failed to fetch data items', err);
+            setDataSet({ items: [], totalCount: 0, pageNumber: dataPage, pageSize: 10, totalPages: 0 });
+        } finally {
+            setDataLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        // Only fetch on page change, not on search term change
+        fetchDataItems(dataSearchTerm);
     }, [pid, dataPage]);
     // --- LOGIC: Load Annotators when user opens Annotators tab ---
     useEffect(() => {
@@ -132,6 +186,10 @@ export const ManagerProjectDetails = ({ user }) => {
     };
 
     // --- LOGIC: Import File ---
+    const handleOpenImportModal = () => {
+        setIsImportModalOpen(true);
+    };
+    
     const handleFileSelect = (e) => {
         if (e.target.files) {
             const filesArray = Array.from(e.target.files);
@@ -139,10 +197,16 @@ export const ManagerProjectDetails = ({ user }) => {
         }
     };
     const removeSelectedFile = (index) => setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-    const handleDelete = async () => {
-
+    const handleDeleteProject = async () => {
+        if ((project?.taskCount || 0) > 0) {
+            await showAlert('This project still has tasks, so it cannot be deleted.', 'Error', 'error');
+            setShowDeleteModal(false);
+            return;
+        }
         try {
             await api.delete(`/Projects/${pid}`);
+            await showAlert('Project deleted', 'Success', 'success');
+            navigate('/manager/projects');
         } catch (error) {
             await showAlert('Failed to delete project. Read the note below the Delete button for more information.', 'Error', 'error');
             console.warn('Failed to delete project', error.response);
@@ -193,17 +257,121 @@ export const ManagerProjectDetails = ({ user }) => {
     };
 
     // --- LOGIC: Guidelines ---
-    const openGuidelines = () => {
-        if (project) {
-            setGuidelinesText(project.guidelines || '');
-            setIsEditingGuidelines(false);
-            setIsGuidelinesModalOpen(true);
+    const loadGuidelines = async () => {
+        if (!pid) return;
+
+        const isTextLikeGuideline = (contentType, fileName) => {
+            if (contentType && contentType.startsWith('text/')) return true;
+            return /\.(txt|md|csv|json|xml|log)$/i.test(fileName || '');
+        };
+
+        try {
+            const response = await api.get(`/Projects/${pid}/guideline`);
+            const guideline = response.data?.data ?? response.data ?? {};
+
+            let content = guideline.content || '';
+            const fileName = guideline.fileName || '';
+            const contentType = guideline.contentType || '';
+
+            if (!content && guideline.fileUrl && isTextLikeGuideline(contentType, fileName)) {
+                const downloadResponse = await api.get(`/Projects/${pid}/guideline/download`, { responseType: 'blob' });
+                const blob = new Blob([downloadResponse.data], {
+                    type: downloadResponse.headers['content-type'] || contentType || 'text/plain',
+                });
+                content = await blob.text();
+            }
+
+            setGuidelinesText(content);
+            setGuidelineInfo({
+                fileName,
+                fileSize: guideline.fileSize || 0,
+                contentType,
+                fileUrl: guideline.fileUrl || '',
+                updatedAt: guideline.updatedAt || null,
+            });
+        } catch (error) {
+            console.warn('Failed to load guideline', error);
+            setGuidelinesText('');
+            setGuidelineInfo({
+                fileName: '',
+                fileSize: 0,
+                contentType: '',
+                fileUrl: '',
+                updatedAt: null,
+            });
         }
     };
-    const handleSaveGuidelines = () => {
-        if (project) {
-            project.guidelines = guidelinesText;
+
+    const openGuidelines = async () => {
+        if (!project) return;
+        setIsEditingGuidelines(false);
+        setGuidelineFile(null);
+        await loadGuidelines();
+        setIsGuidelinesModalOpen(true);
+    };
+
+    const handleGuidelineFileSelect = (event) => {
+        const file = event.target.files?.[0] ?? null;
+        setGuidelineFile(file);
+
+        if (!file) return;
+
+        const isTextLikeFile =
+            (file.type && file.type.startsWith('text/')) ||
+            /\.(txt|md|csv|json|xml|log)$/i.test(file.name);
+
+        if (!isTextLikeFile) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            const content = typeof reader.result === 'string' ? reader.result : '';
+            setGuidelinesText(content);
+        };
+        reader.onerror = () => {
+            console.warn('Failed to read guideline file content');
+        };
+        reader.readAsText(file);
+    };
+
+    const handleSaveGuidelines = async () => {
+        if (!project) return;
+        try {
+            setIsGuidelineSaving(true);
+            const fileName = guidelineFile?.name || `${project.name || 'guideline'}.txt`;
+            const fileToUpload = guidelineFile || new File([guidelinesText || ''], fileName, { type: 'text/plain' });
+            const form = new FormData();
+            form.append('file', fileToUpload);
+            await api.post(`/Projects/${pid}/guideline/upload`, form, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            await loadGuidelines();
+            setGuidelineFile(null);
             setIsEditingGuidelines(false);
+            await showAlert('Guideline saved', 'Success', 'success');
+        } catch (error) {
+            console.warn('Failed to save guideline', error);
+            await showAlert('Failed to save guideline', 'Error', 'error');
+        } finally {
+            setIsGuidelineSaving(false);
+        }
+    };
+
+    const handleDownloadGuideline = async () => {
+        try {
+            const downloadUrl = guidelineInfo.fileUrl || `/Projects/${pid}/guideline/download`;
+            const response = await api.get(downloadUrl, { responseType: 'blob' });
+            const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' });
+            const objectUrl = window.URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = objectUrl;
+            anchor.download = guidelineInfo.fileName || 'guideline';
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            window.URL.revokeObjectURL(objectUrl);
+        } catch (error) {
+            console.warn('Failed to download guideline', error);
+            await showAlert('Failed to download guideline', 'Error', 'error');
         }
     };
 
@@ -213,9 +381,17 @@ export const ManagerProjectDetails = ({ user }) => {
         setEditName(project.name || '');
         setEditDescription(project.description || '');
         setEditStatus(project.status || null);
-        // Normalize backend deadline which may be null, DateOnly (yyyy-MM-dd) or ISO datetime
+        setDeadlineError('');
+        // Normalize backend deadline which may be null, DateOnly (yyyy-MM-dd), ISO datetime, or object
         if (project.deadline) {
-            const d = String(project.deadline).slice(0, 10); // yyyy-MM-dd
+            let deadlineStr = '';
+            // Handle if deadline is an object (e.g., {Deadline: "2024-03-22"})
+            if (typeof project.deadline === 'object' && project.deadline !== null) {
+                deadlineStr = project.deadline.Deadline || project.deadline.deadline || '';
+            } else {
+                deadlineStr = String(project.deadline);
+            }
+            const d = deadlineStr.slice(0, 10); // yyyy-MM-dd
             setEditDeadline(d);
         } else setEditDeadline('');
         setIsEditProjectOpen(true);
@@ -226,6 +402,31 @@ export const ManagerProjectDetails = ({ user }) => {
             await showAlert('Name and description are required', 'Validation', 'warning');
             return;
         }
+        
+        // Check if there's a deadline error
+        if (deadlineError) {
+            await showAlert(deadlineError, 'Invalid Deadline', 'error');
+            return;
+        }
+        
+        // Validate deadline is not in the past and is in current year
+        if (editDeadline) {
+            const selectedDate = new Date(editDeadline);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const currentYear = new Date().getFullYear();
+            
+            if (selectedDate < today) {
+                await showAlert('Deadline cannot be in the past. Please select a current or future date.', 'Invalid Deadline', 'error');
+                return;
+            }
+            
+            if (selectedDate.getFullYear() !== currentYear) {
+                await showAlert(`Deadline must be in ${currentYear}.`, 'Invalid Deadline', 'error');
+                return;
+            }
+        }
+        
         try {
             const payload = {
                 name: editName,
@@ -234,24 +435,23 @@ export const ManagerProjectDetails = ({ user }) => {
                 // send DateOnly yyyy-MM-dd or null
                 deadline: editDeadline ? String(editDeadline).slice(0, 10) : null
             };
-            const res = await api.put(`/Projects/${pid}`, payload, { headers: { 'Content-Type': 'application/json' } });
+            await api.put(`/Projects/${pid}`, payload, { headers: { 'Content-Type': 'application/json' } });
             const statuspayload = {
                 status: editStatus
             };
-            const statusRes = await api.patch(`/Projects/${pid}/status`, statuspayload, { headers: { 'Content-Type': 'application/json' } });
-            const updatedProject = res.data?.data ?? res.data ?? { ...project, ...payload };
-            setProject(updatedProject);
-            (async () => {
-                try {
-                    const response = await api.get(`/Projects/${pid}`);
-                    const listLabelsResponse = await api.get(`/projects/${pid}/labels`);
-                    const projectData = response.data?.data ?? response.data;
-                    setProject(projectData);
-                    setListLabels(listLabelsResponse.data?.data ?? listLabelsResponse.data);
-                } catch (error) {
-                    console.warn('Failed to fetch project details', error);
-                }
-            })();
+            await api.patch(`/Projects/${pid}/status`, statuspayload, { headers: { 'Content-Type': 'application/json' } });
+            
+            // Refresh project data
+            try {
+                const response = await api.get(`/Projects/${pid}`);
+                const listLabelsResponse = await api.get(`/projects/${pid}/labels`);
+                const projectData = response.data?.data ?? response.data;
+                setProject(projectData);
+                setListLabels(listLabelsResponse.data?.data ?? listLabelsResponse.data);
+            } catch (error) {
+                console.warn('Failed to fetch project details', error);
+            }
+            
             await showAlert('Project updated', 'Success', 'success');
         } catch (error) {
             console.warn('Update failed', error);
@@ -373,16 +573,24 @@ export const ManagerProjectDetails = ({ user }) => {
             project={project}
             onBack={handleBackToProjects}
             activeTab={activeTab}
-            setActiveTab={setActiveTab}
+            setActiveTab={handleTabChange}
             dataSet={dataSet}
             dataLoading={dataLoading}
             dataPage={dataPage}
             setDataPage={setDataPage}
             handleDeleteDataItem={handleDeleteDataItem}
+            onRefreshDataItems={fetchDataItems}
+            searchTerm={dataSearchTerm}
+            setSearchTerm={setDataSearchTerm}
+
+            // Delete project
+            showDeleteModal={showDeleteModal}
+            setShowDeleteModal={setShowDeleteModal}
+            handleDeleteProject={handleDeleteProject}
 
             // Import modal handlers
             isImportModalOpen={isImportModalOpen}
-            openImportModal={() => setIsImportModalOpen(true)}
+            openImportModal={handleOpenImportModal}
             closeImportModal={() => setIsImportModalOpen(false)}
             uploadProgress={uploadProgress}
             selectedFiles={selectedFiles}
@@ -398,6 +606,12 @@ export const ManagerProjectDetails = ({ user }) => {
             isEditingGuidelines={isEditingGuidelines}
             guidelinesText={guidelinesText}
             setGuidelinesText={setGuidelinesText}
+            setIsEditingGuidelines={setIsEditingGuidelines}
+            guidelineInfo={guidelineInfo}
+            guidelineFile={guidelineFile}
+            onGuidelineFileSelect={handleGuidelineFileSelect}
+            onDownloadGuideline={handleDownloadGuideline}
+            isGuidelineSaving={isGuidelineSaving}
             handleSaveGuidelines={handleSaveGuidelines}
 
             // Edit project
@@ -411,7 +625,8 @@ export const ManagerProjectDetails = ({ user }) => {
             editStatus={editStatus}
             setEditStatus={setEditStatus}
             editDeadline={editDeadline}
-            setEditDeadline={setEditDeadline}
+            setEditDeadline={handleDeadlineChange}
+            deadlineError={deadlineError}
             handleSaveProjectUpdate={handleSaveProjectUpdate}
 
             // Labels

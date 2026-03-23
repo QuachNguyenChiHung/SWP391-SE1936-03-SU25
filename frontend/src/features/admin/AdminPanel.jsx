@@ -83,7 +83,6 @@ export const AdminPanel = ({ user }) => {
                 active: it.status === "Active",
                 createdAt: it.createdAt,
                 lastLoginAt: it.lastLoginAt,
-                avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(it.email || it.name)}`
             }));
 
             setUsers(mapped);
@@ -119,7 +118,6 @@ export const AdminPanel = ({ user }) => {
                     status: it.status,
                     active: it.status === "Active",
                     createdAt: it.createdAt,
-                    avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(it.email || it.name)}`
                 });
                 return;
             }

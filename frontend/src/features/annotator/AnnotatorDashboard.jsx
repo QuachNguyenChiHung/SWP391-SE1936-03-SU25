@@ -37,8 +37,8 @@ const EMPTY_STATS = {
 const formatCompact = (value) => Number(value || 0).toLocaleString();
 
 export const AnnotatorDashboard = ({ user }) => {
-    const { language, theme } = useUI();
-    const isDark = theme === 'dark';
+    const { language } = useUI();
+    const isDark = false;
 
     const copy = {
         en: {

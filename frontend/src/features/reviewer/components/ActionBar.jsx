@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import { X, Flag, Check } from 'lucide-react';
+import { X, Check } from 'lucide-react';
+import commentService from '../../../shared/services/commentService.js';
 
 const ActionBar = ({
     actionState,
@@ -10,8 +11,40 @@ const ActionBar = ({
     rejectReason,
     setRejectReason,
     submitReview,
-    isSubmittingReview
+    isSubmittingReview,
+    taskItemId,
+    userRole,
+    onCommentAdded
 }) => {
+    const [rejectComment, setRejectComment] = useState('');
+    const [isPostingComment, setIsPostingComment] = useState(false);
+
+    useEffect(() => {
+        if (actionState !== 'REJECTING') {
+            setRejectComment('');
+        }
+    }, [actionState]);
+
+    const handleConfirmRejection = async () => {
+        const trimmedComment = rejectComment.trim();
+        if (!rejectReason || !trimmedComment || !taskItemId || isSubmittingReview || isPostingComment) {
+            return;
+        }
+
+        try {
+            setIsPostingComment(true);
+            const newComment = await commentService.addComment(taskItemId, trimmedComment);
+            if (onCommentAdded) {
+                onCommentAdded(newComment, 'Comment attached to rejection');
+            }
+            await submitReview('Rejected', trimmedComment);
+        } catch (error) {
+            console.error('Failed to add comment before rejection:', error);
+        } finally {
+            setIsPostingComment(false);
+        }
+    };
+
     return (
         <div className="p-4 bg-white border-top">
             {actionState === 'REJECTING' ? (
@@ -30,9 +63,44 @@ const ActionBar = ({
                             </button>
                         ))}
                     </div>
+
+                    <div className="mb-3">
+                        <label className="form-label fw-semibold text-dark mb-2" style={{ fontSize: '14px' }}>
+                            Add a comment explaining the issue
+                        </label>
+                        <textarea
+                            className="form-control"
+                            rows={4}
+                            placeholder="Add a comment explaining the issue..."
+                            value={rejectComment}
+                            onChange={(e) => setRejectComment(e.target.value)}
+                            disabled={isSubmittingReview || isPostingComment}
+                            style={{ fontSize: '14px' }}
+                        />
+                        <small className="text-muted d-block mt-2">
+                            Ctrl+Enter to submit rejection with comment
+                        </small>
+                    </div>
+
                     <div className="d-flex align-items-center gap-3">
-                        <button onClick={() => setActionState('IDLE')} className="btn btn-link text-muted fw-medium" style={{ fontSize: '14px' }}>Cancel</button>
-                        <button disabled={!rejectReason || isSubmittingReview} onClick={() => submitReview('Rejected')} className="btn btn-danger flex-fill fw-semibold shadow-sm" style={{ fontSize: '14px' }}>{isSubmittingReview ? 'Submitting...' : 'Confirm Rejection'}</button>
+                        <button
+                            onClick={() => {
+                                setActionState('IDLE');
+                                setRejectComment('');
+                            }}
+                            className="btn btn-link text-muted fw-medium"
+                            style={{ fontSize: '14px' }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            disabled={!rejectReason || !rejectComment.trim() || isSubmittingReview || isPostingComment}
+                            onClick={handleConfirmRejection}
+                            className="btn btn-danger flex-fill fw-semibold shadow-sm"
+                            style={{ fontSize: '14px' }}
+                        >
+                            {isSubmittingReview || isPostingComment ? 'Submitting...' : 'Confirm Rejection'}
+                        </button>
                     </div>
                 </div>
             ) : (
@@ -40,7 +108,6 @@ const ActionBar = ({
                     {submitError && <div className="alert alert-danger mb-3" role="alert">{submitError}</div>}
                     <div className="d-flex align-items-center gap-3" style={{ height: '3rem' }}>
                         <button onClick={() => setActionState('REJECTING')} disabled={isSubmittingReview} className="btn btn-danger flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold" style={{ fontSize: '14px' }}><X size={18} />Reject</button>
-                        <button disabled={isSubmittingReview} className="btn btn-warning h-100 px-4 d-flex align-items-center justify-content-center gap-2 fw-semibold" title="Escalate to Manager" style={{ fontSize: '14px' }}><Flag size={18} /></button>
                         <button disabled={isSubmittingReview} onClick={() => submitReview('Approved')} className="btn btn-success h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm" style={{ flex: '2', fontSize: '14px' }}><Check size={18} />{isSubmittingReview ? 'Submitting...' : 'Accept & Next'}</button>
                     </div>
                 </div>
@@ -57,7 +124,10 @@ ActionBar.propTypes = {
     rejectReason: PropTypes.string,
     setRejectReason: PropTypes.func,
     submitReview: PropTypes.func,
-    isSubmittingReview: PropTypes.bool
+    isSubmittingReview: PropTypes.bool,
+    taskItemId: PropTypes.number,
+    userRole: PropTypes.string,
+    onCommentAdded: PropTypes.func
 };
 
 ActionBar.defaultProps = {
@@ -68,7 +138,10 @@ ActionBar.defaultProps = {
     rejectReason: '',
     setRejectReason: () => { },
     submitReview: () => { },
-    isSubmittingReview: false
+    isSubmittingReview: false,
+    taskItemId: null,
+    userRole: null,
+    onCommentAdded: null
 };
 
 export default ActionBar;

@@ -1,6 +1,13 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
-export const Avatar = ({ name, email, size = 40, isActive = false }) => {
+/**
+ * Avatar component that displays user initials with a colored background
+ * @param {string} name - User's full name
+ * @param {string} size - Size variant: 'sm', 'md', 'lg', 'xl'
+ * @param {string} className - Additional CSS classes
+ */
+export const Avatar = ({ name = '', size = 'md', className = '' }) => {
     // Extract initials from name
     const getInitials = (fullName) => {
         if (!fullName || typeof fullName !== 'string') return '?';
@@ -45,37 +52,48 @@ export const Avatar = ({ name, email, size = 40, isActive = false }) => {
         return colors[index];
     };
 
+    // Size configurations
+    const sizeConfig = {
+        sm: { width: '32px', height: '32px', fontSize: '0.75rem' },
+        md: { width: '40px', height: '40px', fontSize: '0.875rem' },
+        lg: { width: '48px', height: '48px', fontSize: '1rem' },
+        xl: { width: '64px', height: '64px', fontSize: '1.25rem' },
+    };
+
+    const config = sizeConfig[size] || sizeConfig.md;
     const initials = getInitials(name);
     const bgColor = getColorFromName(name);
-    const fontSize = size > 48 ? '1.25rem' : size > 40 ? '1rem' : size > 32 ? '0.875rem' : '0.75rem';
+
+    const style = {
+        width: config.width,
+        height: config.height,
+        fontSize: config.fontSize,
+        backgroundColor: bgColor,
+        color: '#ffffff',
+        borderRadius: '50%',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: '600',
+        flexShrink: 0,
+        userSelect: 'none',
+    };
 
     return (
-        <div className="position-relative">
-            <div
-                className="rounded-circle border d-inline-flex align-items-center justify-content-center"
-                style={{
-                    width: size,
-                    height: size,
-                    fontSize: fontSize,
-                    backgroundColor: bgColor,
-                    color: '#ffffff',
-                    fontWeight: '600',
-                    flexShrink: 0,
-                    userSelect: 'none',
-                }}
-                title={name || email}
-                role="img"
-                aria-label={`${name}'s avatar`}
-            >
-                {initials}
-            </div>
-            {isActive && (
-                <span
-                    className="position-absolute bottom-0 end-0 bg-success border border-white rounded-circle p-1"
-                    style={{ width: 10, height: 10 }}
-                    aria-label="Online"
-                ></span>
-            )}
+        <div 
+            className={`avatar ${className}`} 
+            style={style}
+            title={name}
+        >
+            {initials}
         </div>
     );
 };
+
+Avatar.propTypes = {
+    name: PropTypes.string,
+    size: PropTypes.oneOf(['sm', 'md', 'lg', 'xl']),
+    className: PropTypes.string,
+};
+
+export default Avatar;

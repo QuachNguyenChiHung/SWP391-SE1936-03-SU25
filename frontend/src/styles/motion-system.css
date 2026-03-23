@@ -2,17 +2,17 @@
   --nl-ease-standard: cubic-bezier(0.2, 0.85, 0.32, 1);
   --nl-ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --nl-fast: 140ms;
-  --nl-normal: 220ms;
-  --nl-slow: 320ms;
-  --nl-focus-ring: 0 0 0 0.2rem rgba(53, 112, 255, 0.28);
+  --nl-normal: 200ms;
+  --nl-slow: 280ms;
+  --nl-focus-ring: 0 0 0 0.2rem rgba(79, 70, 229, 0.18);
+  --nl-surface-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  --nl-surface-shadow-hover: 0 14px 30px rgba(15, 23, 42, 0.09);
 }
 
-/* Smooth scrolling and visual continuity */
 html {
   scroll-behavior: smooth;
 }
 
-/* Core clickable interactions */
 :where(
   .btn,
   button,
@@ -31,56 +31,199 @@ html {
   .modal-content-custom
 ) {
   transition:
-    transform var(--nl-fast) var(--nl-ease-standard),
-    box-shadow var(--nl-normal) var(--nl-ease-standard),
+    background-color var(--nl-fast) var(--nl-ease-standard),
+    border-color var(--nl-fast) var(--nl-ease-standard),
+    color var(--nl-fast) var(--nl-ease-standard),
+    opacity var(--nl-fast) var(--nl-ease-standard),
+    filter var(--nl-fast) var(--nl-ease-standard),
+    box-shadow var(--nl-fast) var(--nl-ease-standard);
+}
+
+@keyframes nlSurfaceEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+:where(
+  .app-shell,
+  .app-content-shell,
+  .app-sidebar,
+  .app-topbar,
+  .mobile-drawer,
+  .login-card,
+  .login-branding,
+  .login-form-container,
+  .profile .container-fluid,
+  .manager-page-surface,
+  .manager-dashboard-surface,
+  .reviewer-dashboard-surface,
+  .container-fluid.py-4,
+  .container-fluid.py-5,
+  .container-fluid.p-4,
+  .card-custom,
+  .card,
+  .modal-content,
+  .modal-content-custom,
+  .list-group-item,
+  .dropdown-menu,
+  .sidebar-brand,
+  .sidebar-user-card,
+  .sidebar-section,
+  .sidebar-link-group,
+  .nav-link,
+  .page-link,
+  .form-control,
+  .form-select,
+  .input-group-text,
+  .table,
+  .table > :not(caption) > * > *
+) {
+  animation: nlSurfaceEnter var(--nl-normal) var(--nl-ease-soft);
+}
+
+:where(
+  .card,
+  .card-custom,
+  .modal-content,
+  .modal-content-custom,
+  .dropdown-menu,
+  .list-group-item,
+  .sidebar-user-card,
+  .sidebar-brand,
+  .app-topbar,
+  .login-card,
+  .login-branding,
+  .login-form-container,
+  .container-fluid.py-4,
+  .container-fluid.py-5,
+  .container-fluid.p-4,
+  .manager-page-surface,
+  .manager-dashboard-surface,
+  .reviewer-dashboard-surface
+) {
+  box-shadow: var(--nl-surface-shadow);
+}
+
+:where(
+  .card:hover,
+  .card-custom:hover,
+  .list-group-item:hover,
+  .sidebar-user-card:hover,
+  .sidebar-brand:hover,
+  .login-card:hover,
+  .login-branding:hover,
+  .login-form-container:hover,
+  .modal-content:hover,
+  .modal-content-custom:hover,
+  .dropdown-menu:hover
+) {
+  box-shadow: var(--nl-surface-shadow-hover);
+}
+
+:where(
+  .container-fluid.py-4,
+  .container-fluid.py-5,
+  .container-fluid.p-4,
+  .manager-page-surface,
+  .manager-dashboard-surface,
+  .reviewer-dashboard-surface,
+  .profile .container-fluid
+) {
+  transition:
+    opacity var(--nl-normal) var(--nl-ease-standard),
     background-color var(--nl-normal) var(--nl-ease-standard),
     border-color var(--nl-normal) var(--nl-ease-standard),
-    color var(--nl-normal) var(--nl-ease-standard),
-    opacity var(--nl-normal) var(--nl-ease-standard),
-    filter var(--nl-normal) var(--nl-ease-standard);
+    box-shadow var(--nl-normal) var(--nl-ease-standard);
 }
 
-/* Press feedback */
-:where(.btn, button, a, [role='button'], .page-link):active {
-  transform: scale(0.985);
+:where(
+  .card,
+  .card-custom,
+  .modal-content,
+  .modal-content-custom,
+  .list-group-item,
+  .dropdown-menu,
+  .sidebar-user-card,
+  .sidebar-brand,
+  .app-topbar,
+  .login-card,
+  .login-branding,
+  .login-form-container,
+  .table,
+  .table > :not(caption) > * > *
+) {
+  transition:
+    background-color var(--nl-fast) var(--nl-ease-standard),
+    border-color var(--nl-fast) var(--nl-ease-standard),
+    color var(--nl-fast) var(--nl-ease-standard),
+    opacity var(--nl-fast) var(--nl-ease-standard),
+    filter var(--nl-fast) var(--nl-ease-standard),
+    box-shadow var(--nl-fast) var(--nl-ease-standard);
 }
 
-.layout-container aside a:active,
-.layout-container aside button:active,
-.layout-container aside div[role='button']:active {
-  transform: scale(0.985) !important;
+:where(
+  .btn,
+  button,
+  a,
+  [role='button'],
+  .nav-link,
+  .sidebar-link,
+  .page-link,
+  .dropdown-item
+):hover {
+  filter: brightness(1.015);
 }
 
-/* Better hover feel for action controls */
-:where(.btn, button, .page-link):hover {
+:where(
+  .app-shell,
+  .app-content-shell,
+  .login-container,
+  .profile,
+  .manager-page-surface,
+  .manager-dashboard-surface,
+  .reviewer-dashboard-surface
+) {
+  overflow: hidden;
+}
+
+:where(a, [role='button'], .page-link):hover {
   filter: brightness(1.02);
 }
 
-/* Cards and table rows feel more alive */
+:where(a, [role='button'], .page-link):active,
+.btn:active,
+button:active {
+  transform: none;
+}
+
 .card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(12, 23, 46, 0.12);
+  border-color: rgba(79, 70, 229, 0.2);
+  box-shadow: var(--nl-surface-shadow-hover);
 }
 
 .table-hover tbody tr {
   transition:
-    transform var(--nl-fast) var(--nl-ease-standard),
-    box-shadow var(--nl-normal) var(--nl-ease-standard),
-    background-color var(--nl-normal) var(--nl-ease-standard);
+    background-color var(--nl-fast) var(--nl-ease-standard),
+    border-color var(--nl-fast) var(--nl-ease-standard),
+    color var(--nl-fast) var(--nl-ease-standard);
 }
 
 .table-hover tbody tr:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 10px rgba(10, 20, 40, 0.08);
+  transform: none;
 }
 
-/* Inputs and selects */
 :where(.form-control, .form-select):focus,
 :where(.form-control, .form-select):focus-visible {
   box-shadow: var(--nl-focus-ring);
 }
 
-/* Modal motion consistency */
 .modal.show .modal-dialog,
 .modal.fade.show.d-block .modal-dialog,
 .nl-modal-dialog {
@@ -95,27 +238,28 @@ html {
   will-change: transform, opacity;
 }
 
-/* Sidebar active item smooth pulse */
 .sidebar-link-active {
   animation: nlSidebarActivate var(--nl-slow) var(--nl-ease-soft);
 }
 
 @keyframes nlSidebarActivate {
   from {
-    transform: scale(0.985);
+    opacity: 0.92;
   }
+
   to {
-    transform: scale(1);
+    opacity: 1;
   }
 }
 
-/* Respect accessibility preferences */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
 
-  * {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
