@@ -34,6 +34,9 @@ builder.Services.AddScoped<IExportService>(sp =>
     return new ExportService(unitOfWork, env.ContentRootPath);
 });
 
+// Add Background Service for Task Status Updates
+builder.Services.AddHostedService<TaskStatusUpdateService>();
+
 // Add Controllers with JSON options for enum serialization
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
