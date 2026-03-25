@@ -568,9 +568,26 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                 const isAtMaxCapacity = assignee && (activeItems >= MAX_ACTIVE_TASK_ITEMS);
                 
                 // Check if annotator has the highest workload (prevent assigning to busiest)
-                const allActiveItems = filteredAnnotators.map(a => a.activeTaskItemCount ?? 0);
-                const maxWorkload = Math.max(...allActiveItems);
-                const hasHighestWorkload = assignee && (activeItems >= maxWorkload) && maxWorkload > 0 && filteredAnnotators.length > 1;
+                // Use ALL annotators (not filtered) to ensure fair comparison
+                const allActiveItems = combinedAnnotators.map(a => a.activeTaskItemCount ?? 0);
+                const maxWorkload = allActiveItems.length > 0 ? Math.max(...allActiveItems) : 0;
+                const minWorkload = allActiveItems.length > 0 ? Math.min(...allActiveItems) : 0;
+                // Only disable if there are annotators with STRICTLY LOWER workload
+                const hasStrictlyLowerWorkloadAnnotators = minWorkload < maxWorkload;
+                const hasHighestWorkload = assignee && (activeItems >= maxWorkload) && maxWorkload > 0 && hasStrictlyLowerWorkloadAnnotators;
+                
+                console.log(`Annotator ${assignee?.name}:`, {
+                    activeItems,
+                    allActiveItems,
+                    minWorkload,
+                    maxWorkload,
+                    hasStrictlyLowerWorkloadAnnotators,
+                    check1: activeItems >= maxWorkload,
+                    check2: maxWorkload > 0,
+                    check3: hasStrictlyLowerWorkloadAnnotators,
+                    hasHighestWorkload,
+                    isAtMaxCapacity
+                });
                 
                 // Disable if at max capacity OR has highest workload
                 const isOverloaded = isAtMaxCapacity || hasHighestWorkload;
@@ -1078,10 +1095,23 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                                             (r.email && r.email.toLowerCase().includes(reviewerSearchTerm.toLowerCase()))
                                         );
                                         
-                                        // Calculate max workload for reviewers
-                                        // activeReviewCount already includes ALL tasks globally, so we don't need to add otherProjectAssignedTaskCount
-                                        const reviewerWorkloads = filteredReviewers.map(r => r.activeReviewCount ?? 0);
-                                        const maxReviewerWorkload = reviewerWorkloads.length > 0 ? Math.max(...reviewerWorkloads) : 0;
+                                        // Calculate max workload for ALL reviewers (not just filtered ones)
+                                        // This ensures fair comparison across all reviewers, not just the search results
+                                        const allReviewerWorkloads = reviewers.map(r => r.activeReviewCount ?? 0);
+                                        const maxReviewerWorkload = allReviewerWorkloads.length > 0 ? Math.max(...allReviewerWorkloads) : 0;
+                                        const minReviewerWorkload = allReviewerWorkloads.length > 0 ? Math.min(...allReviewerWorkloads) : 0;
+                                        // Desired behavior:
+                                        // - If ALL reviewers have the same workload → keep ALL enabled (allow assignment to any)
+                                        // - If SOME reviewers have STRICTLY LOWER workload → disable ONLY those with highest, keep others enabled
+                                        // - If multiple reviewers tied for highest but others have lower → disable the tied ones
+                                        const hasStrictlyLowerWorkloadReviewers = minReviewerWorkload < maxReviewerWorkload;
+                                        
+                                        console.log('=== ASSIGN MODAL DEBUG ===');
+                                        console.log('allReviewerWorkloads:', allReviewerWorkloads);
+                                        console.log('minReviewerWorkload:', minReviewerWorkload);
+                                        console.log('maxReviewerWorkload:', maxReviewerWorkload);
+                                        console.log('hasStrictlyLowerWorkloadReviewers:', hasStrictlyLowerWorkloadReviewers);
+
                                         
                                         // Paginate filtered reviewers
                                         const startIdx = (reviewerPage - 1) * REVIEWERS_PER_PAGE;
@@ -1096,8 +1126,22 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                                                     paginatedReviewers.map(reviewer => {
                                                         // activeReviewCount already includes ALL tasks globally
                                                         const totalWorkload = reviewer.activeReviewCount ?? 0;
-                                                        const hasHighestWorkload = totalWorkload >= maxReviewerWorkload && maxReviewerWorkload > 0 && filteredReviewers.length > 1;
+                                                        // Disable ONLY if:
+                                                        // 1. This reviewer has the highest workload (>= max)
+                                                        // 2. AND there are reviewers with STRICTLY LOWER workload
+                                                        const hasHighestWorkload = totalWorkload >= maxReviewerWorkload && maxReviewerWorkload > 0 && hasStrictlyLowerWorkloadReviewers;
                                                         const isDisabled = hasHighestWorkload;
+                                                        
+                                                        console.log(`Reviewer ${reviewer.name}:`, {
+                                                            totalWorkload,
+                                                            maxReviewerWorkload,
+                                                            hasStrictlyLowerWorkloadReviewers,
+                                                            check1: totalWorkload >= maxReviewerWorkload,
+                                                            check2: maxReviewerWorkload > 0,
+                                                            check3: hasStrictlyLowerWorkloadReviewers,
+                                                            hasHighestWorkload,
+                                                            isDisabled
+                                                        });
                                                         
                                                         return (
                                                             <div
@@ -1125,7 +1169,7 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                                                                     {hasHighestWorkload && <span className="badge bg-danger text-white ms-2" style={{ fontSize: '0.6rem' }}>Highest Workload</span>}
                                                                 </div>
                                                                 {reviewer.specializedIn && (
-                                                                    <div className="small text-muted">{reviewer.specializedIn}</div>
+                                                                    <div className="small text-muted">Specialized in: {reviewer.specializedIn}</div>
                                                                 )}
                                                                 <div className="small text-muted">{reviewer.email} • {totalWorkload} total tasks (globally)</div>
                                                             </div>
@@ -1216,9 +1260,12 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                                         setShowAssignModal(false);
                                         setSelectedDataItemIds([]);
                                         await showAlert('Assigned successfully', 'Success', 'success');
-                                        // refresh tasks list and annotators
-                                        fetchTasks(tasksPage.pageNumber, tasksPage.pageSize);
-                                        fetchAnnotators();
+                                        // Refresh tasks list, annotators, and reviewers
+                                        await Promise.all([
+                                            fetchTasks(tasksPage.pageNumber, tasksPage.pageSize),
+                                            fetchAnnotators(),
+                                            fetchReviewers()
+                                        ]);
                                     } catch (err) {
                                         console.error('Failed to assign items', err.message || err || err.response);
                                         setAssigning(false);
@@ -1261,11 +1308,19 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                                 // activeReviewCount already includes ALL tasks globally, so we don't need to add otherProjectAssignedTaskCount
                                 const reviewerWorkloads = reviewers.map(r => r.activeReviewCount ?? 0);
                                 const maxReviewerWorkload = reviewerWorkloads.length > 0 ? Math.max(...reviewerWorkloads) : 0;
-                                
+                                const minReviewerWorkload = reviewerWorkloads.length > 0 ? Math.min(...reviewerWorkloads) : 0;
+                                // Desired behavior:
+                                // - If ALL reviewers have the same workload → keep ALL enabled (allow assignment to any)
+                                // - If SOME reviewers have STRICTLY LOWER workload → disable ONLY those with highest, keep others enabled
+                                // - If multiple reviewers tied for highest but others have lower → disable the tied ones
+                                const hasStrictlyLowerWorkloadReviewers = minReviewerWorkload < maxReviewerWorkload;
                                 return reviewers.map(r => {
                                     // activeReviewCount already includes ALL tasks globally
                                     const totalWorkload = r.activeReviewCount ?? 0;
-                                    const hasHighestWorkload = totalWorkload >= maxReviewerWorkload && maxReviewerWorkload > 0 && reviewers.length > 1;
+                                    // Disable ONLY if:
+                                    // 1. This reviewer has the highest workload (>= max)
+                                    // 2. AND there are reviewers with STRICTLY LOWER workload
+                                    const hasHighestWorkload = totalWorkload >= maxReviewerWorkload && maxReviewerWorkload > 0 && hasStrictlyLowerWorkloadReviewers;
                                     const isDisabled = hasHighestWorkload;
                                     
                                     return (
