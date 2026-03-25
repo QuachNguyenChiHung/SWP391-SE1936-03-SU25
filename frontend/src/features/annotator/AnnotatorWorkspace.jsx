@@ -285,10 +285,13 @@ export const AnnotatorWorkspace = ({ user }) => {
             showToast(t.itemFlagged, 'success');
             setShowFlagModal(false);
 
-            // Update local state
+            // Update local state - set dataItemStatus to Reported
             setBatchItems(prev => prev.map(i =>
-                i.id === selectedItem.id ? { ...i, status: 'Flagged' } : i
+                i.id === selectedItem.id ? { ...i, dataItemStatus: 'Reported' } : i
             ));
+
+            // Update selected item immediately
+            setSelectedItem(prev => prev ? { ...prev, dataItemStatus: 'Reported' } : null);
 
             // Move to next item
             const currentIndex = batchItems.findIndex(item => item.id === selectedItem.id);
@@ -774,12 +777,6 @@ export const AnnotatorWorkspace = ({ user }) => {
             return;
         }
 
-        // Check if item is already completed
-        if (selectedItem?.status === 'Completed') {
-            showToast(t.cannotEditCompleted, 'warning');
-            return;
-        }
-
         if (!selectedItem?.dataItemId || !labelId) {
             showToast(t.selectLabelFirst, 'warning');
             return;
@@ -873,6 +870,12 @@ export const AnnotatorWorkspace = ({ user }) => {
     const handleAnnotationContextMenu = (e, annotationId) => {
         e.preventDefault();
         e.stopPropagation();
+        
+        // Don't show context menu if task is submitted
+        if (selectedBatch?.status === 'Submitted') {
+            return;
+        }
+        
         setContextMenu({
             show: true,
             x: e.clientX,
@@ -888,12 +891,6 @@ export const AnnotatorWorkspace = ({ user }) => {
         // Check if task is already submitted
         if (selectedBatch?.status === 'Submitted') {
             showToast(t.cannotDeleteSubmitted, 'warning');
-            return;
-        }
-
-        // Check if item is already completed
-        if (selectedItem?.status === 'Completed') {
-            showToast(t.cannotDeleteCompleted, 'warning');
             return;
         }
 
@@ -939,12 +936,6 @@ export const AnnotatorWorkspace = ({ user }) => {
             return;
         }
 
-        // Check if item is already completed
-        if (selectedItem?.status === 'Completed') {
-            showToast(t.cannotEditCompleted, 'warning');
-            return;
-        }
-
         if (!annotationId) {
             console.error('No annotation ID provided');
             return;
@@ -986,28 +977,39 @@ export const AnnotatorWorkspace = ({ user }) => {
 
         try {
             // Mark task item as completed
-            await api.post(`/task-items/${selectedItem.id}/complete`);
+            const response = await api.post(`/task-items/${selectedItem.id}/complete`);
 
-            // Update local state
+            // Update local state - Both TaskItem status and DataItem status become 'Completed'
             const updatedItems = batchItems.map(item =>
                 item.id === selectedItem.id
-                    ? { ...item, status: 'Completed' }
+                    ? { ...item, status: 'Completed', dataItemStatus: 'Completed' }
                     : item
             );
             setBatchItems(updatedItems);
 
-            // Update batch progress
-            const completedCount = updatedItems.filter(i => i.status === 'Completed').length;
-            setSelectedBatch(prev => ({
-                ...prev,
-                completedItems: completedCount,
-                progressPercent: (completedCount / prev.totalItems) * 100
-            }));
+            // Update batch progress from backend response (which counts only approved items)
+            if (response.data) {
+                setSelectedBatch(prev => ({
+                    ...prev,
+                    completedItems: response.data.taskCompletedItems || prev.completedItems,
+                    progressPercent: response.data.taskProgressPercent || prev.progressPercent
+                }));
+            }
 
             showToast(t.itemCompleted, 'success');
 
-            // Move to next item
-            handleNextItem();
+            // Check if all items are now completed
+            const allCompleted = updatedItems.every(item => item.status === 'Completed');
+            
+            if (allCompleted) {
+                // All items completed - show message and go back to item list (but don't auto-submit)
+                showToast('All items completed! You can now review and submit the task.', 'success');
+                setSelectedItem(null);
+                syncWorkspaceUrl({ taskId: selectedBatch?.id ?? null, itemId: null });
+            } else {
+                // Move to next item
+                handleNextItem();
+            }
         } catch (e) {
             console.error('Failed to complete item:', e);
             showToast(`${t.failedCompleteItem}: ${e?.response?.data?.message || e?.message}`, 'error');
@@ -1094,32 +1096,32 @@ export const AnnotatorWorkspace = ({ user }) => {
         try {
             await api.post(`/tasks/${taskId}/submit`);
 
-            // Determine approval summary for task items
-            const totalItems = batchItems.length;
-            const approvedCount = batchItems.filter(it => it.dataItemStatus === 'Approved').length;
-
-            // If all items are approved, mark task as Completed; otherwise mark as Submitted
-            const newStatus = (totalItems > 0 && approvedCount === totalItems) ? 'Completed' : 'Submitted';
             const nowIso = new Date().toISOString();
 
             // Update task status in local state
             setTaskBatches(prev => prev.map(t =>
                 t.id === taskId
-                    ? { ...t, status: newStatus, submittedAt: nowIso, completedAt: newStatus === 'Completed' ? nowIso : t.completedAt }
+                    ? { ...t, status: 'Submitted', submittedAt: nowIso }
                     : t
+            ));
+
+            // Update all batch items: Completed -> Submitted for both statuses
+            setBatchItems(prev => prev.map(item => 
+                item.status === 'Completed' || item.dataItemStatus === 'Completed'
+                    ? { ...item, status: 'Submitted', dataItemStatus: 'Submitted' }
+                    : item
             ));
 
             // If currently viewing this task, update it
             if (selectedBatch?.id === taskId) {
                 setSelectedBatch(prev => ({
                     ...prev,
-                    status: newStatus,
-                    submittedAt: nowIso,
-                    completedAt: newStatus === 'Completed' ? nowIso : prev.completedAt
+                    status: 'Submitted',
+                    submittedAt: nowIso
                 }));
             }
 
-            showToast(newStatus === 'Completed' ? t.taskCompletedApproved : t.taskSubmittedSuccess, 'success');
+            showToast(t.taskSubmittedSuccess, 'success');
         } catch (e) {
             console.error('Failed to submit task:', e);
             showToast('Failed to submit task: ' + (e?.response?.data?.message || e?.message), 'error');
@@ -1505,8 +1507,8 @@ export const AnnotatorWorkspace = ({ user }) => {
             return;
         }
 
-        // Prevent drawing if task is submitted or item is completed
-        if ((selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Completed') && (selectedTool === 'BOX' || selectedTool === 'POLYGON')) {
+        // Prevent drawing if task is submitted
+        if (selectedBatch?.status === 'Submitted' && (selectedTool === 'BOX' || selectedTool === 'POLYGON')) {
             return;
         }
 
@@ -1757,7 +1759,13 @@ export const AnnotatorWorkspace = ({ user }) => {
                                 {selectedItem?.fileName || `${t.itemFallback} ${selectedItem?.id}`}
                             </h3>
                             {selectedItem?.dataItemStatus && (
-                                <span className={`badge ${selectedItem.dataItemStatus === 'Approved' ? 'bg-success' : selectedItem.dataItemStatus === 'Rejected' ? 'bg-danger' : 'bg-secondary'}`} style={{ fontSize: '0.625rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                <span className={`badge ${
+                                    selectedItem.dataItemStatus === 'Approved' ? 'bg-success' : 
+                                    selectedItem.dataItemStatus === 'Rejected' ? 'bg-danger' : 
+                                    selectedItem.dataItemStatus === 'Submitted' ? 'bg-info' : 
+                                    selectedItem.dataItemStatus === 'Completed' ? 'bg-primary' : 
+                                    'bg-secondary'
+                                }`} style={{ fontSize: '0.625rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
                                     {selectedItem.dataItemStatus}
                                 </span>
                             )}
@@ -2200,8 +2208,9 @@ export const AnnotatorWorkspace = ({ user }) => {
 
                     {/* Action Bar (Below Canvas) */}
                     <div className="annotator-action-bar p-4 bg-white border-top border-slate-200">
-                        {/* Warning when item is flagged */}
-                        {selectedItem?.status === 'Flagged' && (
+                        {/* Warning when item is flagged (but not resolved) */}
+                        {(selectedItem?.dataItemStatus === 'Reported' || selectedItem?.dataItemStatus === 8 || selectedItem?.dataItemStatus === '8') && 
+                         selectedItem?.dataItemStatus !== 9 && selectedItem?.dataItemStatus !== '9' && selectedItem?.dataItemStatus !== 'Resolved' && (
                             <div className="alert alert-warning mb-3 d-flex align-items-center gap-2">
                                 <AlertTriangle size={20} />
                                 <div className="flex-grow-1">
@@ -2235,7 +2244,8 @@ export const AnnotatorWorkspace = ({ user }) => {
                             </button>
 
                             {/* Flag Item Button */}
-                            {selectedItem?.status === 'Flagged' ? (
+                            {(selectedItem?.dataItemStatus === 'Reported' || selectedItem?.dataItemStatus === 8 || selectedItem?.dataItemStatus === '8') && 
+                             selectedItem?.dataItemStatus !== 9 && selectedItem?.dataItemStatus !== '9' && selectedItem?.dataItemStatus !== 'Resolved' ? (
                                 <div className="alert alert-info mb-0 py-2 px-3 d-flex align-items-center gap-2" style={{ fontSize: '0.875rem' }}>
                                     <AlertTriangle size={18} />
                                     <span>{t.alreadyFlagged || 'This item has already been flagged and is awaiting manager review'}</span>
@@ -2254,22 +2264,25 @@ export const AnnotatorWorkspace = ({ user }) => {
                             )}
 
                             <button
-                                onClick={selectedItem?.status === 'Completed' ? handleNextItem : handleAcceptAndNext}
-                                disabled={selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Flagged'}
-                                className={`annotator-btn-primary btn flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm ${selectedItem?.status === 'Completed' ? 'btn-secondary' : 'btn-success'}`}
+                                onClick={handleAcceptAndNext}
+                                disabled={selectedBatch?.status === 'Submitted' || ((selectedItem?.dataItemStatus === 'Reported' || selectedItem?.dataItemStatus === 8 || selectedItem?.dataItemStatus === '8') && selectedItem?.dataItemStatus !== 9 && selectedItem?.dataItemStatus !== '9' && selectedItem?.dataItemStatus !== 'Resolved')}
+                                className={`annotator-btn-primary btn flex-fill h-100 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm ${
+                                    selectedBatch?.status === 'Submitted' ? 'btn-secondary' : 
+                                    'btn-success'
+                                }`}
                                 style={{ 
                                     fontSize: '0.875rem', 
-                                    opacity: (selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Flagged') ? 0.5 : 1, 
-                                    cursor: (selectedBatch?.status === 'Submitted' || selectedItem?.status === 'Flagged') ? 'not-allowed' : 'pointer' 
+                                    opacity: (selectedBatch?.status === 'Submitted' || ((selectedItem?.dataItemStatus === 'Reported' || selectedItem?.dataItemStatus === 8 || selectedItem?.dataItemStatus === '8') && selectedItem?.dataItemStatus !== 9 && selectedItem?.dataItemStatus !== '9' && selectedItem?.dataItemStatus !== 'Resolved')) ? 0.5 : 1, 
+                                    cursor: (selectedBatch?.status === 'Submitted' || ((selectedItem?.dataItemStatus === 'Reported' || selectedItem?.dataItemStatus === 8 || selectedItem?.dataItemStatus === '8') && selectedItem?.dataItemStatus !== 9 && selectedItem?.dataItemStatus !== '9' && selectedItem?.dataItemStatus !== 'Resolved')) ? 'not-allowed' : 'pointer',
+                                    backgroundColor: selectedBatch?.status === 'Submitted' ? '#6c757d' : undefined
                                 }}
                                 title={
-                                    selectedItem?.status === 'Flagged' ? 'This item is flagged and cannot be completed' :
-                                    selectedBatch?.status === 'Submitted' ? t.readOnlyTitle : 
-                                    selectedItem?.status === 'Completed' ? t.moveToNext : ''
+                                    selectedBatch?.status === 'Submitted' ? t.readOnlyTitle :
+                                    ((selectedItem?.dataItemStatus === 'Reported' || selectedItem?.dataItemStatus === 8 || selectedItem?.dataItemStatus === '8') && selectedItem?.dataItemStatus !== 9 && selectedItem?.dataItemStatus !== '9' && selectedItem?.dataItemStatus !== 'Resolved') ? 'This item is flagged and cannot be completed' : t.acceptAndNext
                                 }
                             >
                                 <Check size={18} />
-                                {selectedItem?.status === 'Completed' ? t.next : t.acceptAndNext}
+                                {selectedBatch?.status === 'Submitted' ? 'Submitted' : t.acceptAndNext}
                             </button>
                         </div>
                     </div>

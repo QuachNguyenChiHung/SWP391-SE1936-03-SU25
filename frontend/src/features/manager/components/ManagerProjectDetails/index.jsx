@@ -31,6 +31,8 @@ export default function ManagerProjectDetails(props) {
         onRefreshDataItems,
         searchTerm: dataSearchTerm,
         setSearchTerm: setDataSearchTerm,
+        statusFilter,
+        setStatusFilter,
 
         // Import modal props
         isImportModalOpen,
@@ -119,6 +121,15 @@ export default function ManagerProjectDetails(props) {
             [DataItemStatus.ACCEPTED]: 'bg-success-subtle text-success-emphasis border-success-subtle',
             [DataItemStatus.REJECTED]: 'bg-danger-subtle text-danger-emphasis border-danger-subtle',
             [DataItemStatus.NOT_ASSIGNED]: 'bg-light text-muted -subtle',
+            // Task statuses
+            'Assigned': 'bg-secondary-subtle text-secondary-emphasis border-secondary-subtle',
+            'InProgress': 'bg-info-subtle text-info-emphasis border-info-subtle',
+            'Submitted': 'bg-primary-subtle text-primary-emphasis border-primary-subtle',
+            'Completed': 'bg-success-subtle text-success-emphasis border-success-subtle',
+            'Approved': 'bg-success-subtle text-success-emphasis border-success-subtle',
+            'Rejected': 'bg-danger-subtle text-danger-emphasis border-danger-subtle',
+            'Overdue': 'bg-danger-subtle text-danger-emphasis border-danger-subtle',
+            'Flagged': 'bg-warning-subtle text-warning-emphasis border-warning-subtle',
         };
         return (
             <span className={`px-2 py-1 rounded-pill text-uppercase fw-bold border ${styles[status] || 'bg-light text-muted'}`} style={{ fontSize: '0.7rem' }}>
@@ -148,13 +159,25 @@ export default function ManagerProjectDetails(props) {
                     <OverviewPanel project={project} openImportModal={openImportModal} openGuidelines={openGuidelines} openEditProject={openEditProject} onDeleteProject={() => setShowDeleteModal(true)} />
                 )}
                 {activeTab === 'Data Items' && (
-                    <DataItemsPanel dataSet={dataSet} dataLoading={dataLoading} dataPage={dataPage} setDataPage={setDataPage} onDeleteItem={handleDeleteDataItem} onRefresh={onRefreshDataItems} />
+                    <DataItemsPanel 
+                        dataSet={dataSet} 
+                        dataLoading={dataLoading} 
+                        dataPage={dataPage} 
+                        setDataPage={setDataPage} 
+                        onDeleteItem={handleDeleteDataItem} 
+                        onRefresh={onRefreshDataItems} 
+                        searchTerm={dataSearchTerm}
+                        setSearchTerm={setDataSearchTerm}
+                        statusFilter={statusFilter}
+                        setStatusFilter={setStatusFilter}
+                    />
                 )}
                 {activeTab === 'Labels' && (
                     <LabelsPanel listLabels={listLabels} openAddLabel={openAddLabel} openEditLabelModal={openEditLabelModal} openDeleteLabelModal={openDeleteLabelModal} />
                 )}
                 {activeTab === 'Tasks' && (
                     <TasksPanel
+                        project={project}
                         tasksByAssignee={tasksByAssignee}
                         expandedTaskGroups={expandedTaskGroups}
                         toggleGroup={toggleGroup}

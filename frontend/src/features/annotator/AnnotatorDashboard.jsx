@@ -253,6 +253,7 @@ export const AnnotatorDashboard = ({ user }) => {
         if (normalized.includes('complete')) return 'bg-success-subtle text-success';
         if (normalized.includes('progress')) return 'bg-primary-subtle text-primary';
         if (normalized.includes('review')) return 'bg-warning-subtle text-warning-emphasis';
+        if (normalized.includes('overdue')) return 'bg-danger-subtle text-danger';
         return 'bg-secondary-subtle text-secondary';
     };
 
