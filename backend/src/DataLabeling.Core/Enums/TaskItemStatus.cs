@@ -14,9 +14,15 @@ public enum TaskItemStatus
     /// <summary>Completed - annotator finished labeling this item</summary>
     Completed = 3,
 
+    /// <summary>Submitted - item submitted for review (part of task submission)</summary>
+    Submitted = 4,
+
+    /// <summary>Approved - reviewer approved this item</summary>
+    Approved = 5,
+
     /// <summary>Rejected - item rejected by reviewer and needs rework</summary>
-    Rejected = 4,
+    Rejected = 6,
 
     /// <summary>Flagged - item flagged by annotator as having no suitable label or other issues</summary>
-    Flagged = 5
+    Flagged = 7
 }

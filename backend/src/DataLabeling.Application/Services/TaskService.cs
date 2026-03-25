@@ -37,6 +37,28 @@ public class TaskService : ITaskService
         if (project == null)
             throw new NotFoundException("Project", request.ProjectId);
 
+        // Validate task deadline does not exceed project deadline
+        if (project.Deadline.HasValue)
+        {
+            // Compare dates only - Project uses DateOnly, Task uses DateTime
+            var taskDeadlineDate = DateOnly.FromDateTime(request.Deadline);
+            var projectDeadlineDate = project.Deadline.Value;
+            
+            if (taskDeadlineDate > projectDeadlineDate)
+            {
+                throw new ValidationException($"Task deadline ({taskDeadlineDate:yyyy-MM-dd}) cannot exceed project deadline ({projectDeadlineDate:yyyy-MM-dd})");
+            }
+        }
+        
+        // Validate deadline is not in the past
+        var deadlineDate = DateOnly.FromDateTime(request.Deadline);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        
+        if (deadlineDate < today)
+        {
+            throw new ValidationException($"Task deadline cannot be in the past. Please select today or a future date.");
+        }
+
         // Validate annotator exists and has correct role
         var annotator = await _unitOfWork.Users.GetByIdAsync(request.AnnotatorId, cancellationToken);
         if (annotator == null)
@@ -48,11 +70,125 @@ public class TaskService : ITaskService
         if (annotator.Status != UserStatus.Active)
             throw new ValidationException("Selected annotator is not active");
 
+        // Validate reviewer exists and has correct role
+        var reviewer = await _unitOfWork.Users.GetByIdAsync(request.ReviewerId, cancellationToken);
+        if (reviewer == null)
+            throw new NotFoundException("Reviewer", request.ReviewerId);
+
+        if (reviewer.Role != UserRole.Reviewer)
+            throw new ValidationException("Selected user is not a reviewer");
+
+        if (reviewer.Status != UserStatus.Active)
+            throw new ValidationException("Selected reviewer is not active");
+
+        // Prevent assigning to the reviewer with highest workload (if multiple reviewers exist)
+        var allReviewers = await _unitOfWork.Users.GetByRoleAsync(UserRole.Reviewer, cancellationToken);
+        var activeReviewers = allReviewers.Where(r => r.Status == UserStatus.Active).ToList();
+        
+        if (activeReviewers.Count > 1)
+        {
+            // Calculate workload for all reviewers (count assigned active tasks)
+            var reviewerWorkloads = new Dictionary<int, int>();
+            
+            foreach (var rev in activeReviewers)
+            {
+                // Count tasks assigned to this reviewer that are not completed
+                var assignedTasksCount = await _unitOfWork.AnnotationTasks.CountByReviewerExcludingProjectAsync(rev.Id, null, cancellationToken);
+                reviewerWorkloads[rev.Id] = assignedTasksCount;
+            }
+            
+            // Find the maximum workload
+            var maxReviewerWorkload = reviewerWorkloads.Values.Max();
+            
+            // Check if the selected reviewer has the highest workload
+            if (reviewerWorkloads[request.ReviewerId] >= maxReviewerWorkload && maxReviewerWorkload > 0)
+            {
+                // Find reviewers with less workload
+                var lessLoadedReviewers = reviewerWorkloads
+                    .Where(kvp => kvp.Value < maxReviewerWorkload)
+                    .Select(kvp => activeReviewers.First(r => r.Id == kvp.Key).Name)
+                    .ToList();
+                
+                if (lessLoadedReviewers.Any())
+                {
+                    throw new ValidationException($"Cannot assign to reviewer {reviewer.Name}. They have the highest total workload ({maxReviewerWorkload} total tasks globally). Please assign to reviewers with fewer tasks: {string.Join(", ", lessLoadedReviewers)}");
+                }
+            }
+        }
+
+        // Validate annotator workload limit (maximum 100 active task items)
+        const int MAX_ACTIVE_TASK_ITEMS = 100;
+        var annotatorTasks = await _unitOfWork.AnnotationTasks.GetByAnnotatorIdAsync(request.AnnotatorId, cancellationToken);
+        
+        // Count total active task items (not completed)
+        var activeTaskItemCount = 0;
+        foreach (var existingTask in annotatorTasks.Where(t => t.Status != AnnotationTaskStatus.Completed))
+        {
+            var taskWithItems = await _unitOfWork.AnnotationTasks.GetWithTaskItemsAsync(existingTask.Id, cancellationToken);
+            if (taskWithItems != null)
+            {
+                activeTaskItemCount += taskWithItems.TaskItems.Count(ti => ti.Status != TaskItemStatus.Completed);
+            }
+        }
+        
+        // Check if adding new items would exceed limit
+        var newItemCount = request.DataItemIds?.Length ?? 0;
+        if (activeTaskItemCount + newItemCount > MAX_ACTIVE_TASK_ITEMS)
+        {
+            throw new ValidationException($"Cannot assign {newItemCount} items to {annotator.Name}. They have {activeTaskItemCount} active items and the maximum limit is {MAX_ACTIVE_TASK_ITEMS}.");
+        }
+        
+        // Prevent assigning to the annotator with highest workload (if multiple annotators exist)
+        var allAnnotators = await _unitOfWork.Users.GetByRoleAsync(UserRole.Annotator, cancellationToken);
+        var activeAnnotators = allAnnotators.Where(a => a.Status == UserStatus.Active).ToList();
+        
+        if (activeAnnotators.Count > 1)
+        {
+            // Calculate workload for all annotators
+            var annotatorWorkloads = new Dictionary<int, int>();
+            
+            foreach (var ann in activeAnnotators)
+            {
+                var tasks = await _unitOfWork.AnnotationTasks.GetByAnnotatorIdAsync(ann.Id, cancellationToken);
+                var itemCount = 0;
+                
+                foreach (var annotatorTask in tasks.Where(t => t.Status != AnnotationTaskStatus.Completed))
+                {
+                    var taskWithItems = await _unitOfWork.AnnotationTasks.GetWithTaskItemsAsync(annotatorTask.Id, cancellationToken);
+                    if (taskWithItems != null)
+                    {
+                        itemCount += taskWithItems.TaskItems.Count(ti => ti.Status != TaskItemStatus.Completed);
+                    }
+                }
+                
+                annotatorWorkloads[ann.Id] = itemCount;
+            }
+            
+            // Find the maximum workload
+            var maxWorkload = annotatorWorkloads.Values.Max();
+            
+            // Check if the selected annotator has the highest workload
+            if (annotatorWorkloads[request.AnnotatorId] >= maxWorkload && maxWorkload > 0)
+            {
+                // Find annotators with less workload
+                var lessLoadedAnnotators = annotatorWorkloads
+                    .Where(kvp => kvp.Value < maxWorkload)
+                    .Select(kvp => activeAnnotators.First(a => a.Id == kvp.Key).Name)
+                    .ToList();
+                
+                if (lessLoadedAnnotators.Any())
+                {
+                    throw new ValidationException($"Cannot assign to {annotator.Name}. They have the highest workload ({maxWorkload} items). Please assign to annotators with fewer items: {string.Join(", ", lessLoadedAnnotators)}");
+                }
+            }
+        }
+
         // Create the task
         var task = new AnnotationTask
         {
             ProjectId = request.ProjectId,
             AnnotatorId = request.AnnotatorId,
+            ReviewerId = request.ReviewerId,
             AssignedById = assignedById,
             Deadline = request.Deadline,
             Priority = request.Priority,
@@ -134,11 +270,11 @@ public class TaskService : ITaskService
             SkippedItems = new List<SkippedItemDto>()
         };
 
-        var task = await _unitOfWork.AnnotationTasks.GetByIdAsync(taskId, cancellationToken);
-        if (task == null) return result;
+        var annotationTask = await _unitOfWork.AnnotationTasks.GetByIdAsync(taskId, cancellationToken);
+        if (annotationTask == null) return result;
 
         // Get dataset for this project
-        var dataset = await _unitOfWork.Datasets.GetByProjectIdAsync(task.ProjectId, cancellationToken);
+        var dataset = await _unitOfWork.Datasets.GetByProjectIdAsync(annotationTask.ProjectId, cancellationToken);
         if (dataset == null)
         {
             result.SkippedItems.Add(new SkippedItemDto
@@ -463,19 +599,30 @@ public class TaskService : ITaskService
             // Count active tasks (not completed)
             var tasks = await _unitOfWork.AnnotationTasks.GetByAnnotatorIdAsync(annotator.Id, cancellationToken);
             var activeTaskCount = tasks.Count(t => t.Status != AnnotationTaskStatus.Completed);
+            
+            // Count active task items (not completed)
+            var activeTaskItemCount = 0;
+            foreach (var task in tasks.Where(t => t.Status != AnnotationTaskStatus.Completed))
+            {
+                var taskWithItems = await _unitOfWork.AnnotationTasks.GetWithTaskItemsAsync(task.Id, cancellationToken);
+                if (taskWithItems != null)
+                {
+                    activeTaskItemCount += taskWithItems.TaskItems.Count(ti => ti.Status != TaskItemStatus.Completed);
+                }
+            }
 
             result.Add(new AnnotatorDto
             {
                 Id = annotator.Id,
                 Name = annotator.Name,
                 Email = annotator.Email,
-                ActiveTaskCount = activeTaskCount
-                ,
+                ActiveTaskCount = activeTaskCount,
+                ActiveTaskItemCount = activeTaskItemCount,
                 SpecializedIn = annotator.SpecializeIn
             });
         }
 
-        return result.OrderBy(a => a.ActiveTaskCount).ThenBy(a => a.Name);
+        return result.OrderBy(a => a.ActiveTaskItemCount).ThenBy(a => a.Name);
     }
 
     public async Task<IEnumerable<ReviewerDto>> GetAvailableReviewersAsync(int? projectId = null, CancellationToken cancellationToken = default)
@@ -494,9 +641,16 @@ public class TaskService : ITaskService
 
         foreach (var reviewer in reviewerList)
         {
-            // Count active review items (locked and not expired)
-            var activeReviewCount = reviewer.ReviewLockedDataItems?
-                .Count(d => d.ReviewLockExpiry != null && d.ReviewLockExpiry > DateTime.UtcNow) ?? 0;
+            // Count assigned tasks (not completed) for workload distribution
+            int activeReviewCount = 0;
+            try
+            {
+                activeReviewCount = await _unitOfWork.AnnotationTasks.CountByReviewerExcludingProjectAsync(reviewer.Id, null, cancellationToken);
+            }
+            catch
+            {
+                // ignore and leave count as 0
+            }
 
             // Count assigned tasks in other projects if projectId provided
             int otherProjectAssignedCount = 0;
@@ -515,8 +669,7 @@ public class TaskService : ITaskService
                 Name = reviewer.Name,
                 Email = reviewer.Email,
                 ActiveReviewCount = activeReviewCount,
-                OtherProjectAssignedTaskCount = otherProjectAssignedCount
-                ,
+                OtherProjectAssignedTaskCount = otherProjectAssignedCount,
                 SpecializedIn = reviewer.SpecializeIn
             });
         }
