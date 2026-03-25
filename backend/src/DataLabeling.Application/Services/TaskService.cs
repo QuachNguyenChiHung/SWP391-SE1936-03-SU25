@@ -97,11 +97,16 @@ public class TaskService : ITaskService
                 reviewerWorkloads[rev.Id] = assignedTasksCount;
             }
             
-            // Find the maximum workload
+            // Find the maximum and minimum workload
             var maxReviewerWorkload = reviewerWorkloads.Values.Max();
+            var minReviewerWorkload = reviewerWorkloads.Values.Min();
             
-            // Check if the selected reviewer has the highest workload
-            if (reviewerWorkloads[request.ReviewerId] >= maxReviewerWorkload && maxReviewerWorkload > 0)
+            // Only prevent assignment if:
+            // 1. Selected reviewer has the highest workload
+            // 2. AND there are reviewers with STRICTLY LOWER workload (not all reviewers have the same workload)
+            var hasStrictlyLowerWorkloadReviewers = minReviewerWorkload < maxReviewerWorkload;
+            
+            if (hasStrictlyLowerWorkloadReviewers && reviewerWorkloads[request.ReviewerId] >= maxReviewerWorkload && maxReviewerWorkload > 0)
             {
                 // Find reviewers with less workload
                 var lessLoadedReviewers = reviewerWorkloads
@@ -109,10 +114,7 @@ public class TaskService : ITaskService
                     .Select(kvp => activeReviewers.First(r => r.Id == kvp.Key).Name)
                     .ToList();
                 
-                if (lessLoadedReviewers.Any())
-                {
-                    throw new ValidationException($"Cannot assign to reviewer {reviewer.Name}. They have the highest total workload ({maxReviewerWorkload} total tasks globally). Please assign to reviewers with fewer tasks: {string.Join(", ", lessLoadedReviewers)}");
-                }
+                throw new ValidationException($"Cannot assign to reviewer {reviewer.Name}. They have the highest total workload ({maxReviewerWorkload} total tasks globally). Please assign to reviewers with fewer tasks: {string.Join(", ", lessLoadedReviewers)}");
             }
         }
 
@@ -164,11 +166,16 @@ public class TaskService : ITaskService
                 annotatorWorkloads[ann.Id] = itemCount;
             }
             
-            // Find the maximum workload
+            // Find the maximum and minimum workload
             var maxWorkload = annotatorWorkloads.Values.Max();
+            var minWorkload = annotatorWorkloads.Values.Min();
             
-            // Check if the selected annotator has the highest workload
-            if (annotatorWorkloads[request.AnnotatorId] >= maxWorkload && maxWorkload > 0)
+            // Only prevent assignment if:
+            // 1. Selected annotator has the highest workload
+            // 2. AND there are annotators with STRICTLY LOWER workload (not all annotators have the same workload)
+            var hasStrictlyLowerWorkloadAnnotators = minWorkload < maxWorkload;
+            
+            if (hasStrictlyLowerWorkloadAnnotators && annotatorWorkloads[request.AnnotatorId] >= maxWorkload && maxWorkload > 0)
             {
                 // Find annotators with less workload
                 var lessLoadedAnnotators = annotatorWorkloads
@@ -176,10 +183,7 @@ public class TaskService : ITaskService
                     .Select(kvp => activeAnnotators.First(a => a.Id == kvp.Key).Name)
                     .ToList();
                 
-                if (lessLoadedAnnotators.Any())
-                {
-                    throw new ValidationException($"Cannot assign to {annotator.Name}. They have the highest workload ({maxWorkload} items). Please assign to annotators with fewer items: {string.Join(", ", lessLoadedAnnotators)}");
-                }
+                throw new ValidationException($"Cannot assign to {annotator.Name}. They have the highest workload ({maxWorkload} items). Please assign to annotators with fewer items: {string.Join(", ", lessLoadedAnnotators)}");
             }
         }
 
@@ -690,6 +694,43 @@ public class TaskService : ITaskService
             throw new ValidationException("Selected user is not a reviewer");
         if (reviewer.Status != UserStatus.Active)
             throw new ValidationException("Selected reviewer is not active");
+
+        // Prevent assigning to the reviewer with highest workload (if multiple reviewers exist)
+        var allReviewers = await _unitOfWork.Users.GetByRoleAsync(UserRole.Reviewer, cancellationToken);
+        var activeReviewers = allReviewers.Where(r => r.Status == UserStatus.Active).ToList();
+        
+        if (activeReviewers.Count > 1)
+        {
+            // Calculate workload for all reviewers (count assigned active tasks)
+            var reviewerWorkloads = new Dictionary<int, int>();
+            
+            foreach (var rev in activeReviewers)
+            {
+                // Count tasks assigned to this reviewer that are not completed
+                var assignedTasksCount = await _unitOfWork.AnnotationTasks.CountByReviewerExcludingProjectAsync(rev.Id, null, cancellationToken);
+                reviewerWorkloads[rev.Id] = assignedTasksCount;
+            }
+            
+            // Find the maximum and minimum workload
+            var maxReviewerWorkload = reviewerWorkloads.Values.Max();
+            var minReviewerWorkload = reviewerWorkloads.Values.Min();
+            
+            // Only prevent assignment if:
+            // 1. Selected reviewer has the highest workload
+            // 2. AND there are reviewers with STRICTLY LOWER workload (not all reviewers have the same workload)
+            var hasStrictlyLowerWorkloadReviewers = minReviewerWorkload < maxReviewerWorkload;
+            
+            if (hasStrictlyLowerWorkloadReviewers && reviewerWorkloads[reviewerId] >= maxReviewerWorkload && maxReviewerWorkload > 0)
+            {
+                // Find reviewers with less workload
+                var lessLoadedReviewers = reviewerWorkloads
+                    .Where(kvp => kvp.Value < maxReviewerWorkload)
+                    .Select(kvp => activeReviewers.First(r => r.Id == kvp.Key).Name)
+                    .ToList();
+                
+                throw new ValidationException($"Cannot assign to reviewer {reviewer.Name}. They have the highest total workload ({maxReviewerWorkload} total tasks globally). Please assign to reviewers with fewer tasks: {string.Join(", ", lessLoadedReviewers)}");
+            }
+        }
 
         task.ReviewerId = reviewerId;
         task.UpdatedAt = DateTime.UtcNow;
