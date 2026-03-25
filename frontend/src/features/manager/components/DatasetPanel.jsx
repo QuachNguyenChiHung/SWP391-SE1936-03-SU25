@@ -20,12 +20,13 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
         { value: '1', label: 'Pending' },
         { value: '2', label: 'Assigned' },
         { value: '3', label: 'In Progress' },
-        { value: '4', label: 'Submitted' },
-        { value: '5', label: 'Approved' },
-        { value: '6', label: 'Rejected' },
-        { value: '7', label: 'In Review' },
-        { value: '8', label: 'Reported' },
-        { value: '9', label: 'Resolved' }
+        { value: '4', label: 'Completed' },
+        { value: '5', label: 'Submitted' },
+        { value: '6', label: 'Approved' },
+        { value: '7', label: 'Rejected' },
+        { value: '8', label: 'In Review' },
+        { value: '9', label: 'Reported' },
+        { value: '10', label: 'Resolved' }
     ];
 
     const getStatusClass = (status) => {
@@ -34,12 +35,13 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
             case 1: return 'bg-secondary text-white';      // Pending
             case 2: return 'bg-primary text-white';        // Assigned
             case 3: return 'bg-info text-white';           // InProgress
-            case 4: return 'bg-warning text-dark';         // Submitted
-            case 5: return 'bg-success text-white';        // Approved
-            case 6: return 'bg-danger text-white';         // Rejected
-            case 7: return 'bg-dark text-white';           // InReview
-            case 8: return 'bg-warning text-dark';         // Reported
-            case 9: return 'bg-success text-white';        // Resolved
+            case 4: return 'bg-warning text-dark';         // Completed
+            case 5: return 'bg-warning text-dark';         // Submitted
+            case 6: return 'bg-success text-white';        // Approved
+            case 7: return 'bg-danger text-white';         // Rejected
+            case 8: return 'bg-dark text-white';           // InReview
+            case 9: return 'bg-warning text-dark';         // Reported
+            case 10: return 'bg-success text-white';       // Resolved
             default: return 'bg-light text-muted';
         }
     };
@@ -50,12 +52,13 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
             1: 'Pending',
             2: 'Assigned',
             3: 'In Progress',
-            4: 'Submitted',
-            5: 'Approved',
-            6: 'Rejected',
-            7: 'In Review',
-            8: 'Reported',
-            9: 'Resolved'
+            4: 'Completed',
+            5: 'Submitted',
+            6: 'Approved',
+            7: 'Rejected',
+            8: 'In Review',
+            9: 'Reported',
+            10: 'Resolved'
         };
         return labels[statusNum] || status;
     };
@@ -69,7 +72,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
         setShowAllComments(false);
 
         // Fetch comments if item is flagged
-        if (item.status === 8 || item.status === '8' || item.status === 'Reported') {
+        if (item.status === 9 || item.status === '9' || item.status === 'Reported') {
             try {
                 const response = await api.get(`/data-items/${item.id}/comments`);
                 const commentsData = response.data?.data || [];
@@ -151,7 +154,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
             setUpdateStatus('');
 
             // Show success message based on what was updated
-            if (statusToUse === '9') {
+            if (statusToUse === '10') {
                 await showAlert('Item successfully marked as resolved!', 'Success', 'success');
             } else if (imageUpdated && statusUpdated) {
                 await showAlert('Image and status updated successfully!', 'Success', 'success');
@@ -281,8 +284,8 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                             size="sm"
                                             className="mx-2 text-decoration-none"
                                             onClick={() => openUpdateModal(item)}
-                                            disabled={item.status === 5 || item.status === '5' || item.status === 'Approved'}
-                                            title={item.status === 5 || item.status === '5' || item.status === 'Approved' ? 'Cannot edit approved items' : 'Update item'}
+                                            disabled={item.status === 6 || item.status === '6' || item.status === 'Approved'}
+                                            title={item.status === 6 || item.status === '6' || item.status === 'Approved' ? 'Cannot edit approved items' : 'Update item'}
                                         >
                                             Update
                                         </Button>
@@ -340,7 +343,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                         </span>
                                     </div>
 
-                                    {(updateItem.status === 8 || updateItem.status === '8' || updateItem.status === 'Reported') && (
+                                    {(updateItem.status === 9 || updateItem.status === '9' || updateItem.status === 'Reported') && (
                                         <div className="alert alert-warning mb-3">
                                             <div className="d-flex align-items-start gap-2 mb-2">
                                                 <AlertTriangle size={20} className="text-warning flex-shrink-0 mt-1" />
@@ -431,11 +434,11 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                     >
                                         Cancel
                                     </button>
-                                    {(updateItem.status === 8 || updateItem.status === '8' || updateItem.status === 'Reported') ? (
+                                    {(updateItem.status === 9 || updateItem.status === '9' || updateItem.status === 'Reported') ? (
                                         <button
                                             type="button"
                                             className="btn btn-success"
-                                            onClick={() => handleUpdateItem('9')}
+                                            onClick={() => handleUpdateItem('10')}
                                             disabled={isUpdating}
                                         >
                                             {isUpdating ? (

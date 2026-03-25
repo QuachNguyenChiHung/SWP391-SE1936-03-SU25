@@ -304,7 +304,8 @@ export const AnnotatorWorkspace = ({ user }) => {
             }
         } catch (e) {
             console.error('Failed to flag item:', e);
-            showToast(t.failedFlagItem, 'error');
+            const errorMessage = e?.response?.data?.message || t.failedFlagItem;
+            showToast(errorMessage, 'error');
         }
     };
 
@@ -888,9 +889,13 @@ export const AnnotatorWorkspace = ({ user }) => {
     const handleDeleteAnnotation = async (annotationId) => {
         console.log('Attempting to delete annotation with ID:', annotationId);
 
-        // Check if task is already submitted
-        if (selectedBatch?.status === 'Submitted') {
-            showToast(t.cannotDeleteSubmitted, 'warning');
+        // Check if task is submitted or item is completed
+        if (selectedBatch?.status === 'Submitted' || 
+            selectedBatch?.status === 'Completed' ||
+            selectedItem?.status === 'Completed' ||
+            selectedItem?.dataItemStatus === 'Completed' ||
+            selectedItem?.dataItemStatus === 'Submitted') {
+            showToast('Cannot delete annotation: Item is completed or submitted', 'warning');
             return;
         }
 
@@ -1451,6 +1456,15 @@ export const AnnotatorWorkspace = ({ user }) => {
     // --- Event Starters ---
 
     const handleAnnotationMouseDown = (e, ann) => {
+        // Prevent dragging if task is submitted or item is completed
+        if (selectedBatch?.status === 'Submitted' || 
+            selectedBatch?.status === 'Completed' ||
+            selectedItem?.status === 'Completed' ||
+            selectedItem?.dataItemStatus === 'Completed' ||
+            selectedItem?.dataItemStatus === 'Submitted') {
+            return;
+        }
+
         // Ignore right-click
         if (e.button === 2) {
             return;
@@ -1507,8 +1521,13 @@ export const AnnotatorWorkspace = ({ user }) => {
             return;
         }
 
-        // Prevent drawing if task is submitted
-        if (selectedBatch?.status === 'Submitted' && (selectedTool === 'BOX' || selectedTool === 'POLYGON')) {
+        // Prevent drawing if task is submitted or item is completed
+        if ((selectedBatch?.status === 'Submitted' || 
+             selectedBatch?.status === 'Completed' ||
+             selectedItem?.status === 'Completed' ||
+             selectedItem?.dataItemStatus === 'Completed' ||
+             selectedItem?.dataItemStatus === 'Submitted') && 
+            (selectedTool === 'BOX' || selectedTool === 'POLYGON')) {
             return;
         }
 
@@ -2253,10 +2272,19 @@ export const AnnotatorWorkspace = ({ user }) => {
                             ) : (
                                 <button
                                     onClick={() => setShowFlagModal(true)}
-                                    disabled={selectedBatch?.status === 'Submitted'}
+                                    disabled={
+                                        selectedBatch?.status === 'Submitted' || 
+                                        selectedBatch?.status === 'Completed' ||
+                                        selectedItem?.status === 'Completed' ||
+                                        selectedItem?.dataItemStatus === 'Completed'
+                                    }
                                     className="btn btn-warning h-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
                                     style={{ fontSize: '0.875rem' }}
-                                    title={t.flagItemTooltip}
+                                    title={
+                                        selectedItem?.status === 'Completed' || selectedItem?.dataItemStatus === 'Completed'
+                                            ? 'Cannot flag completed items'
+                                            : t.flagItemTooltip
+                                    }
                                 >
                                     <AlertTriangle size={18} />
                                     {t.flagItem}
@@ -2305,6 +2333,13 @@ export const AnnotatorWorkspace = ({ user }) => {
                             handleDeleteAnnotation={handleDeleteAnnotation}
                             projectGuideline={projectGuideline}
                             onDownloadGuideline={handleDownloadGuideline}
+                            isReadOnly={
+                                selectedBatch?.status === 'Submitted' || 
+                                selectedBatch?.status === 'Completed' ||
+                                selectedItem?.status === 'Completed' ||
+                                selectedItem?.dataItemStatus === 'Completed' ||
+                                selectedItem?.dataItemStatus === 'Submitted'
+                            }
                         />
                     </div>
                 </div>
