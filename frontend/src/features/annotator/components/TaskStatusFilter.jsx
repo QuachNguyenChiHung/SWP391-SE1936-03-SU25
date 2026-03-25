@@ -8,6 +8,7 @@ const TaskStatusFilter = ({ activeFilter, onFilterChange, taskCounts }) => {
         { id: 'InProgress', label: 'In Progress', count: taskCounts.inProgress },
         { id: 'Submitted', label: 'Submitted', count: taskCounts.submitted },
         { id: 'Completed', label: 'Completed', count: taskCounts.completed },
+        { id: 'Overdue', label: 'Overdue', count: taskCounts.overdue || 0 },
     ];
 
     return (
@@ -51,6 +52,7 @@ TaskStatusFilter.propTypes = {
         inProgress: PropTypes.number,
         submitted: PropTypes.number,
         completed: PropTypes.number,
+        overdue: PropTypes.number,
     }).isRequired,
 };
 

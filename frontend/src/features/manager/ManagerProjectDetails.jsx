@@ -64,6 +64,7 @@ export const ManagerProjectDetails = ({ user }) => {
     const [dataPage, setDataPage] = useState(1);
     const [dataLoading, setDataLoading] = useState(true);
     const [dataSearchTerm, setDataSearchTerm] = useState('');
+    const [dataStatusFilter, setDataStatusFilter] = useState(''); // Status filter for data items
     // Annotators
     const [annotators, setAnnotators] = useState([]);
     const [annotatorsLoading, setAnnotatorsLoading] = useState(false);
@@ -123,12 +124,15 @@ export const ManagerProjectDetails = ({ user }) => {
     }, [pid]);
 
     // Fetch data-items with paging and search
-    const fetchDataItems = async (searchTerm = '') => {
+    const fetchDataItems = async (searchTerm = dataSearchTerm, statusFilter = dataStatusFilter) => {
         setDataLoading(true);
         try {
             const params = { pageNumber: dataPage, pageSize: 10 };
             if (searchTerm) {
                 params.search = searchTerm;
+            }
+            if (statusFilter) {
+                params.status = statusFilter;
             }
             const res = await api.get(`/projects/${pid}/data-items`, { params });
             const payload = res.data || {};
@@ -143,8 +147,8 @@ export const ManagerProjectDetails = ({ user }) => {
 
     useEffect(() => {
         // Only fetch on page change, not on search term change
-        fetchDataItems(dataSearchTerm);
-    }, [pid, dataPage]);
+        fetchDataItems(dataSearchTerm, dataStatusFilter);
+    }, [pid, dataPage, dataStatusFilter]);
     // --- LOGIC: Load Annotators when user opens Annotators tab ---
     useEffect(() => {
         if (activeTab !== 'Annotators') return;
@@ -556,6 +560,15 @@ export const ManagerProjectDetails = ({ user }) => {
             [DataItemStatus.ACCEPTED]: 'bg-success-subtle text-success-emphasis border-success-subtle',
             [DataItemStatus.REJECTED]: 'bg-danger-subtle text-danger-emphasis border-danger-subtle',
             [DataItemStatus.NOT_ASSIGNED]: 'bg-light text-muted -subtle',
+            // Task statuses
+            'Assigned': 'bg-secondary-subtle text-secondary-emphasis border-secondary-subtle',
+            'InProgress': 'bg-info-subtle text-info-emphasis border-info-subtle',
+            'Submitted': 'bg-primary-subtle text-primary-emphasis border-primary-subtle',
+            'Completed': 'bg-success-subtle text-success-emphasis border-success-subtle',
+            'Approved': 'bg-success-subtle text-success-emphasis border-success-subtle',
+            'Rejected': 'bg-danger-subtle text-danger-emphasis border-danger-subtle',
+            'Overdue': 'bg-danger-subtle text-danger-emphasis border-danger-subtle',
+            'Flagged': 'bg-warning-subtle text-warning-emphasis border-warning-subtle',
         };
         return (
             <span className={`px-2 py-1 rounded-pill text-uppercase fw-bold border ${styles[status] || 'bg-light text-muted'}`} style={{ fontSize: '0.7rem' }}>
@@ -582,6 +595,8 @@ export const ManagerProjectDetails = ({ user }) => {
             onRefreshDataItems={fetchDataItems}
             searchTerm={dataSearchTerm}
             setSearchTerm={setDataSearchTerm}
+            statusFilter={dataStatusFilter}
+            setStatusFilter={setDataStatusFilter}
 
             // Delete project
             showDeleteModal={showDeleteModal}

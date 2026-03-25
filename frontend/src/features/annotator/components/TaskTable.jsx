@@ -13,6 +13,7 @@ const TaskTable = ({ tasks, loading, onTaskClick }) => {
             InProgress: 'bg-primary',
             Submitted: 'bg-warning text-dark',
             Completed: 'bg-success',
+            Overdue: 'bg-danger',
         };
         return classes[status] || 'bg-secondary';
     };

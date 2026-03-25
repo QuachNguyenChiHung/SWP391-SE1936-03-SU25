@@ -76,6 +76,7 @@ export const TaskBatchesListView = ({
             inProgress: enrichedTasks.filter(t => t.status === 'InProgress').length,
             submitted: enrichedTasks.filter(t => t.status === 'Submitted').length,
             completed: enrichedTasks.filter(t => t.status === 'Completed').length,
+            overdue: enrichedTasks.filter(t => t.status === 'Overdue').length,
         };
     }, [enrichedTasks]);
 
