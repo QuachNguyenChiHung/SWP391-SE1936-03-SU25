@@ -173,10 +173,12 @@ export const SearchBar = () => {
                                                     {task.completedItems}/{task.totalItems} items • {task.progressPercent.toFixed(0)}% complete
                                                 </div>
                                             </div>
-                                            <span className={`badge kiro-search-result-badge ${task.status === 'Completed' ? 'bg-success' :
-                                                    task.status === 'InProgress' ? 'bg-warning' :
-                                                        'bg-secondary'
-                                                }`}>
+                                            <span className={`badge kiro-search-result-badge ${
+                                                task.status === 'Completed' ? 'bg-success' :
+                                                task.status === 'InProgress' ? 'bg-warning' :
+                                                task.status === 'Overdue' ? 'bg-danger' :
+                                                'bg-secondary'
+                                            }`}>
                                                 {task.status}
                                             </span>
                                         </div>

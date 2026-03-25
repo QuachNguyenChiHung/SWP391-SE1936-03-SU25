@@ -3,8 +3,10 @@ import Button from 'react-bootstrap/Button';
 import { Edit, AlertTriangle } from 'lucide-react';
 import api from '../../../shared/utils/api.js';
 import Avatar from '../../../shared/components/Avatar.jsx';
+import { useAlert } from '../../../shared/context/AlertContext.jsx';
 
-export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setDataPage, onDeleteItem, onRefresh, searchTerm, setSearchTerm }) {
+export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setDataPage, onDeleteItem, onRefresh, searchTerm, setSearchTerm, statusFilter, setStatusFilter }) {
+    const { showAlert } = useAlert();
     const [showUpdateModal, setShowUpdateModal] = useState(false);
     const [updateItem, setUpdateItem] = useState(null);
     const [updateFile, setUpdateFile] = useState(null);
@@ -12,6 +14,19 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
     const [isUpdating, setIsUpdating] = useState(false);
     const [comments, setComments] = useState([]);
     const [showAllComments, setShowAllComments] = useState(false);
+
+    const statusOptions = [
+        { value: '', label: 'All Status' },
+        { value: '1', label: 'Pending' },
+        { value: '2', label: 'Assigned' },
+        { value: '3', label: 'In Progress' },
+        { value: '4', label: 'Submitted' },
+        { value: '5', label: 'Approved' },
+        { value: '6', label: 'Rejected' },
+        { value: '7', label: 'In Review' },
+        { value: '8', label: 'Reported' },
+        { value: '9', label: 'Resolved' }
+    ];
 
     const getStatusClass = (status) => {
         const statusNum = typeof status === 'number' ? status : parseInt(status);
@@ -81,25 +96,51 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
         return `${day}/${month}/${year} ${hours}:${minutes}`;
     };
 
-    const handleUpdateItem = async () => {
+    const handleUpdateItem = async (forceStatus = null) => {
         if (!updateItem) return;
+
+        const statusToUse = forceStatus || updateStatus;
+
+        console.log('=== handleUpdateItem called ===');
+        console.log('updateItem:', updateItem);
+        console.log('updateFile:', updateFile);
+        console.log('updateStatus:', updateStatus);
+        console.log('forceStatus:', forceStatus);
+        console.log('statusToUse:', statusToUse);
+        console.log('updateItem.status:', updateItem.status);
 
         setIsUpdating(true);
         try {
+            let imageUpdated = false;
+            let statusUpdated = false;
+
             // Update image if new file is selected
             if (updateFile) {
+                console.log('Uploading image...');
                 const formData = new FormData();
                 formData.append('file', updateFile);
 
                 await api.put(`/data-items/${updateItem.id}/image`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
+                imageUpdated = true;
+                console.log('Image uploaded successfully');
             }
 
             // Update status if changed
-            if (updateStatus && updateStatus !== updateItem.status?.toString()) {
+            if (statusToUse && statusToUse !== updateItem.status?.toString()) {
+                console.log('Updating status from', updateItem.status, 'to', statusToUse);
                 await api.patch(`/data-items/${updateItem.id}/status`, {
-                    status: parseInt(updateStatus)
+                    status: parseInt(statusToUse)
+                });
+                statusUpdated = true;
+                console.log('Status updated successfully');
+            } else {
+                console.log('Status NOT updated. Reason:', {
+                    hasStatusToUse: !!statusToUse,
+                    currentStatus: updateItem.status?.toString(),
+                    newStatus: statusToUse,
+                    areEqual: statusToUse === updateItem.status?.toString()
                 });
             }
 
@@ -109,10 +150,21 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
             setUpdateFile(null);
             setUpdateStatus('');
 
+            // Show success message based on what was updated
+            if (statusToUse === '9') {
+                await showAlert('Item successfully marked as resolved!', 'Success', 'success');
+            } else if (imageUpdated && statusUpdated) {
+                await showAlert('Image and status updated successfully!', 'Success', 'success');
+            } else if (imageUpdated) {
+                await showAlert('Image updated successfully!', 'Success', 'success');
+            } else if (statusUpdated) {
+                await showAlert('Status updated successfully!', 'Success', 'success');
+            }
+
             if (onRefresh) onRefresh();
         } catch (error) {
             console.error('Failed to update item:', error);
-            alert('Failed to update item: ' + (error.response?.data?.message || error.message));
+            await showAlert('Failed to update item: ' + (error.response?.data?.message || error.message), 'Error', 'error');
         } finally {
             setIsUpdating(false);
         }
@@ -128,6 +180,22 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                     <small className="text-muted">Showing {dataSet?.totalCount ?? 0} items</small>
 
                     <div className="d-flex gap-2">
+                        <select
+                            className="form-select"
+                            style={{ width: '180px' }}
+                            value={statusFilter || ''}
+                            onChange={(e) => {
+                                setStatusFilter(e.target.value);
+                                if (onRefresh) onRefresh(searchTerm, e.target.value);
+                            }}
+                        >
+                            {statusOptions.map(option => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                        
                         <div className="input-group" style={{ width: '400px' }}>
                             <input
                                 type="text"
@@ -188,7 +256,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                 <tr key={item.id}>
                                     <td className="ps-4">
                                         <div className="d-flex align-items-center gap-3">
-                                            <img src={thumb} alt={item.fileName} className="rounded border" style={{ width: '60px', height: '40px', objectFit: 'cover' }} />
+                                            <img src={full} alt={item.fileName} className="rounded border" style={{ width: '60px', height: '40px', objectFit: 'cover' }} />
                                             <div>
                                                 <div className="fw-medium text-dark" title={item.fileName}>{item.fileName && item.fileName.length > 50 ? item.fileName.slice(0, 50) + '…' : item.fileName}</div>
                                                 <small className="text-muted">ID: {item.id}</small>
@@ -367,10 +435,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                         <button
                                             type="button"
                                             className="btn btn-success"
-                                            onClick={() => {
-                                                setUpdateStatus('9');
-                                                setTimeout(() => handleUpdateItem(), 0);
-                                            }}
+                                            onClick={() => handleUpdateItem('9')}
                                             disabled={isUpdating}
                                         >
                                             {isUpdating ? (

@@ -117,10 +117,15 @@ export const BatchItemsListView = ({
                         <>
                             {(() => {
                                 const flaggedCount = batchItems.filter(item => item.status === 'Flagged').length;
-                                const isDisabled = selectedBatch.completedItems !== selectedBatch.totalItems || flaggedCount > 0;
+                                // Check if all items are Completed (not Approved, since we're submitting for review)
+                                const completedCount = batchItems.filter(item => 
+                                    item.status === 'Completed' || item.dataItemStatus === 'Completed'
+                                ).length;
+                                const allItemsCompleted = completedCount === selectedBatch.totalItems;
+                                const isDisabled = !allItemsCompleted || flaggedCount > 0;
                                 const tooltipText = flaggedCount > 0 
                                     ? `Cannot submit. ${flaggedCount} item(s) are flagged and need manager resolution.`
-                                    : (selectedBatch.completedItems !== selectedBatch.totalItems ? t.completeAllFirst : t.submitForReview);
+                                    : (!allItemsCompleted ? t.completeAllFirst : t.submitForReview);
                                 
                                 return (
                                     <button
@@ -174,7 +179,14 @@ export const BatchItemsListView = ({
                                             />
                                             {item.dataItemStatus && (
                                                 <div className="position-absolute" style={{ top: '0.5rem', right: '0.5rem' }}>
-                                                    <span className={`badge ${item.dataItemStatus === 'Approved' ? 'bg-success' : item.dataItemStatus === 'Rejected' ? 'bg-danger' : 'bg-secondary'}`} style={{ fontSize: '0.625rem' }}>
+                                                    <span className={`badge ${
+                                                        item.dataItemStatus === 'Approved' ? 'bg-success' : 
+                                                        item.dataItemStatus === 'Rejected' ? 'bg-danger' : 
+                                                        item.dataItemStatus === 'Submitted' ? 'bg-info' : 
+                                                        item.dataItemStatus === 'Completed' ? 'bg-primary' : 
+                                                        item.dataItemStatus === 'InProgress' ? 'bg-warning' :
+                                                        'bg-secondary'
+                                                    }`} style={{ fontSize: '0.625rem' }}>
                                                         {item.dataItemStatus}
                                                     </span>
                                                 </div>
