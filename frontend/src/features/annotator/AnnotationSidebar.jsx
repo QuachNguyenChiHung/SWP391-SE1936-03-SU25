@@ -16,6 +16,7 @@ export const AnnotationSidebar = ({
     handleDeleteAnnotation,
     projectGuideline,
     onDownloadGuideline,
+    isReadOnly = false,
 }) => {
     const { language } = useUI();
     const copy = {
@@ -186,9 +187,10 @@ export const AnnotationSidebar = ({
                                                     console.log('Delete annotation:', ann.id);
                                                     handleDeleteAnnotation(ann.id);
                                                 }}
+                                                disabled={isReadOnly}
                                                 className="btn btn-sm btn-danger d-flex align-items-center gap-1"
                                                 style={{ fontSize: '0.625rem', padding: '0.125rem 0.375rem' }}
-                                                title={t.deleteAnnotation}
+                                                title={isReadOnly ? 'Cannot delete: Item is completed or submitted' : t.deleteAnnotation}
                                             >
                                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                     <polyline points="3 6 5 6 21 6"></polyline>
