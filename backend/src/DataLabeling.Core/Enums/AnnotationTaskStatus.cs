@@ -17,4 +17,7 @@ public enum AnnotationTaskStatus
     /// <summary>Completed - all items approved by reviewer</summary>
     Completed = 4,
 
+    /// <summary>Overdue - task deadline has passed without completion</summary>
+    Overdue = 5,
+
 }

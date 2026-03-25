@@ -15,5 +15,11 @@ public class CreateTaskRequestValidator : AbstractValidator<CreateTaskRequest>
 
         RuleFor(x => x.AnnotatorId)
             .GreaterThan(0).WithMessage("A valid annotator ID is required.");
+
+        RuleFor(x => x.ReviewerId)
+            .GreaterThan(0).WithMessage("A valid reviewer ID is required.");
+
+        RuleFor(x => x.Deadline)
+            .NotEmpty().WithMessage("Task deadline is required.");
     }
 }

@@ -68,6 +68,32 @@ public class AnnotationService : IAnnotationService
         if (dataItem == null)
             throw new NotFoundException("DataItem", dataItemId);
 
+        // Check if annotation is locked (task submitted or item completed)
+        var taskItems = await _unitOfWork.TaskItems.GetByDataItemIdAsync(dataItemId, cancellationToken);
+        var taskItem = taskItems.FirstOrDefault();
+
+        if (taskItem != null)
+        {
+            // Load the task to check status
+            var task = await _unitOfWork.AnnotationTasks.GetByIdAsync(taskItem.TaskId, cancellationToken);
+            
+            if (task != null)
+            {
+                // Check if task is submitted or completed
+                if (task.Status == Core.Enums.AnnotationTaskStatus.Submitted ||
+                    task.Status == Core.Enums.AnnotationTaskStatus.Completed)
+                {
+                    throw new ValidationException("Cannot create annotation: Task has been submitted and is locked.");
+                }
+            }
+
+            // Check if task item is completed
+            if (taskItem.Status == Core.Enums.TaskItemStatus.Completed)
+            {
+                throw new ValidationException("Cannot create annotation: Item has been completed and is locked.");
+            }
+        }
+
         // Validate label exists and belongs to the same project
         var label = await _unitOfWork.Labels.GetByIdAsync(request.LabelId, cancellationToken);
         if (label == null)
@@ -126,6 +152,37 @@ public class AnnotationService : IAnnotationService
         if (annotation == null)
             throw new NotFoundException("Annotation", id);
 
+        // Check if annotation is locked (task submitted or item completed)
+        var dataItem = await _unitOfWork.DataItems.GetByIdAsync(annotation.DataItemId, cancellationToken);
+        if (dataItem == null)
+            throw new NotFoundException("DataItem", annotation.DataItemId);
+
+        // Check if this data item is part of a submitted/completed task
+        var taskItems = await _unitOfWork.TaskItems.GetByDataItemIdAsync(annotation.DataItemId, cancellationToken);
+        var taskItem = taskItems.FirstOrDefault();
+
+        if (taskItem != null)
+        {
+            // Load the task to check status
+            var task = await _unitOfWork.AnnotationTasks.GetByIdAsync(taskItem.TaskId, cancellationToken);
+            
+            if (task != null)
+            {
+                // Check if task is submitted or completed
+                if (task.Status == Core.Enums.AnnotationTaskStatus.Submitted ||
+                    task.Status == Core.Enums.AnnotationTaskStatus.Completed)
+                {
+                    throw new ValidationException("Cannot update annotation: Task has been submitted and is locked.");
+                }
+            }
+
+            // Check if task item is completed
+            if (taskItem.Status == Core.Enums.TaskItemStatus.Completed)
+            {
+                throw new ValidationException("Cannot update annotation: Item has been completed and is locked.");
+            }
+        }
+
         // Update fields if provided
         if (request.LabelId.HasValue)
         {
@@ -134,9 +191,6 @@ public class AnnotationService : IAnnotationService
                 throw new NotFoundException("Label", request.LabelId.Value);
 
             // Validate label belongs to same project
-            var dataItem = await _unitOfWork.DataItems.GetByIdAsync(annotation.DataItemId, cancellationToken);
-            if (dataItem == null)
-                throw new NotFoundException("DataItem", annotation.DataItemId);
             var dataset = await _unitOfWork.Datasets.GetByIdAsync(dataItem.DatasetId, cancellationToken);
             if (dataset == null)
                 throw new NotFoundException("Dataset", dataItem.DatasetId);
@@ -174,6 +228,37 @@ public class AnnotationService : IAnnotationService
         var annotation = await _unitOfWork.Annotations.GetByIdAsync(id, cancellationToken);
         if (annotation == null)
             throw new NotFoundException("Annotation", id);
+
+        // Check if annotation is locked (task submitted or item completed)
+        var dataItem = await _unitOfWork.DataItems.GetByIdAsync(annotation.DataItemId, cancellationToken);
+        if (dataItem == null)
+            throw new NotFoundException("DataItem", annotation.DataItemId);
+
+        // Check if this data item is part of a submitted/completed task
+        var taskItems = await _unitOfWork.TaskItems.GetByDataItemIdAsync(annotation.DataItemId, cancellationToken);
+        var taskItem = taskItems.FirstOrDefault();
+
+        if (taskItem != null)
+        {
+            // Load the task to check status
+            var task = await _unitOfWork.AnnotationTasks.GetByIdAsync(taskItem.TaskId, cancellationToken);
+            
+            if (task != null)
+            {
+                // Check if task is submitted or completed
+                if (task.Status == Core.Enums.AnnotationTaskStatus.Submitted ||
+                    task.Status == Core.Enums.AnnotationTaskStatus.Completed)
+                {
+                    throw new ValidationException("Cannot delete annotation: Task has been submitted and is locked.");
+                }
+            }
+
+            // Check if task item is completed
+            if (taskItem.Status == Core.Enums.TaskItemStatus.Completed)
+            {
+                throw new ValidationException("Cannot delete annotation: Item has been completed and is locked.");
+            }
+        }
 
         var dataItemId = annotation.DataItemId;
         var labelId = annotation.LabelId;
@@ -331,11 +416,11 @@ public class AnnotationService : IAnnotationService
             taskItem.StartedAt = DateTime.UtcNow;
         _unitOfWork.TaskItems.Update(taskItem);
 
-        // Update data item status
+        // Update data item status to Completed (Submitted happens when entire task is submitted)
         var dataItem = taskItem.DataItem ?? await _unitOfWork.DataItems.GetByIdAsync(taskItem.DataItemId, cancellationToken);
         if (dataItem != null)
         {
-            dataItem.Status = DataItemStatus.Submitted;
+            dataItem.Status = DataItemStatus.Completed;
             dataItem.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.DataItems.Update(dataItem);
         }

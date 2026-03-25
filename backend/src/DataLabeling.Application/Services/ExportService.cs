@@ -134,17 +134,10 @@ public class ExportService : IExportService
         DataItemStatus? statusFilter,
         CancellationToken cancellationToken)
     {
-        IEnumerable<DataItem> items;
-
-        if (statusFilter.HasValue)
-        {
-            items = await _unitOfWork.DataItems.GetByDatasetAndStatusAsync(
-                datasetId, statusFilter.Value, cancellationToken);
-        }
-        else
-        {
-            items = await _unitOfWork.DataItems.GetByDatasetIdAsync(datasetId, cancellationToken);
-        }
+        // Always filter to only Approved items for export
+        // Ignore the statusFilter parameter and force Approved status
+        var items = await _unitOfWork.DataItems.GetByDatasetAndStatusAsync(
+            datasetId, DataItemStatus.Approved, cancellationToken);
 
         var result = new List<DataItem>();
         foreach (var item in items)
@@ -157,9 +150,9 @@ public class ExportService : IExportService
         }
 
         // Log what we're exporting for debugging
-        Console.WriteLine($"[ExportService] Found {result.Count} data items with status filter: {statusFilter?.ToString() ?? "None"}");
+        Console.WriteLine($"[ExportService] Found {result.Count} approved data items for export");
         var totalAnnotations = result.Sum(item => item.Annotations?.Count ?? 0);
-        Console.WriteLine($"[ExportService] Total annotations across all items: {totalAnnotations}");
+        Console.WriteLine($"[ExportService] Total annotations across all approved items: {totalAnnotations}");
 
         return result;
     }

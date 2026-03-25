@@ -229,8 +229,28 @@ public class TasksController : ControllerBase
         // Update task status
         task.Status = AnnotationTaskStatus.Submitted;
         task.SubmittedAt = DateTime.UtcNow;
-
         _uow.AnnotationTasks.Update(task);
+
+        // Update all task items and data items from Completed to Submitted
+        foreach (var taskItem in task.TaskItems)
+        {
+            // Update TaskItem status
+            if (taskItem.Status == TaskItemStatus.Completed)
+            {
+                taskItem.Status = TaskItemStatus.Submitted;
+                _uow.TaskItems.Update(taskItem);
+            }
+
+            // Update DataItem status
+            var dataItem = await _uow.DataItems.GetByIdAsync(taskItem.DataItemId, cancellationToken);
+            if (dataItem != null && dataItem.Status == DataItemStatus.Completed)
+            {
+                dataItem.Status = DataItemStatus.Submitted;
+                dataItem.UpdatedAt = DateTime.UtcNow;
+                _uow.DataItems.Update(dataItem);
+            }
+        }
+
         await _uow.SaveChangesAsync(cancellationToken);
 
         return Ok(ApiResponse.SuccessResponse("Task submitted for review"));

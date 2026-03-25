@@ -18,9 +18,16 @@ public class CreateTaskRequest
     public int AnnotatorId { get; set; }
 
     /// <summary>
-    /// Optional deadline for completing this task.
+    /// Reviewer ID to assign for reviewing this task.
+    /// Required field.
     /// </summary>
-    public DateTime? Deadline { get; set; }
+    public int ReviewerId { get; set; }
+
+    /// <summary>
+    /// Deadline for completing this task.
+    /// Required field.
+    /// </summary>
+    public DateTime Deadline { get; set; }
 
     /// <summary>
     /// Priority level for this task.

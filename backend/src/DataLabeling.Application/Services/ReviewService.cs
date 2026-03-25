@@ -472,6 +472,10 @@ public class ReviewService : IReviewService
 
         foreach (var taskItem in taskItems)
         {
+            // Update TaskItem status to Approved
+            taskItem.Status = TaskItemStatus.Approved;
+            _unitOfWork.TaskItems.Update(taskItem);
+
             // GetWithTaskItemsAsync already includes TaskItems with DataItem navigation
             var task = await _unitOfWork.AnnotationTasks.GetWithTaskItemsAsync(taskItem.TaskId, cancellationToken);
             if (task == null) continue;
@@ -487,6 +491,9 @@ public class ReviewService : IReviewService
                 task.UpdatedAt = DateTime.UtcNow;
                 _unitOfWork.AnnotationTasks.Update(task);
             }
+
+            // Update task progress (counts approved items)
+            await _unitOfWork.AnnotationTasks.UpdateProgressAsync(task.Id, cancellationToken);
         }
     }
 

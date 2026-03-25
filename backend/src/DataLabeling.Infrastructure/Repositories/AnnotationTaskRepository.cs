@@ -140,12 +140,15 @@ public class AnnotationTaskRepository : Repository<AnnotationTask>, IAnnotationT
     {
         var task = await _dbSet
             .Include(t => t.TaskItems)
+                .ThenInclude(ti => ti.DataItem)
             .FirstOrDefaultAsync(t => t.Id == taskId, cancellationToken);
 
         if (task != null)
         {
             task.TotalItems = task.TaskItems.Count;
-            task.CompletedItems = task.TaskItems.Count(ti => ti.Status == TaskItemStatus.Completed);
+            // Count only approved items for progress (not just completed)
+            task.CompletedItems = task.TaskItems.Count(ti => 
+                ti.DataItem != null && ti.DataItem.Status == DataItemStatus.Approved);
             task.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
         }

@@ -14,21 +14,24 @@ public enum DataItemStatus
     /// <summary>InProgress - annotator is working on it</summary>
     InProgress = 3,
 
+    /// <summary>Completed - annotator finished labeling this item</summary>
+    Completed = 4,
+
     /// <summary>Submitted - annotator finished, waiting for review</summary>
-    Submitted = 4,
+    Submitted = 5,
 
     /// <summary>Approved - reviewer approved the annotations</summary>
-    Approved = 5,
+    Approved = 6,
 
     /// <summary>Rejected - reviewer rejected, needs re-annotation</summary>
-    Rejected = 6,
+    Rejected = 7,
 
     /// <summary>InReview - assigned to a reviewer, locked for review</summary>
-    InReview = 7,
+    InReview = 8,
 
     /// <summary>Reported - flagged by annotator as having issues (no suitable label, poor quality, etc.)</summary>
-    Reported = 8,
+    Reported = 9,
 
     /// <summary>Resolved - manager resolved a reported issue, ready for re-assignment</summary>
-    Resolved = 9
+    Resolved = 10
 }
