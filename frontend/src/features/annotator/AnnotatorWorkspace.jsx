@@ -1704,6 +1704,7 @@ export const AnnotatorWorkspace = ({ user }) => {
                 onSubmitTask={handleSubmitTask}
                 onSelectItem={handleSelectItem}
                 taskDeadline={selectedBatch?.deadline}
+                projectDeadline={projectMetaById[selectedBatch?.projectId]?.deadline}
                 taskPriority={selectedBatch?.priority}
             />
         );

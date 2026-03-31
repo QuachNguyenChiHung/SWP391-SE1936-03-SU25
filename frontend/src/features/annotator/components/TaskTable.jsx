@@ -148,9 +148,10 @@ const TaskTable = ({ tasks, loading, onTaskClick }) => {
                                     className="btn btn-link p-0 text-decoration-none text-muted d-flex align-items-center gap-1"
                                     onClick={() => handleSort('deadline')}
                                 >
-                                    Deadline <ArrowUpDown size={14} />
+                                    Task Deadline <ArrowUpDown size={14} />
                                 </button>
                             </th>
+                            <th className="border-bottom-0 text-muted small text-uppercase">Project Deadline</th>
                             <th className="border-bottom-0 text-muted small text-uppercase">Priority</th>
                             <th className="border-bottom-0 text-muted small text-uppercase text-end">Actions</th>
                         </tr>
@@ -195,8 +196,11 @@ const TaskTable = ({ tasks, loading, onTaskClick }) => {
                                         {task.status}
                                     </span>
                                 </td>
-                                <td className={getDeadlineClass(task.deadline)}>
-                                    {formatDateTime(task.deadline)}
+                                <td className={getDeadlineClass(task.taskDeadline)}>
+                                    {formatDateTime(task.taskDeadline)}
+                                </td>
+                                <td className={getDeadlineClass(task.projectDeadline)}>
+                                    {formatDateTime(task.projectDeadline)}
                                 </td>
                                 <td>
                                     <span className={`badge ${getPriorityBadgeClass(task.priority)}`}>

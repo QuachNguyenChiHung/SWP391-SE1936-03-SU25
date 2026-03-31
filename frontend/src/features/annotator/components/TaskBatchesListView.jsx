@@ -52,13 +52,15 @@ export const TaskBatchesListView = ({
     };
     const t = copy[language] || copy.en;
 
-    // Enrich tasks with rejected item counts and deadline from projectMetaById
+    // Enrich tasks with rejected item counts and both deadlines
     const enrichedTasks = useMemo(() => {
         return taskBatches.map(task => ({
             ...task,
             rejectedItems: 0, // Will be calculated if needed
             progressPercent: task.progressPercent || Math.round((task.completedItems / task.totalItems) * 100) || 0,
-            deadline: projectMetaById?.[task.projectId]?.deadline || task.deadline
+            taskDeadline: task.deadline,  // Keep original task deadline
+            projectDeadline: projectMetaById?.[task.projectId]?.deadline,  // Add project deadline
+            deadline: task.deadline || projectMetaById?.[task.projectId]?.deadline  // Fallback for sorting
         }));
     }, [taskBatches, projectMetaById]);
 
