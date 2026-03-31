@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import api from '../../../shared/utils/api.js';
 import { useAlert } from '../../../shared/context/AlertContext.jsx';
 import { useUI } from '../../../shared/context/UIContext.jsx';
+import { formatDateTime } from '../../../shared/utils/dateUtils.js';
 
 const copy = {
   en: {
@@ -77,11 +78,7 @@ const ProjectHeader = ({ project, onBack }) => {
                 } else {
                   deadlineStr = String(project.deadline);
                 }
-                try {
-                  return new Date(deadlineStr).toLocaleDateString();
-                } catch {
-                  return deadlineStr;
-                }
+                return formatDateTime(deadlineStr);
               })()}
             </span>
           )}

@@ -3,6 +3,7 @@ import { Bell, X, Check, AlertCircle, CheckCircle2, CheckCheck } from 'lucide-re
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import './NotificationDropdown.css';
+import { formatDateTime } from '../utils/dateUtils.js';
 
 export const NotificationDropdown = () => {
     const [show, setShow] = useState(false);
@@ -195,12 +196,7 @@ export const NotificationDropdown = () => {
                                             </p>
                                             <div className="d-flex justify-content-between align-items-center">
                                                 <span className="notification-time">
-                                                    {new Date(notification.createdAt).toLocaleDateString('en-US', {
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
-                                                    })}
+                                                    {formatDateTime(notification.createdAt)}
                                                 </span>
                                                 {!notification.isRead && (
                                                     <div className="unread-dot"></div>

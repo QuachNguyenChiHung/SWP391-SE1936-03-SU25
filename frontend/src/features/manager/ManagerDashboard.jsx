@@ -4,6 +4,7 @@ import { StatsCard } from './components';
 import api from '../../shared/utils/api.js';
 import { useEffect, useState } from 'react';
 import { useUI } from '../../shared/context/UIContext.jsx';
+import { formatDateTime } from '../../shared/utils/dateUtils.js';
 
 const copy = {
     en: {
@@ -181,7 +182,7 @@ export const ManagerDashboard = ({ user }) => {
                                                     <td className="text-muted">{p.totalItems}</td>
                                                     <td className="text-muted">{p.completedItems}</td>
                                                     <td className="text-dark fw-semibold">{Math.floor(p.progressPercent)}%</td>
-                                                    <td className="text-muted">{p.deadline ? new Date(p.deadline).toLocaleDateString() : '—'}</td>
+                                                    <td className="text-muted">{p.deadline ? formatDateTime(p.deadline) : '—'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>

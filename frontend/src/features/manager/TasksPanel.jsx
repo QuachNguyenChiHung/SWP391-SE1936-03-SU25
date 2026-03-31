@@ -9,6 +9,7 @@ import { ChevronUp, ChevronDown } from 'lucide-react';
 import { useAlert } from '../../shared/context/AlertContext.jsx';
 
 import api from '../../shared/utils/api.js';
+import { formatDateTime, formatDate } from '../../shared/utils/dateUtils.js';
 
 const PRIORITY_OPTIONS = ['Low', 'Medium', 'High'];
 
@@ -52,17 +53,15 @@ const getDeadlineChipClass = (deadline) => {
 
 const validateDeadline = (value, projectDeadline) => {
     if (!value) return 'Deadline is required';
-    const parsedDate = new Date(`${value}T00:00:00`);
+    const parsedDate = new Date(value);
     if (Number.isNaN(parsedDate.getTime())) {
         return 'Invalid date';
     }
     
     // Check if deadline is in the past
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    parsedDate.setHours(0, 0, 0, 0);
+    const now = new Date();
     
-    if (parsedDate < today) {
+    if (parsedDate < now) {
         return 'Task deadline cannot be in the past';
     }
     
@@ -76,9 +75,9 @@ const validateDeadline = (value, projectDeadline) => {
         }
         
         if (projectDeadlineStr) {
-            const projectDate = new Date(`${projectDeadlineStr.slice(0, 10)}T00:00:00`);
+            const projectDate = new Date(projectDeadlineStr);
             if (!Number.isNaN(projectDate.getTime()) && parsedDate > projectDate) {
-                return `Task deadline cannot exceed project deadline (${formatTaskDate(projectDeadlineStr)})`;
+                return `Task deadline cannot exceed project deadline (${formatDateTime(projectDeadlineStr)})`;
             }
         }
     }
@@ -86,18 +85,10 @@ const validateDeadline = (value, projectDeadline) => {
     return '';
 };
 
-const toIsoStringFromDdMmYyyy = (value) => {
-    return new Date(`${value}T00:00:00Z`).toISOString();
-};
-
-const formatTaskDate = (value) => {
-    if (!value) return '-';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
+const toIsoString = (value) => {
+    // Value is already in datetime-local format (YYYY-MM-DDTHH:mm)
+    // Just convert to ISO string
+    return new Date(value).toISOString();
 };
 
 export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, StatusBadge, externalAssignTarget }) {
@@ -649,7 +640,7 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                                         {nearestDeadline && (
                                             <div className="mt-1">
                                                 <span className={`badge ${getDeadlineChipClass(nearestDeadline.task.deadline)} px-2 py-1`} style={{ fontSize: '0.7rem' }}>
-                                                    Deadline: {formatTaskDate(nearestDeadline.task.deadline)}
+                                                    Deadline: {formatDateTime(nearestDeadline.task.deadline)}
                                                 </span>
                                             </div>
                                         )}
@@ -721,7 +712,7 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                                                                 <span>•</span>
                                                                 <span>{t.progressPercent ?? Math.round(((t.completedItems || 0) / (t.totalItems || 1)) * 100)}%</span>
                                                             </div>
-                                                            <div className="text-muted small">Assigned: {t.assignedAt ? new Date(t.assignedAt).toLocaleString() : (t.createdAt ? new Date(t.createdAt).toLocaleString() : '-')}</div>
+                                                            <div className="text-muted small">Assigned: {t.assignedAt ? formatDateTime(t.assignedAt) : (t.createdAt ? formatDateTime(t.createdAt) : '-')}</div>
                                                             
                                                             <div className="text-muted small d-flex align-items-center gap-2 flex-wrap">
                                                                 <span>Reviewer: {t.reviewerName || '-'}</span>
@@ -743,7 +734,7 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                                                             </div>
                                                             <div className="d-flex flex-wrap gap-2 mt-1">
                                                                 <span className={`badge rounded-pill px-2 py-1 fw-semibold ${getDeadlineChipClass(t.deadline)}`} style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>
-                                                                    Deadline: {formatTaskDate(t.deadline)}
+                                                                    Deadline: {formatDateTime(t.deadline)}
                                                                 </span>
                                                                 <span className={`badge rounded-pill px-2 py-1 fw-semibold ${getPriorityChipClass(t.priority)}`} style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>
                                                                     Priority: {t.priority || 'Medium'}
@@ -852,7 +843,7 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                                     <div className="small text-muted">Assigned by: {taskDetail.assignedByName}</div>
                                     <div className="d-flex flex-wrap gap-2 mt-2">
                                         <span className={`badge rounded-pill px-2 py-1 fw-semibold ${getDeadlineChipClass(taskDetail.deadline)}`} style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>
-                                            Deadline: {formatTaskDate(taskDetail.deadline)}
+                                            Deadline: {formatDateTime(taskDetail.deadline)}
                                         </span>
                                         <span className={`badge rounded-pill px-2 py-1 fw-semibold ${getPriorityChipClass(taskDetail.priority)}`} style={{ fontSize: '0.7rem', lineHeight: 1.2 }}>
                                             Priority: {taskDetail.priority || 'Medium'}
@@ -1000,7 +991,7 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                                                     <td>{item.width}×{item.height}</td>
                                                     <td><StatusBadge status={item.status} /></td>
                                                     <td>{item.assignedAnnotatorName || '-'}</td>
-                                                    <td>{new Date(item.createdAt).toLocaleString()}</td>
+                                                    <td>{formatDateTime(item.createdAt)}</td>
                                                     <td><Button variant="primary" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedImage({ url: buildUploadsUrl(item.filePath), fileName: item.fileName }); setShowImageModal(true); }}>View</Button></td>
                                                 </tr>
                                             )
@@ -1027,8 +1018,7 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                                     Deadline <span className="text-danger">*</span>
                                 </Form.Label>
                                 <Form.Control
-                                    type="date"
-                                    placeholder="yyyy-mm-dd"
+                                    type="datetime-local"
                                     value={taskDeadline}
                                     onChange={(e) => {
                                         const value = e.target.value;
@@ -1040,7 +1030,7 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                                 {taskDeadlineError && <div className="text-danger small mt-1">{taskDeadlineError}</div>}
                                 {project?.deadline && (
                                     <div className="text-muted small mt-1">
-                                        Project deadline: {formatTaskDate(project.deadline)}
+                                        Project deadline: {formatDateTime(project.deadline)}
                                     </div>
                                 )}
                             </div>
@@ -1243,7 +1233,7 @@ export default function TasksPanel({ project, expandedTaskGroups, toggleGroup, S
                                     const payload = {
                                         projectId: pId,
                                         annotatorId: Number(selectedAssignee.id),
-                                        deadline: toIsoStringFromDdMmYyyy(taskDeadline),
+                                        deadline: toIsoString(taskDeadline),
                                         priority: taskPriority,
                                         dataItemIds: selectedDataItemIds.map(id => Number(id))
                                     };

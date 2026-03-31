@@ -4,6 +4,7 @@ import { Avatar } from './Avatar';
 import { RoleBadge } from './RoleBadge';
 import { StatusBadge } from './StatusBadge';
 import { UserActions } from './UserActions';
+import { formatDateTime } from '../../../shared/utils/dateUtils.js';
 
 export const UserRow = ({ user, onEdit, onDelete }) => {
     return (
@@ -31,7 +32,7 @@ export const UserRow = ({ user, onEdit, onDelete }) => {
             <td className="text-muted small border">
                 <div className="d-flex align-items-center gap-2">
                     <Calendar size={14} />
-                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                    {formatDateTime(user.createdAt)}
                 </div>
             </td>
             <td className="text-end pe-4 border">

@@ -29,7 +29,7 @@ export default function ConfirmModal({
 
     return (
         <div
-            className="modal fade show d-block nl-modal-overlay"
+            className="modal fade show d-block nl-modal-overlay nl-confirm-overlay"
             tabIndex="-1"
             role="dialog"
             aria-modal="true"

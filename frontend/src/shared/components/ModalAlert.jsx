@@ -19,7 +19,7 @@ export default function ModalAlert({
 
     return (
         <div
-            className="modal fade show d-block nl-modal-overlay"
+            className="modal fade show d-block nl-modal-overlay nl-alert-overlay"
             tabIndex="-1"
             role="dialog"
             aria-modal="true"

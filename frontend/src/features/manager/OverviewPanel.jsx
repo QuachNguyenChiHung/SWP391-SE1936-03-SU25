@@ -96,14 +96,13 @@ export default function OverviewPanel({ project, openImportModal, openGuidelines
                             <Button variant="warning" className="text-start d-flex justify-content-between align-items-center p-3 border text-white" onClick={openEditProject}>
                                 <span className="d-flex align-items-center gap-2">Edit Project</span>
                             </Button>
-                            <hr className="my-2" />
-                            <Button variant="danger" onClick={hasBlockingTasks ? undefined : onDeleteProject} disabled={hasBlockingTasks}>
-                                Delete Project
+                            <Button variant="danger" className="text-start d-flex justify-content-between align-items-center p-3 border text-white" onClick={hasBlockingTasks ? undefined : onDeleteProject} disabled={hasBlockingTasks}>
+                                <span className="d-flex align-items-center gap-2">Delete Project</span>
                             </Button>
                             {hasBlockingTasks ? (
-                                <p className="mt-2 mb-0 text-muted small">This project still has {project.taskCount} task{project.taskCount === 1 ? '' : 's'}, so delete is blocked.</p>
+                                <small className="text-muted px-2">This project still has {project.taskCount} task{project.taskCount === 1 ? '' : 's'}, so delete is blocked.</small>
                             ) : (
-                                <p className="mt-2 mb-0 text-muted small">Dataset, guideline, and labels will be removed automatically when this project is deleted.</p>
+                                <small className="text-muted px-2">Dataset, guideline, and labels will be removed automatically when this project is deleted.</small>
                             )}
                         </div>
                     </div>

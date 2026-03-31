@@ -4,6 +4,7 @@ import {
     CheckCircle2, Info, Clock, Inbox, Search
 } from 'lucide-react';
 import api from '../../shared/utils/api';
+import { formatDateTime } from '../../shared/utils/dateUtils.js';
 
 export const NotificationsPage = () => {
     const [notifications, setNotifications] = useState([]);
@@ -110,7 +111,7 @@ export const NotificationsPage = () => {
                                             <h5 className="notif-title">{notif.title}</h5>
                                             <span className="notif-time">
                                                 <Clock size={14} className="me-1" />
-                                                {new Date(notif.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                {formatDateTime(notif.createdAt)}
                                             </span>
                                         </div>
 

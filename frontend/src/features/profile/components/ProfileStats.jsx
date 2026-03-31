@@ -1,6 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Calendar, Clock } from 'lucide-react';
+import { formatDateTime } from '../../../shared/utils/dateUtils.js';
 
 // Props:
 // - profile: object
@@ -15,8 +16,7 @@ const ProfileStats = ({ profile }) => {
                             <div className="icon-box-bg bg-indigo-50 text-indigo-600"><Calendar size={20} /></div>
                             <h4 className="h6 fw-bold mb-0 text-slate-900">Registration</h4>
                         </div>
-                        <p className="fs-5 fw-bold text-slate-700 mb-0">{new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-                        <p className="text-muted small">{new Date(profile.createdAt).toLocaleTimeString()}</p>
+                        <p className="fs-5 fw-bold text-slate-700 mb-0">{formatDateTime(profile.createdAt)}</p>
                     </div>
                 </div>
                 <div className="col-md-6">
@@ -25,8 +25,7 @@ const ProfileStats = ({ profile }) => {
                             <div className="icon-box-bg bg-success-subtle text-green-600"><Clock size={20} /></div>
                             <h4 className="h6 fw-bold mb-0 text-slate-900">Last Login</h4>
                         </div>
-                        <p className="fs-5 fw-bold text-slate-700 mb-0">{profile.lastLoginAt ? new Date(profile.lastLoginAt).toLocaleDateString() : 'Initial Session'}</p>
-                        <p className="text-muted small">{profile.lastLoginAt ? new Date(profile.lastLoginAt).toLocaleTimeString() : '-'}</p>
+                        <p className="fs-5 fw-bold text-slate-700 mb-0">{profile.lastLoginAt ? formatDateTime(profile.lastLoginAt) : 'Initial Session'}</p>
                     </div>
                 </div>
                 <div className="col-12">

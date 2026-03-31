@@ -48,6 +48,22 @@
   z-index: 2051;
 }
 
+/* Alert and Confirm modals should appear above regular modals */
+.nl-modal-overlay.nl-alert-overlay,
+.nl-modal-overlay.nl-confirm-overlay {
+  z-index: 2100 !important;
+}
+
+.nl-alert-overlay .nl-modal-dialog,
+.nl-confirm-overlay .nl-modal-dialog {
+  z-index: 2101 !important;
+}
+
+.nl-alert-overlay .nl-modal-content,
+.nl-confirm-overlay .nl-modal-content {
+  z-index: 2101 !important;
+}
+
 .nl-modal-header,
 .modal.show .modal-header,
 .modal.fade.show.d-block .modal-header {

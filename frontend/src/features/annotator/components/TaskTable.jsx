@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowUpDown } from 'lucide-react';
+import { formatDateTime } from '../../../shared/utils/dateUtils.js';
 
 const TaskTable = ({ tasks, loading, onTaskClick }) => {
     const navigate = useNavigate();
@@ -36,12 +37,6 @@ const TaskTable = ({ tasks, loading, onTaskClick }) => {
         if (diffDays < 0) return 'text-danger fw-bold';
         if (diffDays <= 3) return 'text-warning fw-bold';
         return 'text-muted';
-    };
-
-    const formatDate = (dateString) => {
-        if (!dateString) return '-';
-        const date = new Date(dateString);
-        return date.toLocaleDateString();
     };
 
     const handleSort = (key) => {
@@ -201,7 +196,7 @@ const TaskTable = ({ tasks, loading, onTaskClick }) => {
                                     </span>
                                 </td>
                                 <td className={getDeadlineClass(task.deadline)}>
-                                    {formatDate(task.deadline)}
+                                    {formatDateTime(task.deadline)}
                                 </td>
                                 <td>
                                     <span className={`badge ${getPriorityBadgeClass(task.priority)}`}>
