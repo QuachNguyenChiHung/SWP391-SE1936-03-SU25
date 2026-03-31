@@ -64,7 +64,12 @@ export const AnnotationSidebar = ({
     const annotationsList = Array.isArray(annotations) ? annotations : [];
     const counts = labelCountsById && typeof labelCountsById === 'object' ? labelCountsById : {};
     const guideline = projectGuideline && typeof projectGuideline === 'object' ? projectGuideline : {};
-    const hasGuidelineContent = Boolean(guideline.content && String(guideline.content).trim());
+    
+    // Handle both array and string content formats
+    const guidelineContent = guideline.content;
+    const hasGuidelineContent = Array.isArray(guidelineContent) 
+        ? guidelineContent.length > 0 
+        : Boolean(guidelineContent && String(guidelineContent).trim());
     const hasGuidelineFile = Boolean(guideline.hasFile);
 
     const getLabelCount = (labelId) => {
@@ -227,8 +232,19 @@ export const AnnotationSidebar = ({
                     {guideline.isLoading ? (
                         <div className="text-muted fst-italic" style={{ fontSize: '0.75rem' }}>{t.guidelinesLoading}</div>
                     ) : hasGuidelineContent ? (
-                        <div className="p-3 bg-white rounded border" style={{ whiteSpace: 'pre-wrap', fontSize: '0.8rem', lineHeight: 1.5, maxHeight: '220px', overflowY: 'auto' }}>
-                            {guideline.content}
+                        <div className="p-3 bg-white rounded border" style={{ fontSize: '0.8rem', lineHeight: 1.5, maxHeight: '220px', overflowY: 'auto' }}>
+                            {Array.isArray(guidelineContent) ? (
+                                <ul className="list-unstyled mb-0">
+                                    {guidelineContent.map((item, index) => (
+                                        <li key={index} className="mb-2 d-flex">
+                                            <span className="me-2">•</span>
+                                            <span>{item}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <div style={{ whiteSpace: 'pre-wrap' }}>{guidelineContent}</div>
+                            )}
                         </div>
                     ) : hasGuidelineFile ? (
                         <div className="d-flex flex-column gap-2">

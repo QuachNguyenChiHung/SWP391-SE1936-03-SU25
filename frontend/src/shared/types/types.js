@@ -14,6 +14,14 @@ export const ProjectStatus = {
     Archived: 'Archived'
 };
 
+// Project type enum as constants (matches backend enum values)
+export const ProjectType = {
+    Classification: 1,
+    ObjectDetection: 2,
+    Segmentation: 3,
+    Video: 4
+};
+
 // Data item status enum as constants
 export const DataItemStatus = {
     NOT_ASSIGNED: 'NOT_ASSIGNED',

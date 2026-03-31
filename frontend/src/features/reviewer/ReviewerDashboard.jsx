@@ -6,6 +6,7 @@ import getInforFromCookie from '../../shared/utils/getInfoFromCookie.js';
 import api from '../../shared/utils/api.js';
 import ActivityItem from './components/ActivityItem.jsx';
 import StatsCard from './components/StatsCard.jsx';
+import { formatDateTime } from '../../shared/utils/dateUtils.js';
 
 export const ReviewerDashboard = ({ user }) => {
     const navigate = useNavigate();
@@ -118,7 +119,7 @@ export const ReviewerDashboard = ({ user }) => {
                                                 <div className="d-flex gap-2" style={{ fontSize: '11px' }}>
                                                     <span className="badge bg-secondary text-white">{item.annotatorName}</span>
                                                     <span className="text-muted d-flex align-items-center gap-1">
-                                                        <Clock size={12} /> {new Date(item.submittedAt).toLocaleDateString()}
+                                                        <Clock size={12} /> {formatDateTime(item.submittedAt)}
                                                     </span>
                                                 </div>
                                             </div>
@@ -159,7 +160,7 @@ export const ReviewerDashboard = ({ user }) => {
                                             key={idx}
                                             icon={review.status === 'accepted' ? <CheckCircle2 size={16} /> : <X size={16} />}
                                             title={review.fileName || review.title}
-                                            time={new Date(review.reviewedAt || review.submittedAt).toLocaleDateString()}
+                                            time={formatDateTime(review.reviewedAt || review.submittedAt)}
                                             user={review.annotatorName || review.reviewer || 'You'}
                                             type={review.status === 'accepted' ? 'green' : 'red'}
                                         />

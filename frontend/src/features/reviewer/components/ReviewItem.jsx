@@ -1,5 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import { formatDateTime } from '../../../shared/utils/dateUtils.js';
 
 const ReviewItem = ({ item, isSelected, onClick }) => {
     return (
@@ -30,7 +31,7 @@ const ReviewItem = ({ item, isSelected, onClick }) => {
                         <span className="badge bg-secondary text-white">{item.annotatorName}</span>
                     </div>
                     <p className="text-muted mb-0" style={{ fontSize: '10px', marginTop: '4px' }}>
-                        {new Date(item.submittedAt).toLocaleDateString()}
+                        {formatDateTime(item.submittedAt)}
                     </p>
                 </div>
             </div>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Plus, Calendar, Tag, Layers, Clock, CheckCircle2, AlertCircle, XCircle, Trash2 } from 'lucide-react';
-import { ProjectStatus } from '../../shared/types/types.js';
+import { ProjectStatus, ProjectType } from '../../shared/types/types.js';
 import axios from 'axios';
 import api from '../../shared/utils/api.js';
 import getInforFromCookie from '../../shared/utils/getInfoFromCookie.js';
@@ -149,11 +149,46 @@ export const ManagerProjects = ({ user }) => {
                 return;
             }
 
-            const deadlinePayload = projectDeadline;
+            // Validate name
+            if (!projectName.trim() || projectName.trim().length < 3) {
+                await showAlert('Project name must be at least 3 characters long', 'Validation', 'warning');
+                return;
+            }
+
+            // Validate description
+            if (!projectDescription.trim()) {
+                await showAlert('Project description is required', 'Validation', 'warning');
+                return;
+            }
+
+            // Convert datetime-local to ISO string
+            // datetime-local format: "YYYY-MM-DDTHH:mm" (no timezone, represents local time)
+            // Problem: new Date('2026-04-03T17:01') treats it as UTC, not local time
+            // Solution: Parse the components and create a Date in local timezone
+            const [datePart, timePart] = projectDeadline.split('T');
+            const [year, month, day] = datePart.split('-').map(Number);
+            const [hours, minutes] = timePart.split(':').map(Number);
+            
+            // Create Date object in local timezone
+            const deadlineDate = new Date(year, month - 1, day, hours, minutes);
+            const deadlinePayload = deadlineDate.toISOString();
+            
+            // Debugging: Log the conversion
+            console.log('Selected deadline (local):', projectDeadline);
+            console.log('Parsed components:', { year, month, day, hours, minutes });
+            console.log('Date object (local):', deadlineDate);
+            console.log('Converted to ISO (UTC):', deadlinePayload);
+            console.log('Timezone offset (minutes):', deadlineDate.getTimezoneOffset());
+            
+            // Convert project type string to enum integer value
+            const getProjectTypeValue = (typeString) => {
+                return ProjectType[typeString] || ProjectType.Classification;
+            };
+            
             const payload = {
                 name: projectName,
                 description: projectDescription,
-                type: projectType,
+                type: getProjectTypeValue(projectType),
                 deadline: deadlinePayload
             };
             console.log('Payload for API:', payload); // Debugging log
@@ -184,10 +219,29 @@ export const ManagerProjects = ({ user }) => {
             setProjects(p.data.data.items);
         } catch (error) {
             if (error.response) {
-                await showAlert(error.response.data.errors || 'Failed to create project', 'Error', 'error');
+                // Handle validation errors (object) or simple error messages (string)
+                let errorMessage = 'Failed to create project';
+                if (error.response.data.errors) {
+                    // FluentValidation errors - convert object to readable string
+                    const errors = error.response.data.errors;
+                    if (typeof errors === 'object') {
+                        errorMessage = Object.entries(errors)
+                            .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+                            .join('\n');
+                    } else {
+                        errorMessage = String(errors);
+                    }
+                } else if (error.response.data.message) {
+                    errorMessage = error.response.data.message;
+                } else if (error.response.data.title) {
+                    errorMessage = error.response.data.title;
+                }
+                await showAlert(errorMessage, 'Error', 'error');
+            } else {
+                await showAlert('Failed to create project', 'Error', 'error');
             }
 
-            console.error(error.response.data.errors || error.message);
+            console.error('Create project error:', error.response?.data || error.message);
         }
 
         // Note: form reset and modal close handled on success above
@@ -212,19 +266,12 @@ export const ManagerProjects = ({ user }) => {
 
     const validateDeadline = (value) => {
         if (!value) return 'Deadline is required';
-        const dt = new Date(`${value}T00:00:00`);
+        const dt = new Date(value);
         if (Number.isNaN(dt.getTime())) return 'Invalid date';
         
-        // Check if date is in the past
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (dt < today) return 'Deadline cannot be in the past';
-        
-        // Check if date is in current year (2026)
-        const currentYear = new Date().getFullYear();
-        if (dt.getFullYear() !== currentYear) {
-            return `Deadline must be in ${currentYear}`;
-        }
+        // Check if datetime is in the past
+        const now = new Date();
+        if (dt < now) return 'Deadline cannot be in the past';
         
         return '';
     };
@@ -369,22 +416,20 @@ export const ManagerProjects = ({ user }) => {
                                     <div>
                                         <label className="form-label fw-semibold small text-dark">{t.deadline}</label>
                                         <input
-                                            type="date"
+                                            type="datetime-local"
                                             value={projectDeadline}
                                             onChange={(e) => {
+                                                console.log('Deadline input changed:', e.target.value);
                                                 setProjectDeadline(e.target.value);
                                                 setDeadlineError(validateDeadline(e.target.value));
                                             }}
                                             className={`form-control ${deadlineError ? 'is-invalid' : ''}`}
-                                            placeholder={t.deadlinePlaceholder}
                                             style={{ borderRadius: '8px', padding: '10px' }}
-                                            min={new Date().toISOString().split('T')[0]}
-                                            max={`${new Date().getFullYear()}-12-31`}
                                         />
                                         {deadlineError ? (
                                             <div className="invalid-feedback d-block">{deadlineError}</div>
                                         ) : (
-                                            <div className="form-text">Deadline must be in {new Date().getFullYear()} and not in the past</div>
+                                            <div className="form-text">Deadline must be in the future</div>
                                         )}
                                     </div>
                                 </div>

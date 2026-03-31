@@ -2,12 +2,14 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Calendar, Tag } from 'lucide-react';
 import { useUI } from '../../../shared/context/UIContext.jsx';
+import { formatDateTime } from '../../../shared/utils/dateUtils.js';
 
 const copy = {
   en: {
     type: 'Type',
     progress: 'Progress',
     deadline: 'Deadline',
+    created: 'Created',
     labels: 'Labels',
     delete: 'Delete',
     objectDetection: 'Object Detection',
@@ -16,6 +18,7 @@ const copy = {
     type: 'Loai',
     progress: 'Tien do',
     deadline: 'Han chot',
+    created: 'Ngay tao',
     labels: 'Nhan',
     delete: 'Xoa',
     objectDetection: 'Phat hien doi tuong',
@@ -69,12 +72,12 @@ const ProjectItem = ({ project, onClick }) => {
           <div className="pt-3 mt-3 border-top d-flex justify-content-between text-muted" style={{ fontSize: '0.8rem', flexDirection: 'column' }}>
             <div className="d-flex align-items-center gap-1">
               <Calendar size={14} />
-              <span>{new Date(project.createdAt).toLocaleDateString()}</span>
+              <span>{t.created}: {formatDateTime(project.createdAt)}</span>
             </div>
             <div className="d-flex gap-3">
               <div className="d-flex align-items-center gap-1">
                 <Calendar size={14} />
-                <span>{t.deadline}: {project.deadline ? new Date(project.deadline).toLocaleDateString() : '—'}</span>
+                <span>{t.deadline}: {project.deadline ? formatDateTime(project.deadline) : '—'}</span>
               </div>
               <div className="d-flex align-items-center gap-1 bg-light px-2 py-1 rounded">
                 <Tag size={13} />

@@ -9,11 +9,6 @@ import { ProjectStatus } from '../../../shared/types/types.js';
 // Props:
 // - isOpen, onClose, editName, setEditName, editDescription, setEditDescription, editStatus, setEditStatus, editDeadline, setEditDeadline, deadlineError, onSave
 const EditProjectModal = ({ isOpen, onClose, editName, setEditName, editDescription, setEditDescription, editStatus, setEditStatus, editDeadline, setEditDeadline, deadlineError, onSave }) => {
-  // Get today's date in YYYY-MM-DD format for min attribute
-  const today = new Date().toISOString().split('T')[0];
-  // Get max date as end of current year
-  const currentYear = new Date().getFullYear();
-  const maxDate = `${currentYear}-12-31`;
   
   return (
     <Modal show={isOpen} onHide={onClose} centered>
@@ -40,11 +35,9 @@ const EditProjectModal = ({ isOpen, onClose, editName, setEditName, editDescript
         <Form.Group>
           <Form.Label className="fw-semibold">Deadline</Form.Label>
           <Form.Control 
-            type="date" 
+            type="datetime-local" 
             value={editDeadline} 
             onChange={(e) => setEditDeadline(e.target.value)} 
-            min={today}
-            max={maxDate}
             isInvalid={!!deadlineError}
           />
           {deadlineError ? (
@@ -53,7 +46,7 @@ const EditProjectModal = ({ isOpen, onClose, editName, setEditName, editDescript
             </Form.Control.Feedback>
           ) : (
             <Form.Text className="text-muted">
-              Deadline must be in {currentYear} and not in the past
+              Deadline must be in the future
             </Form.Text>
           )}
         </Form.Group>

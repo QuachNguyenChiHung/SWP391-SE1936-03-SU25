@@ -4,7 +4,7 @@ import getInforFromCookie from '../../shared/utils/getInfoFromCookie.js';
 import { UserRole } from '../../shared/types/types.js';
 import api from '../../shared/utils/api.js';
 import ReviewerToolbar from './components/ReviewerToolbar.jsx';
-import ImageViewer from './components/ImageViewer.jsx';
+import { AnnotationCanvas } from '../../shared/components/AnnotationCanvas.jsx';
 import ActionBar from './components/ActionBar.jsx';
 import QueuePanel from './components/QueuePanel.jsx';
 import GuidelinesPanel from './components/GuidelinesPanel.jsx';
@@ -236,11 +236,16 @@ export const ReviewerContainer = ({ onTitleChange, user }) => {
             </div>
 
             <div className="flex-fill d-flex gap-4 flex-wrap" style={{ minHeight: 0 }}>
-                <div style={{ aspectRatio: '2/1' }} className="flex-fill bg-white border rounded shadow-sm d-flex flex-column overflow-hidden position-relative">
+                <div style={{ aspectRatio: '2/1', width: 'calc(100% - 320px)' }} className="bg-white border rounded shadow-sm d-flex flex-column overflow-hidden position-relative">
                     {queueItems.length > 0 ? (
                         <>
-                            <ReviewerToolbar title={`Item #${task.id}`} showLabels={showLabels} onToggleLabels={() => setShowLabels(!showLabels)} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} onResetZoom={handleResetZoom} />
-                            <ImageViewer isLoadingDetail={isLoadingDetail} task={task} showLabels={showLabels} zoomLevel={zoomLevel} panOffset={panOffset} isPanning={isPanning} isSpacePressed={isSpacePressed} containerRef={containerRef} imageRef={imageRef} onPanStart={handlePanStart} onPanMove={handlePanMove} onPanEnd={handlePanEnd} onWheel={handleWheel} />
+                            <AnnotationCanvas 
+                                imageUrl={task?.imageUrl ? (task.imageUrl.startsWith('http') ? task.imageUrl : (import.meta.env.VITE_URL_UPLOADS + '/' + task.imageUrl)) : null}
+                                annotations={task?.annotations || []}
+                                showAnnotations={showLabels}
+                                isLoading={isLoadingDetail}
+                                readOnly={true}
+                            />
                             <ActionBar 
                                 actionState={actionState} 
                                 setActionState={setActionState} 

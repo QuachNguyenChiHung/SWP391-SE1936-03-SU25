@@ -1,46 +1,110 @@
 import React, { useState, useRef, useEffect } from 'react';
-import PropTypes from 'prop-types';
 import { Loader, ZoomIn, ZoomOut } from 'lucide-react';
 
-const ImageViewer = React.forwardRef(({
-    isLoadingDetail,
-    task,
-    showLabels,
-    zoomLevel,
-    panOffset,
-    isPanning,
-    isSpacePressed,
-    containerRef,
-    imageRef,
-    onPanStart,
-    onPanMove,
-    onPanEnd,
-    onWheel,
-    onZoomIn,
-    onZoomOut,
-    onResetZoom
-}, ref) => {
-    const internalContainerRef = useRef(null);
-    const resolvedContainerRef = typeof containerRef === 'function' || (containerRef && containerRef.current) ? containerRef : internalContainerRef;
+export const AnnotationCanvas = ({ 
+    imageUrl,
+    annotations = [],
+    showAnnotations = true,
+    isLoading = false,
+    readOnly = true
+}) => {
+    const containerRef = useRef(null);
+    const imageRef = useRef(null);
+    const panStartRef = useRef(null);
 
-    const [imageLoaded, setImageLoaded] = useState(false);
-    
-    // Reset image loaded state when task changes
+    const [zoomLevel, setZoomLevel] = useState(1);
+    const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const [isSpacePressed, setIsSpacePressed] = useState(false);
+
+    // Reset when image changes
     useEffect(() => {
-        setImageLoaded(false);
-    }, [task?.imageUrl]);
-    
-    // Update dimensions when image loads
-    const handleImageLoad = () => {
-        if (imageRef?.current) {
-            setImageLoaded(true);
+        setZoomLevel(1);
+        setPanOffset({ x: 0, y: 0 });
+    }, [imageUrl]);
+
+    // Zoom handlers
+    const handleZoomIn = () => {
+        setZoomLevel(prev => Math.min(prev + 0.25, 5));
+    };
+
+    const handleZoomOut = () => {
+        setZoomLevel(prev => Math.max(prev - 0.25, 0.25));
+    };
+
+    const handleResetZoom = () => {
+        setZoomLevel(1);
+        setPanOffset({ x: 0, y: 0 });
+    };
+
+    // Pan handlers
+    const handlePanStart = (e) => {
+        // Allow panning with: left click (always), middle mouse, or Shift/Space + left click
+        if (e.button === 0 || e.button === 1 || (e.button === 0 && (e.shiftKey || isSpacePressed))) {
+            e.preventDefault();
+            setIsPanning(true);
+            panStartRef.current = {
+                x: e.clientX - panOffset.x,
+                y: e.clientY - panOffset.y
+            };
         }
     };
 
+    const handlePanMove = (e) => {
+        if (isPanning && panStartRef.current) {
+            e.preventDefault();
+            setPanOffset({
+                x: e.clientX - panStartRef.current.x,
+                y: e.clientY - panStartRef.current.y
+            });
+        }
+    };
+
+    const handlePanEnd = () => {
+        setIsPanning(false);
+        panStartRef.current = null;
+    };
+
+    const handleWheel = (e) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            setZoomLevel(prev => Math.max(0.25, Math.min(5, prev + delta)));
+        }
+    };
+
+    // Keyboard handlers for space key
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.code === 'Space' && !isSpacePressed && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                setIsSpacePressed(true);
+            }
+        };
+
+        const handleKeyUp = (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                setIsSpacePressed(false);
+                if (isPanning) {
+                    setIsPanning(false);
+                    panStartRef.current = null;
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [isSpacePressed, isPanning]);
+
     return (
         <div className="d-flex flex-column flex-grow-1">
-            {/* Horizontal Toolbar */}
-            <div className="toolbar-horizontal" style={{ 
+            {/* Toolbar */}
+            <div style={{ 
                 padding: '0.5rem 1rem', 
                 borderBottom: '1px solid #e5e7eb', 
                 backgroundColor: '#f9fafb',
@@ -49,8 +113,7 @@ const ImageViewer = React.forwardRef(({
                 gap: '0.5rem'
             }}>
                 <button
-                    className="btn-tool"
-                    onClick={onZoomIn}
+                    onClick={handleZoomIn}
                     title="Zoom In"
                     style={{
                         padding: '0.375rem 0.5rem',
@@ -69,8 +132,7 @@ const ImageViewer = React.forwardRef(({
                     {Math.round(zoomLevel * 100)}%
                 </span>
                 <button
-                    className="btn-tool"
-                    onClick={onZoomOut}
+                    onClick={handleZoomOut}
                     title="Zoom Out"
                     style={{
                         padding: '0.375rem 0.5rem',
@@ -86,8 +148,7 @@ const ImageViewer = React.forwardRef(({
                     <ZoomOut size={18} />
                 </button>
                 <button
-                    className="btn-tool"
-                    onClick={onResetZoom}
+                    onClick={handleResetZoom}
                     title="Reset Zoom"
                     style={{ 
                         fontSize: '0.75rem', 
@@ -102,12 +163,11 @@ const ImageViewer = React.forwardRef(({
                 </button>
             </div>
 
-            {/* Canvas Area */}
+            {/* Canvas */}
             <div
-                ref={resolvedContainerRef}
-                tabIndex={0}
+                ref={containerRef}
                 style={{
-                    cursor: isPanning ? 'grabbing' : isSpacePressed ? 'grab' : 'default',
+                    cursor: isPanning ? 'grabbing' : 'grab',
                     flex: 1,
                     overflow: 'hidden',
                     position: 'relative',
@@ -116,24 +176,21 @@ const ImageViewer = React.forwardRef(({
                     justifyContent: 'center',
                     backgroundColor: '#f8f9fa',
                     width: '100%',
-                    height: '100%',
-                    touchAction: 'none',
-                    overscrollBehavior: 'none'
+                    height: '100%'
                 }}
-                onMouseDown={onPanStart}
-                onMouseMove={onPanMove}
-                onMouseUp={onPanEnd}
-                onMouseLeave={onPanEnd}
-                onWheel={onWheel}
+                onMouseDown={handlePanStart}
+                onMouseMove={handlePanMove}
+                onMouseUp={handlePanEnd}
+                onMouseLeave={handlePanEnd}
+                onWheel={handleWheel}
             >
-                {isLoadingDetail ? (
+                {isLoading ? (
                     <div className="d-flex flex-column align-items-center justify-content-center">
                         <Loader className="spinner" size={40} style={{ color: '#6366f1' }} />
-                        <p className="text-muted mt-2">Loading review...</p>
+                        <p className="text-muted mt-2">Loading...</p>
                     </div>
                 ) : (
                     <div
-                        className="canvas-transform-layer"
                         style={{
                             transform: `translate(calc(-50% + ${panOffset.x}px), calc(-50% + ${panOffset.y}px)) scale(${zoomLevel})`,
                             transformOrigin: 'center center',
@@ -143,14 +200,15 @@ const ImageViewer = React.forwardRef(({
                             left: '50%'
                         }}
                     >
-                        <div className="canvas-image-frame" style={{ position: 'relative', display: 'inline-block' }}>
+                        <div style={{ position: 'relative', display: 'inline-block' }}>
                             <img
                                 ref={imageRef}
-                                src={task.imageUrl ? (task.imageUrl.startsWith('http') ? task.imageUrl : (import.meta.env.VITE_URL_UPLOADS + '/' + task.imageUrl)) : 'https://via.placeholder.com/800x600?text=No+Image'}
-                                alt="Review"
+                                src={imageUrl || 'https://via.placeholder.com/800x600?text=No+Image'}
+                                alt="Annotation canvas"
                                 draggable={false}
-                                onLoad={handleImageLoad}
-                                onError={(e) => { e.target.src = 'https://via.placeholder.com/800x600?text=Image+Error'; setImageLoaded(false); }}
+                                onError={(e) => { 
+                                    e.target.src = 'https://via.placeholder.com/800x600?text=Image+Error'; 
+                                }}
                                 style={{
                                     display: 'block',
                                     maxWidth: '100%',
@@ -161,21 +219,32 @@ const ImageViewer = React.forwardRef(({
                                 }}
                             />
 
-                            {/* Annotations Layer - Using same logic as annotator */}
-                            {showLabels && imageLoaded && task.annotations.map((ann) => {
+                            {/* Annotations */}
+                            {showAnnotations && annotations.map((ann) => {
                                 const coords = ann.coordinates;
                                 const coordType = coords?.type || (coords?.points ? 'polygon' : 'bbox');
                                 
-                                // Use NATURAL dimensions to match how coordinates are saved (same as annotator)
+                                // Use natural dimensions (same as annotator)
                                 const img = imageRef.current;
                                 const imgWidth = img?.naturalWidth || img?.width || 1;
                                 const imgHeight = img?.naturalHeight || img?.height || 1;
 
+                                // Debug logging
+                                console.log('AnnotationCanvas - Rendering annotation:', {
+                                    id: ann.id,
+                                    coords,
+                                    naturalWidth: img?.naturalWidth,
+                                    naturalHeight: img?.naturalHeight,
+                                    displayedWidth: img?.width,
+                                    displayedHeight: img?.height,
+                                    imgWidth,
+                                    imgHeight
+                                });
+
                                 const boxColor = ann.labelColor || '#6366f1';
 
-                                // Render bbox type
+                                // Bbox
                                 if (coordType === 'bbox' && coords?.points && coords.points.length === 2) {
-                                    // Coordinates are in percentages, convert to pixels using natural dimensions
                                     const [p1, p2] = coords.points;
                                     const x1 = Math.min(p1.x, p2.x) * imgWidth / 100;
                                     const y1 = Math.min(p1.y, p2.y) * imgHeight / 100;
@@ -187,7 +256,6 @@ const ImageViewer = React.forwardRef(({
                                     return (
                                         <div
                                             key={ann.id}
-                                            className="annotation-box"
                                             style={{
                                                 position: 'absolute',
                                                 border: `2px solid ${boxColor}`,
@@ -201,7 +269,6 @@ const ImageViewer = React.forwardRef(({
                                             }}
                                         >
                                             <div
-                                                className="annotation-label"
                                                 style={{
                                                     position: 'absolute',
                                                     top: 0,
@@ -226,9 +293,8 @@ const ImageViewer = React.forwardRef(({
                                     );
                                 }
 
-                                // Render polygon type
+                                // Polygon
                                 if (coordType === 'polygon' && coords?.points && coords.points.length > 0) {
-                                    // Coordinates are in percentages, convert to pixels using natural dimensions
                                     const points = coords.points.map(p => ({
                                         x: p.x * imgWidth / 100,
                                         y: p.y * imgHeight / 100
@@ -248,7 +314,6 @@ const ImageViewer = React.forwardRef(({
                                                 />
                                             </svg>
                                             <div
-                                                className="annotation-label"
                                                 style={{
                                                     position: 'absolute',
                                                     left: highestPoint.x,
@@ -282,46 +347,4 @@ const ImageViewer = React.forwardRef(({
             </div>
         </div>
     );
-});
-
-ImageViewer.displayName = 'ImageViewer';
-
-ImageViewer.propTypes = {
-    isLoadingDetail: PropTypes.bool,
-    task: PropTypes.object,
-    showLabels: PropTypes.bool,
-    zoomLevel: PropTypes.number,
-    panOffset: PropTypes.object,
-    isPanning: PropTypes.bool,
-    isSpacePressed: PropTypes.bool,
-    containerRef: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
-    imageRef: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
-    onPanStart: PropTypes.func,
-    onPanMove: PropTypes.func,
-    onPanEnd: PropTypes.func,
-    onWheel: PropTypes.func,
-    onZoomIn: PropTypes.func,
-    onZoomOut: PropTypes.func,
-    onResetZoom: PropTypes.func
 };
-
-ImageViewer.defaultProps = {
-    isLoadingDetail: false,
-    task: { annotations: [] },
-    showLabels: true,
-    zoomLevel: 1,
-    panOffset: { x: 0, y: 0 },
-    isPanning: false,
-    isSpacePressed: false,
-    containerRef: null,
-    imageRef: null,
-    onPanStart: () => { },
-    onPanMove: () => { },
-    onPanEnd: () => { },
-    onWheel: () => { },
-    onZoomIn: () => { },
-    onZoomOut: () => { },
-    onResetZoom: () => { }
-};
-
-export default ImageViewer;

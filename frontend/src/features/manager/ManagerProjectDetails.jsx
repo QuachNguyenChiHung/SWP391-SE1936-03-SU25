@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../shared/utils/api.js';
 import { useAlert } from '../../shared/context/AlertContext.jsx';
 import { useConfirm } from '../../shared/context/ConfirmContext.jsx';
+import { formatDateTimeForInput } from '../../shared/utils/dateUtils.js';
 import ManagerProjectDetailsUI from './components/ManagerProjectDetails';
 
 export const ManagerProjectDetails = ({ user }) => {
@@ -87,13 +88,9 @@ export const ManagerProjectDetails = ({ user }) => {
         if (newDeadline) {
             const selectedDate = new Date(newDeadline);
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const currentYear = new Date().getFullYear();
             
             if (selectedDate < today) {
                 setDeadlineError('Deadline cannot be in the past');
-            } else if (selectedDate.getFullYear() !== currentYear) {
-                setDeadlineError(`Deadline must be in ${currentYear}`);
             } else {
                 setDeadlineError('');
             }
@@ -386,18 +383,12 @@ export const ManagerProjectDetails = ({ user }) => {
         setEditDescription(project.description || '');
         setEditStatus(project.status || null);
         setDeadlineError('');
-        // Normalize backend deadline which may be null, DateOnly (yyyy-MM-dd), ISO datetime, or object
+        // Use formatDateTimeForInput utility to convert deadline to datetime-local format
         if (project.deadline) {
-            let deadlineStr = '';
-            // Handle if deadline is an object (e.g., {Deadline: "2024-03-22"})
-            if (typeof project.deadline === 'object' && project.deadline !== null) {
-                deadlineStr = project.deadline.Deadline || project.deadline.deadline || '';
-            } else {
-                deadlineStr = String(project.deadline);
-            }
-            const d = deadlineStr.slice(0, 10); // yyyy-MM-dd
-            setEditDeadline(d);
-        } else setEditDeadline('');
+            setEditDeadline(formatDateTimeForInput(project.deadline));
+        } else {
+            setEditDeadline('');
+        }
         setIsEditProjectOpen(true);
     };
 
@@ -413,31 +404,32 @@ export const ManagerProjectDetails = ({ user }) => {
             return;
         }
         
-        // Validate deadline is not in the past and is in current year
+        // Validate deadline is not in the past
         if (editDeadline) {
             const selectedDate = new Date(editDeadline);
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const currentYear = new Date().getFullYear();
             
             if (selectedDate < today) {
                 await showAlert('Deadline cannot be in the past. Please select a current or future date.', 'Invalid Deadline', 'error');
                 return;
             }
-            
-            if (selectedDate.getFullYear() !== currentYear) {
-                await showAlert(`Deadline must be in ${currentYear}.`, 'Invalid Deadline', 'error');
-                return;
-            }
         }
         
         try {
+            // Convert datetime-local to ISO string properly
+            let deadlinePayload = null;
+            if (editDeadline) {
+                const [datePart, timePart] = editDeadline.split('T');
+                const [year, month, day] = datePart.split('-').map(Number);
+                const [hours, minutes] = timePart.split(':').map(Number);
+                const deadlineDate = new Date(year, month - 1, day, hours, minutes);
+                deadlinePayload = deadlineDate.toISOString();
+            }
+            
             const payload = {
                 name: editName,
                 description: editDescription,
-
-                // send DateOnly yyyy-MM-dd or null
-                deadline: editDeadline ? String(editDeadline).slice(0, 10) : null
+                deadline: deadlinePayload
             };
             await api.put(`/Projects/${pid}`, payload, { headers: { 'Content-Type': 'application/json' } });
             const statuspayload = {
@@ -459,7 +451,23 @@ export const ManagerProjectDetails = ({ user }) => {
             await showAlert('Project updated', 'Success', 'success');
         } catch (error) {
             console.warn('Update failed', error);
-            await showAlert('Failed to update project', 'Error', 'error');
+            // Handle validation errors properly
+            let errorMessage = 'Failed to update project';
+            if (error.response?.data?.errors) {
+                const errors = error.response.data.errors;
+                if (typeof errors === 'object') {
+                    errorMessage = Object.entries(errors)
+                        .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+                        .join('\n');
+                } else {
+                    errorMessage = String(errors);
+                }
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.response?.data?.title) {
+                errorMessage = error.response.data.title;
+            }
+            await showAlert(errorMessage, 'Error', 'error');
         }
         setIsEditProjectOpen(false);
     };

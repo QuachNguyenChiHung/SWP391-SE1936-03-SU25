@@ -14,6 +14,7 @@ import ProfileStats from './components/ProfileStats';
 import ProfileActions from './components/ProfileActions';
 import ProfileEditForm from './components/ProfileEditForm';
 import PasswordModal from './components/PasswordModal';
+import { formatDateTime } from '../../shared/utils/dateUtils.js';
 
 export const Profile = () => {
     const navigate = useNavigate();
@@ -185,10 +186,10 @@ export const Profile = () => {
                                     <strong>Status:</strong> <span className="text-muted">{profile.statusName || profile.status}</span>
                                 </div>
                                 <div className="mb-2">
-                                    <strong>Created:</strong> <span className="text-muted">{profile.createdAt ? new Date(profile.createdAt).toLocaleString() : '-'}</span>
+                                    <strong>Created:</strong> <span className="text-muted">{formatDateTime(profile.createdAt)}</span>
                                 </div>
                                 <div className="mb-2">
-                                    <strong>Last login:</strong> <span className="text-muted">{profile.lastLoginAt ? new Date(profile.lastLoginAt).toLocaleString() : '-'}</span>
+                                    <strong>Last login:</strong> <span className="text-muted">{formatDateTime(profile.lastLoginAt)}</span>
                                 </div>
 
                                 <div className="mb-2 d-flex align-items-center gap-2">

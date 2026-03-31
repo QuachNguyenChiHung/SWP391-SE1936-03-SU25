@@ -4,6 +4,7 @@ import { Edit, AlertTriangle } from 'lucide-react';
 import api from '../../../shared/utils/api.js';
 import Avatar from '../../../shared/components/Avatar.jsx';
 import { useAlert } from '../../../shared/context/AlertContext.jsx';
+import { formatDateTime } from '../../../shared/utils/dateUtils.js';
 
 export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setDataPage, onDeleteItem, onRefresh, searchTerm, setSearchTerm, statusFilter, setStatusFilter }) {
     const { showAlert } = useAlert();
@@ -269,7 +270,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                     <td>
                                         <div className="small text-muted">Size: {item.fileSizeKB} KB</div>
                                         <div className="small text-muted">Dim: {item.width} x {item.height}</div>
-                                        <div className="small text-muted">Added: {new Date(item.createdAt).toLocaleString()}</div>
+                                        <div className="small text-muted">Added: {formatDateTime(item.createdAt)}</div>
                                         <div className="small text-muted">Assigned: {item.assignedAnnotatorName ? `${item.assignedAnnotatorName} (ID: ${item.assignedAnnotatorId})` : '-'}</div>
                                     </td>
                                     <td>
@@ -367,7 +368,7 @@ export default function DataItemsPanel({ dataSet, dataLoading, dataPage, setData
                                                                             <span className="badge bg-secondary ms-2">{comment.authorRole}</span>
                                                                         </div>
                                                                         <span className="text-muted small">
-                                                                            {formatDate(comment.createdAt)}
+                                                                            {formatDateTime(comment.createdAt)}
                                                                         </span>
                                                                     </div>
                                                                 </div>

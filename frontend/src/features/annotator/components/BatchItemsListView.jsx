@@ -1,16 +1,9 @@
 import { Calendar, Check, ChevronLeft, Layers } from 'lucide-react';
 import { useUI } from '../../../shared/context/UIContext.jsx';
+import { formatDateTime } from '../../../shared/utils/dateUtils.js';
 
 const formatDateOnly = (value) => {
-    if (!value) return '-';
-    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        const [year, month, day] = value.split('-');
-        return `${day}/${month}/${year}`;
-    }
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return String(value);
-    return date.toLocaleDateString();
+    return formatDateTime(value);
 };
 
 const getPriorityBadgeClass = (priority) => {
@@ -117,15 +110,19 @@ export const BatchItemsListView = ({
                         <>
                             {(() => {
                                 const flaggedCount = batchItems.filter(item => item.status === 'Flagged').length;
-                                // Check if all items are Completed (not Approved, since we're submitting for review)
-                                const completedCount = batchItems.filter(item => 
-                                    item.status === 'Completed' || item.dataItemStatus === 'Completed'
+                                // Check if all items are in a submittable state (Completed, Submitted, or Approved)
+                                const submittableCount = batchItems.filter(item => 
+                                    item.status === 'Completed' || 
+                                    item.status === 'Submitted' ||
+                                    item.dataItemStatus === 'Completed' ||
+                                    item.dataItemStatus === 'Submitted' ||
+                                    item.dataItemStatus === 'Approved'
                                 ).length;
-                                const allItemsCompleted = completedCount === selectedBatch.totalItems;
-                                const isDisabled = !allItemsCompleted || flaggedCount > 0;
+                                const allItemsSubmittable = submittableCount === selectedBatch.totalItems;
+                                const isDisabled = !allItemsSubmittable || flaggedCount > 0;
                                 const tooltipText = flaggedCount > 0 
                                     ? `Cannot submit. ${flaggedCount} item(s) are flagged and need manager resolution.`
-                                    : (!allItemsCompleted ? t.completeAllFirst : t.submitForReview);
+                                    : (!allItemsSubmittable ? t.completeAllFirst : t.submitForReview);
                                 
                                 return (
                                     <button
@@ -214,7 +211,7 @@ export const BatchItemsListView = ({
                                                 {item.completedAt && (
                                                     <div className="d-flex align-items-center gap-1 text-success" style={{ fontSize: '10px' }}>
                                                         <Check size={10} />
-                                                        {new Date(item.completedAt).toLocaleDateString()}
+                                                        {formatDateTime(item.completedAt)}
                                                     </div>
                                                 )}
                                             </div>
