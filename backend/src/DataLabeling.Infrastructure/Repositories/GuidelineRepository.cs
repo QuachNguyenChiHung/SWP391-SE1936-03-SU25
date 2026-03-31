@@ -20,7 +20,7 @@ public class GuidelineRepository : Repository<Guideline>, IGuidelineRepository
             .FirstOrDefaultAsync(g => g.ProjectId == projectId, cancellationToken);
     }
 
-    public async Task UpdateContentAsync(int projectId, string content, CancellationToken cancellationToken = default)
+    public async Task UpdateContentAsync(int projectId, List<string> content, CancellationToken cancellationToken = default)
     {
         var guideline = await _dbSet
             .FirstOrDefaultAsync(g => g.ProjectId == projectId, cancellationToken);

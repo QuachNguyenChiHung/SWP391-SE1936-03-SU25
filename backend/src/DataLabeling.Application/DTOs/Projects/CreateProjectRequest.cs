@@ -20,11 +20,11 @@ namespace DataLabeling.Application.DTOs.Projects
         [Required]
         public ProjectType Type { get; set; }
 
-        public DateOnly? Deadline { get; set; }
+        public DateTime? Deadline { get; set; }
 
         /// <summary>
-        /// Guideline content in Markdown/HTML format (optional)
+        /// Guideline content as array of strings (optional)
         /// </summary>
-        public string? GuidelineContent { get; set; }
+        public List<string>? GuidelineContent { get; set; }
     }
 }

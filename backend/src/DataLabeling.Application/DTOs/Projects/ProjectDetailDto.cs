@@ -14,7 +14,7 @@ namespace DataLabeling.Application.DTOs.Projects
         public string? Description { get; set; }
         public ProjectType Type { get; set; }
         public ProjectStatus Status { get; set; }
-        public DateOnly? Deadline { get; set; }
+        public DateTime? Deadline { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
 

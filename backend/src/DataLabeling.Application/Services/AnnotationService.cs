@@ -87,10 +87,10 @@ public class AnnotationService : IAnnotationService
                 }
             }
 
-            // Check if task item is completed
-            if (taskItem.Status == Core.Enums.TaskItemStatus.Completed)
+            // Check if data item is submitted or approved
+            if (dataItem.Status == DataItemStatus.Submitted || dataItem.Status == DataItemStatus.Approved)
             {
-                throw new ValidationException("Cannot create annotation: Item has been completed and is locked.");
+                throw new ValidationException("Cannot create annotation: Item has been submitted or approved and is locked.");
             }
         }
 
@@ -176,10 +176,10 @@ public class AnnotationService : IAnnotationService
                 }
             }
 
-            // Check if task item is completed
-            if (taskItem.Status == Core.Enums.TaskItemStatus.Completed)
+            // Check if data item is submitted or approved
+            if (dataItem.Status == DataItemStatus.Submitted || dataItem.Status == DataItemStatus.Approved)
             {
-                throw new ValidationException("Cannot update annotation: Item has been completed and is locked.");
+                throw new ValidationException("Cannot update annotation: Item has been submitted or approved and is locked.");
             }
         }
 
@@ -253,10 +253,10 @@ public class AnnotationService : IAnnotationService
                 }
             }
 
-            // Check if task item is completed
-            if (taskItem.Status == Core.Enums.TaskItemStatus.Completed)
+            // Check if data item is submitted or approved
+            if (dataItem.Status == DataItemStatus.Submitted || dataItem.Status == DataItemStatus.Approved)
             {
-                throw new ValidationException("Cannot delete annotation: Item has been completed and is locked.");
+                throw new ValidationException("Cannot delete annotation: Item has been submitted or approved and is locked.");
             }
         }
 

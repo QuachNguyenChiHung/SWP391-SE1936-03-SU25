@@ -15,26 +15,14 @@ public class GuidelineEntityConfiguration : IEntityTypeConfiguration<Guideline>
 
         builder.HasKey(g => g.Id);
 
-        // ✅ Content - nullable (text guideline hoặc null nếu dùng file)
+        // Content stored as JSON array of strings
         builder.Property(g => g.Content)
-            .IsRequired(false)
-            .HasColumnType("nvarchar(max)");
-
-        // ✅ File storage properties - all nullable
-        builder.Property(g => g.FilePath)
-            .IsRequired(false)
-            .HasMaxLength(500);
-
-        builder.Property(g => g.FileName)
-            .IsRequired(false)
-            .HasMaxLength(255);
-
-        builder.Property(g => g.FileSize)
-            .IsRequired(false);
-
-        builder.Property(g => g.ContentType)
-            .IsRequired(false)
-            .HasMaxLength(100);
+            .IsRequired()
+            .HasColumnType("nvarchar(max)")
+            .HasConversion(
+                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>()
+            );
 
         // Version - required with default
         builder.Property(g => g.Version)

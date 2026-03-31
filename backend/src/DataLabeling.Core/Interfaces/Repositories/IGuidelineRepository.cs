@@ -15,5 +15,5 @@ public interface IGuidelineRepository : IRepository<Guideline>
     /// <summary>
     /// Increments the version number and updates content.
     /// </summary>
-    Task UpdateContentAsync(int projectId, string content, CancellationToken cancellationToken = default);
+    Task UpdateContentAsync(int projectId, List<string> content, CancellationToken cancellationToken = default);
 }

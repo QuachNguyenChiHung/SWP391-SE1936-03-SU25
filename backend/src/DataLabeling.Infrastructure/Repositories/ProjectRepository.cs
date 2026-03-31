@@ -169,7 +169,7 @@ public class ProjectRepository : Repository<Project>, IProjectRepository
 
     public async Task<IEnumerable<Project>> GetWithUpcomingDeadlineAsync(int daysAhead, CancellationToken cancellationToken = default)
     {
-        var targetDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(daysAhead));
+        var targetDate = DateTime.UtcNow.AddDays(daysAhead).Date;
 
         return await _dbSet
             .Where(p => p.Deadline.HasValue &&

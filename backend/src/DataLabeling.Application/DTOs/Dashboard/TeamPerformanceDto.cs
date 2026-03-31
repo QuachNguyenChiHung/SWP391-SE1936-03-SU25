@@ -25,7 +25,7 @@ public class ProjectOverviewDto
     public int TotalItems { get; set; }
     public int CompletedItems { get; set; }
     public double ProgressPercent { get; set; }
-    public DateOnly? Deadline { get; set; }
+    public DateTime? Deadline { get; set; }
 }
 
 /// <summary>

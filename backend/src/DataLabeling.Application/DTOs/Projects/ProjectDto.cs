@@ -9,7 +9,7 @@ public class ProjectDto
     public string? Description { get; set; }
     public ProjectType Type { get; set; }
     public ProjectStatus Status { get; set; }
-    public DateOnly? Deadline { get; set; }
+    public DateTime? Deadline { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public int TotalItems { get; set; }

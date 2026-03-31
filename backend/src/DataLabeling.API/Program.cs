@@ -1,4 +1,5 @@
 using System.Text;
+using DataLabeling.API.Converters;
 using DataLabeling.API.Middlewares;
 using DataLabeling.API.Services;
 using DataLabeling.Application;
@@ -37,12 +38,15 @@ builder.Services.AddScoped<IExportService>(sp =>
 // Add Background Service for Task Status Updates
 builder.Services.AddHostedService<TaskStatusUpdateService>();
 
-// Add Controllers with JSON options for enum serialization
+// Add Controllers with JSON options for enum serialization and UTC datetime handling
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(
             new System.Text.Json.Serialization.JsonStringEnumConverter());
+        // Ensure all DateTime values are serialized as UTC with 'Z' suffix
+        options.JsonSerializerOptions.Converters.Add(new UtcDateTimeConverter());
+        options.JsonSerializerOptions.Converters.Add(new UtcNullableDateTimeConverter());
     });
 
 // Add JWT Authentication

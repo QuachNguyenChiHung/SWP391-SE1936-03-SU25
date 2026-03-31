@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DataLabeling.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260118031327_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260331071320_SimplifyGuidelinesToArrayOfStrings")]
+    partial class SimplifyGuidelinesToArrayOfStrings
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -154,8 +154,25 @@ namespace DataLabeling.Infrastructure.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
 
+                    b.Property<DateTime?>("Deadline")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Priority")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(2);
+
                     b.Property<int>("ProjectId")
                         .HasColumnType("int");
+
+                    b.Property<int?>("ReviewerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReviewerNote")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -183,9 +200,53 @@ namespace DataLabeling.Infrastructure.Migrations
 
                     b.HasIndex("ProjectId");
 
+                    b.HasIndex("ReviewerId");
+
                     b.HasIndex("Status");
 
                     b.ToTable("AnnotationTask", (string)null);
+                });
+
+            modelBuilder.Entity("DataLabeling.Core.Entities.Comment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AuthorId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AuthorRole")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<int>("TaskItemId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("TaskItemId");
+
+                    b.HasIndex("TaskItemId", "AuthorRole");
+
+                    b.ToTable("Comment", (string)null);
                 });
 
             modelBuilder.Entity("DataLabeling.Core.Entities.DataItem", b =>
@@ -195,6 +256,9 @@ namespace DataLabeling.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AssignedReviewerId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -217,6 +281,15 @@ namespace DataLabeling.Infrastructure.Migrations
                     b.Property<int?>("FileSizeKB")
                         .HasColumnType("int");
 
+                    b.Property<int?>("Height")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReviewAssignedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ReviewLockExpiry")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -231,7 +304,12 @@ namespace DataLabeling.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("Width")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("AssignedReviewerId");
 
                     b.HasIndex("DatasetId");
 
@@ -354,13 +432,27 @@ namespace DataLabeling.Infrastructure.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Content")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("FilePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long?>("FileSize")
+                        .HasColumnType("bigint");
 
                     b.Property<int>("ProjectId")
                         .HasColumnType("int");
@@ -378,7 +470,7 @@ namespace DataLabeling.Infrastructure.Migrations
                     b.HasIndex("ProjectId")
                         .IsUnique();
 
-                    b.ToTable("Guideline", (string)null);
+                    b.ToTable("Guidelines", (string)null);
                 });
 
             modelBuilder.Entity("DataLabeling.Core.Entities.Label", b =>
@@ -678,6 +770,12 @@ namespace DataLabeling.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ApprovedById")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -688,10 +786,19 @@ namespace DataLabeling.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<string>("EmailVerificationToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("EmailVerificationTokenExpiry")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("FailedLoginAttempts")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(0);
+
+                    b.Property<bool>("IsEmailVerified")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("datetime2");
@@ -709,10 +816,22 @@ namespace DataLabeling.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<string>("PasswordResetToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PasswordResetTokenExpiry")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RejectionReason")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("SpecializeIn")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -726,6 +845,8 @@ namespace DataLabeling.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ApprovedById");
+
                     b.HasIndex("Email")
                         .IsUnique();
 
@@ -734,6 +855,20 @@ namespace DataLabeling.Infrastructure.Migrations
                     b.HasIndex("Status");
 
                     b.ToTable("User", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Email = "admin@datalabeling.com",
+                            FailedLoginAttempts = 0,
+                            IsEmailVerified = false,
+                            Name = "System Administrator",
+                            PasswordHash = "$2a$11$wXMuTHOs1CCEXDoLObDZGeJVtUcAKJVVkpFpEf9yXBgLIJRUEvuD.",
+                            Role = "Admin",
+                            Status = "Active"
+                        });
                 });
 
             modelBuilder.Entity("DataLabeling.Core.Entities.ActivityLog", b =>
@@ -794,20 +929,53 @@ namespace DataLabeling.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("DataLabeling.Core.Entities.User", "Reviewer")
+                        .WithMany("TasksAssignedForReview")
+                        .HasForeignKey("ReviewerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Annotator");
 
                     b.Navigation("AssignedBy");
 
                     b.Navigation("Project");
+
+                    b.Navigation("Reviewer");
+                });
+
+            modelBuilder.Entity("DataLabeling.Core.Entities.Comment", b =>
+                {
+                    b.HasOne("DataLabeling.Core.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DataLabeling.Core.Entities.TaskItem", "TaskItem")
+                        .WithMany("Comments")
+                        .HasForeignKey("TaskItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("TaskItem");
                 });
 
             modelBuilder.Entity("DataLabeling.Core.Entities.DataItem", b =>
                 {
+                    b.HasOne("DataLabeling.Core.Entities.User", "AssignedReviewer")
+                        .WithMany("ReviewLockedDataItems")
+                        .HasForeignKey("AssignedReviewerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("DataLabeling.Core.Entities.Dataset", "Dataset")
                         .WithMany("DataItems")
                         .HasForeignKey("DatasetId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("AssignedReviewer");
 
                     b.Navigation("Dataset");
                 });
@@ -924,6 +1092,15 @@ namespace DataLabeling.Infrastructure.Migrations
                     b.Navigation("Task");
                 });
 
+            modelBuilder.Entity("DataLabeling.Core.Entities.User", b =>
+                {
+                    b.HasOne("DataLabeling.Core.Entities.User", "ApprovedBy")
+                        .WithMany()
+                        .HasForeignKey("ApprovedById");
+
+                    b.Navigation("ApprovedBy");
+                });
+
             modelBuilder.Entity("DataLabeling.Core.Entities.AnnotationTask", b =>
                 {
                     b.Navigation("TaskItems");
@@ -969,6 +1146,11 @@ namespace DataLabeling.Infrastructure.Migrations
                     b.Navigation("ReviewErrorTypes");
                 });
 
+            modelBuilder.Entity("DataLabeling.Core.Entities.TaskItem", b =>
+                {
+                    b.Navigation("Comments");
+                });
+
             modelBuilder.Entity("DataLabeling.Core.Entities.User", b =>
                 {
                     b.Navigation("ActivityLogs");
@@ -981,9 +1163,13 @@ namespace DataLabeling.Infrastructure.Migrations
 
                     b.Navigation("Notifications");
 
+                    b.Navigation("ReviewLockedDataItems");
+
                     b.Navigation("Reviews");
 
                     b.Navigation("TasksAssignedByMe");
+
+                    b.Navigation("TasksAssignedForReview");
                 });
 #pragma warning restore 612, 618
         }

@@ -31,6 +31,9 @@ public class ProjectConfiguration : IEntityTypeConfiguration<Project>
             .HasMaxLength(20)
             .HasDefaultValue(ProjectStatus.Draft);
 
+        builder.Property(p => p.Deadline)
+            .HasColumnType("datetime2");
+
         builder.Property(p => p.CreatedAt)
             .HasDefaultValueSql("GETUTCDATE()");
 

@@ -40,9 +40,9 @@ public class TaskService : ITaskService
         // Validate task deadline does not exceed project deadline
         if (project.Deadline.HasValue)
         {
-            // Compare dates only - Project uses DateOnly, Task uses DateTime
-            var taskDeadlineDate = DateOnly.FromDateTime(request.Deadline);
-            var projectDeadlineDate = project.Deadline.Value;
+            // Compare dates only
+            var taskDeadlineDate = request.Deadline.Date;
+            var projectDeadlineDate = project.Deadline.Value.Date;
             
             if (taskDeadlineDate > projectDeadlineDate)
             {
@@ -51,8 +51,8 @@ public class TaskService : ITaskService
         }
         
         // Validate deadline is not in the past
-        var deadlineDate = DateOnly.FromDateTime(request.Deadline);
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var deadlineDate = request.Deadline.Date;
+        var today = DateTime.UtcNow.Date;
         
         if (deadlineDate < today)
         {

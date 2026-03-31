@@ -35,8 +35,8 @@ public class ProjectService : IProjectService
         await _uow.Projects.AddAsync(project, cancellationToken);
         await _uow.SaveChangesAsync(cancellationToken);
 
-        // Create text guideline if content provided
-        if (!string.IsNullOrWhiteSpace(request.GuidelineContent))
+        // Create guideline if content provided
+        if (request.GuidelineContent != null && request.GuidelineContent.Count > 0)
         {
             var guideline = new Guideline
             {

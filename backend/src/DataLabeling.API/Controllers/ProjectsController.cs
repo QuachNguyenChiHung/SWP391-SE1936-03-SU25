@@ -356,135 +356,7 @@ public class ProjectsController : ControllerBase
     // ==================== GUIDELINE ENDPOINTS ====================
 
     /// <summary>
-    /// Upload guideline file for a project (PDF, DOCX, TXT, MD).
-    /// Files are stored in private storage and require authentication to download.
-    /// </summary>
-    [HttpPost("{id:int}/guideline/upload")]
-    [Authorize(Roles = "Admin,Manager")]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(400)]
-    [ProducesResponseType(403)]
-    [ProducesResponseType(404)]
-    public async Task<IActionResult> UploadGuidelineFile(
-        int id,
-        IFormFile file,
-        CancellationToken cancellationToken = default)
-    {
-        if (file == null || file.Length == 0)
-            return BadRequest(ApiResponse.FailureResponse("No file uploaded"));
-
-        // Validate file type
-        var allowedExtensions = new[] { ".pdf", ".docx", ".doc", ".txt", ".md", ".html" };
-        var extension = Path.GetExtension(file.FileName).ToLower();
-
-        if (!allowedExtensions.Contains(extension))
-            return BadRequest(ApiResponse.FailureResponse(
-                $"File type not allowed. Allowed: {string.Join(", ", allowedExtensions)}"));
-
-        // Validate file size (max 10MB)
-        if (file.Length > 10 * 1024 * 1024)
-            return BadRequest(ApiResponse.FailureResponse("File size must be less than 10MB"));
-
-        var userId = GetUserId();
-        var role = GetUserRole();
-
-        var project = await _uow.Projects.GetByIdAsync(id, cancellationToken);
-        if (project == null)
-            return NotFound(ApiResponse.FailureResponse("Project not found"));
-
-        // Check permission
-        if (project.CreatedById != userId && role != UserRole.Admin)
-            return Forbid();
-
-        // Save file to PRIVATE storage (not publicly accessible)
-        var (filePath, fileName, fileSize) = await _fileStorage.SavePrivateFileAsync(
-            file,
-            $"guidelines/{id}",
-            cancellationToken);
-
-        var existingGuideline = await _uow.Guidelines.GetByProjectIdAsync(id, cancellationToken);
-
-        if (existingGuideline != null)
-        {
-            // Delete old file if exists (from private storage)
-            if (!string.IsNullOrEmpty(existingGuideline.FilePath))
-            {
-                await _fileStorage.DeletePrivateFileAsync(existingGuideline.FilePath);
-            }
-
-            // Update guideline
-            existingGuideline.FilePath = filePath;
-            existingGuideline.FileName = fileName;
-            existingGuideline.FileSize = fileSize;
-            existingGuideline.ContentType = file.ContentType;
-            existingGuideline.Content = null; // Clear text content
-            existingGuideline.Version++;
-            existingGuideline.UpdatedAt = DateTime.UtcNow;
-
-            _uow.Guidelines.Update(existingGuideline);
-        }
-        else
-        {
-            // Create new guideline
-            var guideline = new Guideline
-            {
-                ProjectId = id,
-                FilePath = filePath,
-                FileName = fileName,
-                FileSize = fileSize,
-                ContentType = file.ContentType,
-                Version = 1
-            };
-
-            await _uow.Guidelines.AddAsync(guideline, cancellationToken);
-        }
-
-        await _uow.SaveChangesAsync(cancellationToken);
-
-        return Ok(ApiResponse<object>.SuccessResponse(new
-        {
-            fileName,
-            fileSize,
-            downloadUrl = $"/api/projects/{id}/guideline/download",
-            version = existingGuideline?.Version + 1 ?? 1
-        }, "Guideline file uploaded successfully"));
-    }
-
-    /// <summary>
-    /// Download guideline file.
-    /// Requires authentication - files are served from private storage.
-    /// </summary>
-    [HttpGet("{id:int}/guideline/download")]
-    [ProducesResponseType(typeof(FileResult), 200)]
-    [ProducesResponseType(404)]
-    public async Task<IActionResult> DownloadGuideline(
-        int id,
-        CancellationToken cancellationToken = default)
-    {
-        var guideline = await _uow.Guidelines.GetByProjectIdAsync(id, cancellationToken);
-
-        if (guideline == null)
-            return NotFound(ApiResponse.FailureResponse("Guideline not found"));
-
-        if (string.IsNullOrEmpty(guideline.FilePath))
-            return NotFound(ApiResponse.FailureResponse("Guideline file not found"));
-
-        // Check if file exists in private storage
-        if (!_fileStorage.PrivateFileExists(guideline.FilePath))
-            return NotFound(ApiResponse.FailureResponse("File not found on server"));
-
-        // Stream file from private storage
-        var stream = _fileStorage.OpenPrivateFileRead(guideline.FilePath);
-
-        return File(
-            stream,
-            guideline.ContentType ?? "application/octet-stream",
-            guideline.FileName ?? "guideline");
-    }
-
-    /// <summary>
-    /// Get guideline info (text or file metadata).
-    /// Note: FileUrl is not provided for security - use download endpoint instead.
+    /// Get guideline for a project.
     /// </summary>
     [HttpGet("{id:int}/guideline")]
     [ProducesResponseType(typeof(ApiResponse<GuidelineDto>), 200)]
@@ -503,18 +375,79 @@ public class ProjectsController : ControllerBase
             Id = guideline.Id,
             ProjectId = guideline.ProjectId,
             Content = guideline.Content,
-            FileName = guideline.FileName,
-            FileSize = guideline.FileSize,
-            ContentType = guideline.ContentType,
-            // FileUrl is null for security - use /api/projects/{id}/guideline/download
-            FileUrl = !string.IsNullOrEmpty(guideline.FilePath)
-                ? $"/api/projects/{id}/guideline/download"
-                : null,
             Version = guideline.Version,
             CreatedAt = guideline.CreatedAt,
             UpdatedAt = guideline.UpdatedAt
         };
 
         return Ok(ApiResponse<GuidelineDto>.SuccessResponse(dto));
+    }
+
+    /// <summary>
+    /// Create or update guideline for a project.
+    /// </summary>
+    [HttpPost("{id:int}/guideline")]
+    [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(typeof(ApiResponse<GuidelineDto>), 200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<ApiResponse<GuidelineDto>>> SaveGuideline(
+        int id,
+        [FromBody] List<string> content,
+        CancellationToken cancellationToken = default)
+    {
+        if (content == null || content.Count == 0)
+            return BadRequest(ApiResponse.FailureResponse("Content cannot be empty"));
+
+        var userId = GetUserId();
+        var role = GetUserRole();
+
+        var project = await _uow.Projects.GetByIdAsync(id, cancellationToken);
+        if (project == null)
+            return NotFound(ApiResponse.FailureResponse("Project not found"));
+
+        // Check permission
+        if (project.CreatedById != userId && role != UserRole.Admin)
+            return Forbid();
+
+        var existingGuideline = await _uow.Guidelines.GetByProjectIdAsync(id, cancellationToken);
+
+        if (existingGuideline != null)
+        {
+            // Update guideline
+            existingGuideline.Content = content;
+            existingGuideline.Version++;
+            existingGuideline.UpdatedAt = DateTime.UtcNow;
+
+            _uow.Guidelines.Update(existingGuideline);
+        }
+        else
+        {
+            // Create new guideline
+            var guideline = new Guideline
+            {
+                ProjectId = id,
+                Content = content,
+                Version = 1
+            };
+
+            await _uow.Guidelines.AddAsync(guideline, cancellationToken);
+        }
+
+        await _uow.SaveChangesAsync(cancellationToken);
+
+        var updated = await _uow.Guidelines.GetByProjectIdAsync(id, cancellationToken);
+        var dto = new GuidelineDto
+        {
+            Id = updated!.Id,
+            ProjectId = updated.ProjectId,
+            Content = updated.Content,
+            Version = updated.Version,
+            CreatedAt = updated.CreatedAt,
+            UpdatedAt = updated.UpdatedAt
+        };
+
+        return Ok(ApiResponse<GuidelineDto>.SuccessResponse(dto, "Guideline saved successfully"));
     }
 }

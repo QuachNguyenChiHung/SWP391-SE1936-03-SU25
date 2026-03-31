@@ -1,6 +1,7 @@
 using DataLabeling.Application.DTOs.Common;
 using DataLabeling.Application.DTOs.Tasks;
 using DataLabeling.Application.Interfaces;
+using DataLabeling.Core.Entities;
 using DataLabeling.Core.Enums;
 using DataLabeling.Core.Exceptions;
 using DataLabeling.Core.Interfaces;
@@ -210,12 +211,35 @@ public class TasksController : ControllerBase
             return BadRequest(ApiResponse.FailureResponse("Task is already completed"));
         }
 
-        // Check if all items are completed (verify actual TaskItem statuses)
-        var incompleteItems = task.TaskItems.Count(ti => ti.Status != TaskItemStatus.Completed);
-        if (incompleteItems > 0)
+        // Check if all items are in a submittable state (Completed, Submitted, or Approved)
+        // Need to load DataItems to check their status
+        var taskItemsWithData = new List<(TaskItem TaskItem, DataItem DataItem)>();
+        foreach (var taskItem in task.TaskItems)
         {
+            var dataItem = await _uow.DataItems.GetByIdAsync(taskItem.DataItemId, cancellationToken);
+            if (dataItem != null)
+            {
+                taskItemsWithData.Add((taskItem, dataItem));
+            }
+        }
+
+        // Check each item - it's submittable if EITHER TaskItem OR DataItem is in a valid state
+        var nonSubmittableItems = taskItemsWithData.Where(pair => 
+        {
+            var taskItemOk = pair.TaskItem.Status == TaskItemStatus.Completed || 
+                           pair.TaskItem.Status == TaskItemStatus.Submitted;
+            var dataItemOk = pair.DataItem.Status == DataItemStatus.Completed ||
+                           pair.DataItem.Status == DataItemStatus.Submitted ||
+                           pair.DataItem.Status == DataItemStatus.Approved;
+            return !taskItemOk && !dataItemOk;
+        }).ToList();
+        
+        if (nonSubmittableItems.Count > 0)
+        {
+            var itemDetails = string.Join(", ", nonSubmittableItems.Select(p => 
+                $"Item {p.DataItem.Id}: TaskItem={p.TaskItem.Status}, DataItem={p.DataItem.Status}"));
             return BadRequest(ApiResponse.FailureResponse(
-                $"Cannot submit. {incompleteItems} item(s) not yet completed."));
+                $"Cannot submit. {nonSubmittableItems.Count} item(s) are not ready: {itemDetails}"));
         }
 
         // Check if any items are flagged
@@ -231,24 +255,27 @@ public class TasksController : ControllerBase
         task.SubmittedAt = DateTime.UtcNow;
         _uow.AnnotationTasks.Update(task);
 
-        // Update all task items and data items from Completed to Submitted
-        foreach (var taskItem in task.TaskItems)
+        // Update ONLY Completed items to Submitted (leave Approved items unchanged)
+        foreach (var pair in taskItemsWithData)
         {
-            // Update TaskItem status
+            var taskItem = pair.TaskItem;
+            var dataItem = pair.DataItem;
+
+            // Update TaskItem status only if Completed
             if (taskItem.Status == TaskItemStatus.Completed)
             {
                 taskItem.Status = TaskItemStatus.Submitted;
                 _uow.TaskItems.Update(taskItem);
             }
 
-            // Update DataItem status
-            var dataItem = await _uow.DataItems.GetByIdAsync(taskItem.DataItemId, cancellationToken);
-            if (dataItem != null && dataItem.Status == DataItemStatus.Completed)
+            // Update DataItem status only if Completed
+            if (dataItem.Status == DataItemStatus.Completed)
             {
                 dataItem.Status = DataItemStatus.Submitted;
                 dataItem.UpdatedAt = DateTime.UtcNow;
                 _uow.DataItems.Update(dataItem);
             }
+            // Leave Approved and already Submitted items unchanged
         }
 
         await _uow.SaveChangesAsync(cancellationToken);
