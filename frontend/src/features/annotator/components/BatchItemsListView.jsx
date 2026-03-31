@@ -33,6 +33,7 @@ export const BatchItemsListView = ({
     onSubmitTask,
     onSelectItem,
     taskDeadline,
+    projectDeadline,
     taskPriority
 }) => {
     const { language } = useUI();
@@ -94,10 +95,18 @@ export const BatchItemsListView = ({
                             )}
                         </p>
                         <div className="d-flex flex-wrap align-items-center gap-2 mt-2" style={{ fontSize: '0.75rem' }}>
-                            <span className={`badge ${getDeadlineBadgeClass(taskDeadline)}`}>
-                                <Calendar size={12} />
-                                {t.deadline}: {formatDateOnly(taskDeadline)}
-                            </span>
+                            {taskDeadline && (
+                                <span className={`badge ${getDeadlineBadgeClass(taskDeadline)}`}>
+                                    <Calendar size={12} />
+                                    Task Deadline: {formatDateOnly(taskDeadline)}
+                                </span>
+                            )}
+                            {projectDeadline && (
+                                <span className={`badge ${getDeadlineBadgeClass(projectDeadline)}`}>
+                                    <Calendar size={12} />
+                                    Project Deadline: {formatDateOnly(projectDeadline)}
+                                </span>
+                            )}
                             <span className={`badge ${getPriorityBadgeClass(taskPriority)}`}>
                                 {t.priority}: {taskPriority || 'Medium'}
                             </span>
