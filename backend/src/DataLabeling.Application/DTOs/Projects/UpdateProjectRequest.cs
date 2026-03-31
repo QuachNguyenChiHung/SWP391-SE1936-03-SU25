@@ -16,6 +16,6 @@ namespace DataLabeling.Application.DTOs.Projects
         [MaxLength(1000)]
         public string? Description { get; set; }
 
-        public DateOnly? Deadline { get; set; }
+        public DateTime? Deadline { get; set; }
     }
 }

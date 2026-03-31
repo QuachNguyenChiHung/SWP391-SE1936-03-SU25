@@ -30,7 +30,7 @@ public class Project : BaseEntity
     /// <summary>
     /// Project deadline (optional).
     /// </summary>
-    public DateOnly? Deadline { get; set; }
+    public DateTime? Deadline { get; set; }
 
     /// <summary>
     /// Foreign key to the user who created this project.

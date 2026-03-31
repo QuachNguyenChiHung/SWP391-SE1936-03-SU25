@@ -12,29 +12,10 @@ public class Guideline : BaseEntity
     public int ProjectId { get; set; }
 
     /// <summary>
-    /// Guideline content in HTML or Markdown format (for text input).
+    /// Guideline content as array of strings (each string is a guideline item/rule).
+    /// Stored as JSON in database.
     /// </summary>
-    public string? Content { get; set; }
-
-    /// <summary>
-    /// File path if guideline is uploaded as file (PDF, DOCX, etc.)
-    /// </summary>
-    public string? FilePath { get; set; }
-
-    /// <summary>
-    /// Original file name when uploaded
-    /// </summary>
-    public string? FileName { get; set; }
-
-    /// <summary>
-    /// File size in bytes
-    /// </summary>
-    public long? FileSize { get; set; }
-
-    /// <summary>
-    /// MIME type (e.g., application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document)
-    /// </summary>
-    public string? ContentType { get; set; }
+    public List<string> Content { get; set; } = new List<string>();
 
     /// <summary>
     /// Version number - increments each time content is updated.

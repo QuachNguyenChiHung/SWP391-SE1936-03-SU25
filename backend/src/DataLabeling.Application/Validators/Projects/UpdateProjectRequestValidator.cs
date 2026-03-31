@@ -20,8 +20,8 @@ public class UpdateProjectRequestValidator : AbstractValidator<UpdateProjectRequ
             .When(x => !string.IsNullOrEmpty(x.Description));
 
         RuleFor(x => x.Deadline)
-            .GreaterThan(DateOnly.FromDateTime(DateTime.Today))
+            .GreaterThan(DateTime.Now)
             .When(x => x.Deadline.HasValue)
-            .WithMessage("Deadline must be a future date.");
+            .WithMessage("Deadline must be in the future.");
     }
 }
